@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve Ambiguity With Human Evidence"
+  short_description: "Stage disposable tests for human judgment"
+  default_prompt: "Use $resolve-ambiguity-with-human-evidence to answer this consequential ambiguity with a bounded human evaluation."

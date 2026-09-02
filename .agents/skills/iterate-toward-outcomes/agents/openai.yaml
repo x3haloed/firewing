@@ -1,0 +1,4 @@
+interface:
+  display_name: "Iterate Toward Outcomes"
+  short_description: "Advance large goals through evidence-driven loops"
+  default_prompt: "Use -toward-outcomes to advance this large project through useful, evidence-driven iterations."

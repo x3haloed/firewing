@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compact Work Frontier"
+  short_description: "Keep only decision-relevant frontier context"
+  default_prompt: "Use -work-frontier to compress the frontier without erasing unresolved uncertainty."

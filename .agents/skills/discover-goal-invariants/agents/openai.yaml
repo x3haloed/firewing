@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discover Goal Invariants"
+  short_description: "Capture newly learned dimensions of success"
+  default_prompt: "Use -goal-invariants to decide whether this evidence reveals a durable dimension of success."

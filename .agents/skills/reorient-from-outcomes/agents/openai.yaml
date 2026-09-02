@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reorient From Outcomes"
+  short_description: "Break momentum and re-derive useful direction"
+  default_prompt: "Use -from-outcomes to choose the next move from the outcome and current evidence."

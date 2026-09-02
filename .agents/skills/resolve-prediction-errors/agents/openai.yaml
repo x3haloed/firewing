@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve Prediction Errors"
+  short_description: "Turn surprising results into useful evidence"
+  default_prompt: "Use -prediction-errors to investigate this mismatch between expectation and reality."

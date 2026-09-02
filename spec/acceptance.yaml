@@ -1,0 +1,147 @@
+schema_version: 2
+project: firemwing
+normative_document: TARGET.md
+
+model:
+  family: Qwen/Qwen3.8-Flash-Next
+  openrouter_slug: qwen/qwen3.8-flash
+  require_pinned_checkpoint_revision: true
+  require_source_sha256_manifest: true
+  require_tokenizer_identity: true
+  require_native_multimodal_components: true
+
+system:
+  required_host: Apple M1 Mac mini
+  required_host_memory_gib: 16
+  remote_compute_on_final_inference_path: false
+
+reference:
+  canonical_source_derived_component_reference_required: true
+  canonical_whole_model_official_framework_reference_required: false
+  canonical_whole_model_evidence_limitation_must_be_reported: true
+  frozen_openrouter_epoch_required: true
+  openrouter:
+    pin_one_provider: true
+    allow_fallbacks: false
+    require_parameters: true
+    routing_metadata: required_when_available
+    logprobs: true
+    top_logprobs: 20
+    raw_responses_immutable: true
+
+modalities:
+  required:
+    - text
+    - image
+    - multi_image
+    - video
+    - mixed_at_least_two_media_types
+    - tools_and_structured_output
+    - multi_turn
+    - long_context
+  native_preprocessing_required: true
+  context_smoke_tokens:
+    - 8192
+    - 65536
+    - 262144
+    - 1000000
+
+evaluation_minimums:
+  total_cases: 1130
+  total_scored_output_tokens: 100000
+  holdout_fraction_per_slice: 0.20
+  slices:
+    text_reasoning: { cases: 500, tokens: 40000 }
+    image_multi_image: { cases: 200, tokens: 15000 }
+    video: { cases: 100, tokens: 7500 }
+    mixed_modality: { cases: 100, tokens: 7500 }
+    tools_structured_output: { cases: 100, tokens: 7500 }
+    long_context: { cases: 30, tokens: 15000 }
+
+distributional_parity:
+  tokenizer_token_id_agreement_min: 1.0
+  reference_token_regret_mean_max_nats: 0.03
+  reference_token_regret_modality_mean_max_nats: 0.05
+  chosen_token_logprob_mae_max_nats: 0.08
+  chosen_token_logprob_abs_error_p99_max_nats: 0.50
+  projected_js_mean_max_nats: 0.01
+  projected_js_p99_max_nats: 0.08
+  top1_agreement_min: 0.98
+  stable_margin_min_nats: 0.10
+  stable_top1_agreement_min: 0.995
+  greedy_comparison:
+    min_prompts: 300
+    output_tokens: 64
+    exact_sequence_fraction_min: 0.90
+    first_16_tokens_equal_fraction_min: 0.98
+
+capability_noninferiority:
+  confidence_level: 0.95
+  overall_lower_bound_min_percentage_points: -1.0
+  required_slice_lower_bound_min_percentage_points: -2.0
+  catastrophic_failures_allowed_final_three_runs: 0
+  human_audit_fraction_of_open_disagreements_min: 0.10
+
+performance:
+  batch_size: 1
+  prompt_tokens: 8192
+  accepted_output_tokens_per_run: 512
+  min_runs: 30
+  accepted_tps_median_min: 4
+  accepted_tps_p10_min: 3
+  sustained_minutes: 60
+  max_sustained_throughput_decay_fraction: 0.10
+  include_draft_and_verification_time: true
+  include_transfer_and_cache_miss_time: true
+  include_sampling_and_rollback_time: true
+  stretch:
+    accepted_tps_median_min: 8
+    accepted_tps_p10_min: 7
+
+latency_seconds:
+  text_8k_ttft_max: 150
+  image_1080p_ttft_max: 450
+  video_30s_720p_ttft_max: 900
+  mixed_media_ttft_max: 1200
+  context_1m_ttft_max: 18000
+  context_1m_decode_tps_min: 1
+
+reproducibility:
+  clean_cold_runs: 3
+  separate_warm_run_required: true
+  content_addressed_evidence_manifest: true
+  offline_metric_recomputation_command: true
+  second_operator_or_environment_required: true
+  shared_host_safety:
+    applies_to_full_model_walks_and_acceptance_runs: true
+    fail_closed_at_phase_boundaries: true
+    minimum_system_memory_free_percent: 10
+    minimum_host_reserve_gib: 3
+    maximum_process_physical_footprint_gib: 13
+    maximum_process_peak_resident_gib: 13
+    maximum_post_release_physical_footprint_gib: 12
+    maximum_declared_persistent_residency_gib: 12
+    maximum_swap_growth_mib: 0
+    maximum_new_throttled_pages: 0
+    preserve_failed_run_evidence: true
+    require_phase_buffer_release: true
+    require_declared_persistent_residency: true
+    require_pressure_events_above_process_footprint_gib: 8
+    evict_declared_residency_on_memory_pressure_warning: true
+    abort_on_memory_pressure_critical: true
+    require_resident_inference_service_health: true
+    protect_start_resident_services:
+      - user_facing_application
+      - WindowServer
+      - inference_service
+      - checkpoint_synchronization_service_when_present
+    record_each_phase:
+      - process_physical_footprint
+      - process_peak_resident_memory
+      - system_memory_free_percent
+      - swap_growth
+      - throttled_pages
+      - buffer_release_and_allocator_relief
+      - declared_persistent_residency_and_evictions
+      - memory_pressure_events
+      - protected_service_identities
