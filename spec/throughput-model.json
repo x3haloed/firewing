@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "project": "firewing",
+  "target_model": "Qwen/Qwen3.8-Flash-Next",
+  "qualifying_hardware": {
+    "host": "Apple M1 Mac mini",
+    "memory_gib": 16,
+    "checkpoint_storage": "internal_ssd",
+    "companion_hardware_allowed": false
+  },
+  "measured_constants": {},
+  "planning_hypotheses": {},
+  "status": "empty_until_fw_0001",
+  "provenance": "Initial schema only; contains no measurements or performance claims."
+}

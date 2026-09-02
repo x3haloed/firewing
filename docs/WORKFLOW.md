@@ -114,7 +114,7 @@ decision.
 | Algebraically exact but reordered floating-point execution | Reference deltas, top-k stability, logprob/KL limits, and endpoint quality |
 | Quantization or other acknowledged approximation | Full near-equivalence suite and slice-specific regression limits |
 | Draft-only approximation under exact verification | Statistical target-distribution tests plus accepted-output parity |
-| Modified weights, routing, topology, or expert count | Explicit `modified` mode and all gates in `TARGET.md`; never describe it as stock MiMo |
+| Modified weights, routing, topology, or expert count | Explicit `modified` mode and all gates in `TARGET.md`; never describe it as stock Qwen3.8-Flash-Next |
 
 Exact token identity is not the universal oracle: floating-point near-ties can
 change a greedy token without a material distribution change. Conversely, a

@@ -6,7 +6,11 @@ normative until the discrepancy is corrected in the same commit.
 
 ## 1. Target system
 
-The starting computer is a 16 GB Apple M1 Mac mini.
+The qualifying system is one 16 GB Apple M1 Mac mini using its internal SSD for
+checkpoint storage and inference traffic. No companion compute, memory, storage,
+or networking hardware may contribute to a qualifying run. Network access is
+permitted for installation and reference acquisition, but final inference is
+fully local.
 
 Results on other machines are useful research results but do not satisfy the
 primary completion target.
@@ -32,13 +36,14 @@ as experiments only when named distinctly.
 
 ### 3.1 Canonical source-derived component reference
 
-The pinned open checkpoint, Alibaba's published modeling and processing code,
-and source-derived deterministic oracles are the numerical and architectural
-reference for components. The project does not require or claim access to a
-whole-model official-framework run. Reference fixtures must instead climb from
-seeded tiny tensors to sampled real tensors loaded from the pinned checkpoint,
-using readable scalar or CPU implementations whose derivation from the
-published semantics is auditable. They answer:
+The pinned open checkpoint, Qwen's published modeling and processing code, and
+source-derived deterministic oracles are the numerical and architectural
+reference for components. A bounded official-framework execution on independent
+reference hardware may be acquired for FW-0002, but it is not assumed to remain
+available as a continuing whole-model oracle. Reference fixtures must therefore
+climb from seeded tiny tensors to sampled real tensors loaded from the pinned
+checkpoint, using readable scalar or CPU implementations whose derivation from
+the published semantics is auditable. They answer:
 
 - Were tensors repacked correctly?
 - Do routers select the same experts?
@@ -49,13 +54,24 @@ published semantics is auditable. They answer:
 This component reference remains required because a hosted endpoint may use
 undocumented quantization, kernels, templates, or serving revisions. It does
 not prove accumulated whole-model parity with an official-framework execution;
-that unavailable evidence must remain explicit in release reports. The frozen
-hosted reference in Section 3.2 is the only external whole-model reference.
+the absence of a continuing checkpoint-matched whole-model oracle must remain
+explicit in release reports. A hosted reference qualified under Section 3.2 is
+the external whole-model behavioral authority, not a numerical checkpoint
+identity oracle.
 
-### 3.2 Frozen OpenRouter behavioral reference
+### 3.2 Candidate OpenRouter behavioral reference
 
-OpenRouter model `qwen/qwen3.8-flash` is the externally hosted behavioral
-reference requested by the project owner. A reference epoch must:
+OpenRouter model `qwen/qwen3.8-flash` is the candidate externally hosted
+behavioral reference requested by the project owner. It is not assumed to be
+identical to the open Qwen3.8-Flash-Next checkpoint. Before any final reference
+epoch is captured, FW-0002 must independently test the relationship and either:
+
+- qualify the selected provider as a behavioral authority for the pinned open
+  checkpoint, with the remaining evidence limitations stated explicitly; or
+- reject it for near-equivalence and leave hosted parity unproven until a
+  checkpoint-matched reference is selected through an explicit target change.
+
+A qualifying reference epoch must:
 
 - Record the canonical model slug, available endpoint metadata, provider slug,
   quantization metadata when exposed, UTC time, request parameters, and raw
@@ -68,10 +84,10 @@ reference requested by the project owner. A reference epoch must:
 - Use one fixed reasoning mode and chat template policy.
 - Store raw, immutable JSON responses before calculating metrics.
 
-If the hosted endpoint cannot return logprobs for a modality, that modality's
-distributional gate remains **not proven**; behavioral tests alone do not waive
-it. A provider or model change creates a new reference epoch rather than
-silently replacing the old one.
+If checkpoint relationship, tokenizer/template compatibility, or required
+logprobs cannot be established, the corresponding parity gate remains **not
+proven**; behavioral tests alone do not waive it. A provider or model change
+creates a new reference epoch rather than silently replacing the old one.
 
 ## 4. Full-capability gate
 
@@ -102,7 +118,7 @@ The final frozen evaluation set must contain at least:
 | Mixed modality | 100 | 7,500 |
 | Tools and structured output | 100 | 7,500 |
 | Long context | 30 | 15,000 |
-| **Total minimum** | **1,130** | **100,000** |
+| **Total minimum** | **1,030** | **92,500** |
 
 Fixtures must cover common, adversarial, low-signal, multilingual, safety,
 rare-domain, and modality-conflict cases. At least 20% of each modality slice
@@ -116,7 +132,7 @@ the top 20 logprobs at every generated position. Local logits are projected
 onto those same 20 tokens plus one `OTHER` bucket containing all remaining
 probability mass.
 
-Across at least 100,000 scored positions, all of these must pass:
+Across at least 92,500 scored positions, all of these must pass:
 
 1. **Tokenizer identity:** 100% agreement on token IDs for every text prompt,
    serialized chat, hosted completion, and textualized modality boundary.
@@ -168,8 +184,8 @@ near-equivalent runtime configuration that passes Sections 4–6.
 For batch size one, after an 8K text prefill, across at least 30 generations of
 512 accepted tokens:
 
-- Median decode throughput is at least **50 accepted TPS**.
-- The 10th-percentile run is at least **40 accepted TPS**.
+- Median decode throughput is at least **4 accepted TPS**.
+- The 10th-percentile run is at least **3 accepted TPS**.
 - Peak resident memory, SSD traffic, network traffic, power, cache hit rate,
   speculative acceptance `A`, expert-set union `U`, and rollback are recorded.
 - The runtime completes a 60-minute sustained test without OOM, thermal

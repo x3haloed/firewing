@@ -13,7 +13,7 @@ Use four layers of evidence; none substitutes for the preceding layer.
 2. **Component parity:** encoder embeddings, projectors, routers, selected
    experts, layer states, KV updates, sampled local logits, and incremental
    decode compared with deterministic source-derived oracles built from the
-   pinned checkpoint and Xiaomi's published implementation semantics.
+   pinned checkpoint and Qwen's published implementation semantics.
 3. **Distributional parity:** local next-token probabilities compared with a
    frozen hosted reference under identical prefixes.
 4. **Capability non-inferiority:** deterministic multimodal tasks, long context,
@@ -21,15 +21,24 @@ Use four layers of evidence; none substitutes for the preceding layer.
 
 Performance is evaluated only after one configuration passes quality gates.
 
-A whole-model official-framework execution is outside the available evidence
-horizon. Reports must state this limitation explicitly; component evidence and
-the hosted whole-model reference must not be described as proving that missing
-comparison.
+A bounded whole-model official-framework execution may be acquired on
+independent reference hardware for FW-0002. It is not assumed to remain
+available as a continuing oracle for development or final evaluation. Reports
+must state that limitation explicitly; component evidence and a qualified
+hosted behavioral reference must not be described as proving continuing
+checkpoint-matched whole-model parity.
 
 ## 2. Reference epochs
 
+A hosted reference may be frozen only after FW-0002 qualifies the relationship
+between the selected `qwen/qwen3.8-flash` provider and the pinned open
+Qwen3.8-Flash-Next checkpoint. Similar names, shared architecture, or plausible
+outputs are not identity evidence. If the relationship remains unavailable or
+the comparison fails, preserve the result and do not acquire a final epoch
+under that provider.
+
 A reference epoch is immutable and receives an ID such as
-`or-qwen38-flash-2026-08-04-a`. Its manifest contains:
+`or-qwen38-flash-YYYY-MM-DD-a`. Its manifest contains:
 
 - Canonical OpenRouter model slug: `qwen/qwen3.8-flash`.
 - Endpoint/provider slug and endpoint metadata.
@@ -51,9 +60,12 @@ acceptable reference. Its documentation provides provider pinning,
 - <https://openrouter.ai/docs/api/api-reference/endpoints/list-endpoints>
 - <https://openrouter.ai/qwen/qwen3.8-flash>
 
-OpenRouter currently advertises `logprobs` and `top_logprobs` for Qwen3.8-Flash-Next.
-Support must still be proven for the selected endpoint and each modality before
-capturing a final epoch.
+OpenRouter currently advertises `logprobs` and `top_logprobs` for
+`qwen/qwen3.8-flash`, not for an endpoint explicitly identified as the open
+Qwen3.8-Flash-Next checkpoint. Parameter support must be proven for the selected
+endpoint and each modality, and FW-0002 must establish whether the hosted model
+is a valid behavioral authority for the target checkpoint before a final epoch
+is captured.
 
 ## 3. Fixture representation
 

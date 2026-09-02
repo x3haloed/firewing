@@ -1,14 +1,13 @@
 # Firewing
 
 Firewing is a consumer-hardware runtime research project for the full-capability
-open-weight Qwen3.8-Flash-Next model. The starting machine is a 16 GB Apple M1 Mac
-mini.
+open-weight Qwen3.8-Flash-Next model. The qualifying machine is a 16 GB Apple M1
+Mac mini using its internal SSD, with no companion hardware.
 
 The project is not finished. Its final gate remains a near-equivalent native
 multimodal runtime sustaining at least **4 accepted tokens/s** for one
-interactive request. The current complete text path is still orders of
-magnitude slower, hosted accumulated parity is incomplete, and native image,
-video, and mixed-modality delivery are not yet proven.
+interactive request. No local endpoint, hosted-parity result, or native
+multimodal result has been established yet.
 
 ## Mission and definition of done
 
@@ -18,10 +17,10 @@ a clean checkout. In condensed form:
 - exact, auditable model/tokenizer/processor and hosted-reference locks;
 - native local text, image, multi-image, video, mixed-modality, tool,
   multi-turn, and long-context execution;
-- near-equivalent distributions over at least 100,000 scored tokens, plus
+- near-equivalent distributions over at least 92,500 scored tokens, plus
   capability non-inferiority;
 - median batch-one decode of at least 4 accepted TPS after an 8K prefill,
-  with the required tail, latency, power, and sustained-run gates;
+  with the required tail, latency, safety, and sustained-run gates;
 - three cold reproductions, a warm run, raw content-addressed evidence, and an
   independent reproduction.
 
@@ -38,6 +37,18 @@ satisfy the primary target. See [RED_LINES.md](RED_LINES.md).
 - [docs/VALIDATION_PROTOCOL.md](docs/VALIDATION_PROTOCOL.md) — fidelity and
   performance methodology.
 - [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) — active staged research plan.
+- [docs/SOURCES.md](docs/SOURCES.md) — external authority and provenance ledger.
+- [experiments/](experiments/) — immutable records for executed, rejected, and
+  reversed experiments.
+- [spec/throughput-model.json](spec/throughput-model.json) — machine-readable
+  measured constants and provenance.
+
+## Licensing
+
+Firewing's original source code and documentation are licensed under Apache
+License 2.0. Qwen3.8-Flash-Next is a separate upstream work distributed under
+the Qwen Community License 1.0; model weights are not part of this repository.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Terms
 

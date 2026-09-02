@@ -6,12 +6,12 @@ passing Firewing runtime.
 
 ## Model identity and capability
 
-- Do not substitute a smaller
-  model, or a workload-specific student while continuing to call it Qwen3.8-Flash-Next.
+- Do not substitute a smaller model or a workload-specific student while
+  continuing to call it Qwen3.8-Flash-Next.
 - Do not silently change the checkpoint, tokenizer, chat template, processor,
   modality encoders, MTP weights, or hosted endpoint.
-- Do not replace native image, or video processing with OCR, ASR,
-  captions, sampled summaries, or another model for the final capability gate.
+- Do not replace native image or video processing with OCR, captions, sampled
+  summaries, or another model for the final capability gate.
 - Do not drop rare experts, global-attention history, long-context positions,
   modality tokens, or tool behavior merely because common text benchmarks are
   unaffected.
@@ -47,8 +47,8 @@ passing Firewing runtime.
   executable-memory, compute, and barrier ledgers.
 - Do not warm caches secretly. Cold and warm runs are distinct named results.
 - Do not use remote or rented compute on the final inference critical path.
-- Do not exceed the declared hardware cost or power envelope and still claim
-  the primary consumer-hardware target.
+- Do not use companion compute, memory, storage, or networking hardware and
+  still claim the primary M1-and-internal-SSD target.
 
 ## Engineering and research conduct
 
@@ -101,7 +101,8 @@ Use these labels consistently:
   exact path, but accepted outputs may differ.
 - **L4 — Architecture-modified:** routing, expert count, weights, or topology
   changed and calibrated or distilled.
-- **L5 — New student:** a separately trained model inspired by MiMo.
+- **L5 — New student:** a separately trained model inspired by
+  Qwen3.8-Flash-Next.
 
 Passing the near-equivalence gates does not promote L3–L5 systems to L0–L2; it
 demonstrates controlled quality, not identity.

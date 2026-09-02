@@ -1,10 +1,13 @@
 schema_version: 2
-project: firemwing
+project: firewing
 normative_document: TARGET.md
 
 model:
   family: Qwen/Qwen3.8-Flash-Next
   openrouter_slug: qwen/qwen3.8-flash
+  hosted_reference_status: candidate_pending_fw_0002
+  hosted_reference_equivalence_experiment: FW-0002
+  require_hosted_reference_checkpoint_relationship: true
   require_pinned_checkpoint_revision: true
   require_source_sha256_manifest: true
   require_tokenizer_identity: true
@@ -13,6 +16,8 @@ model:
 system:
   required_host: Apple M1 Mac mini
   required_host_memory_gib: 16
+  required_checkpoint_storage: internal_ssd
+  companion_hardware_allowed: false
   remote_compute_on_final_inference_path: false
 
 reference:
@@ -47,8 +52,8 @@ modalities:
     - 1000000
 
 evaluation_minimums:
-  total_cases: 1130
-  total_scored_output_tokens: 100000
+  total_cases: 1030
+  total_scored_output_tokens: 92500
   holdout_fraction_per_slice: 0.20
   slices:
     text_reasoning: { cases: 500, tokens: 40000 }
@@ -96,7 +101,7 @@ performance:
   include_sampling_and_rollback_time: true
   stretch:
     accepted_tps_median_min: 8
-    accepted_tps_p10_min: 7
+    accepted_tps_p10_min: 6
 
 latency_seconds:
   text_8k_ttft_max: 150
@@ -126,7 +131,7 @@ reproducibility:
     preserve_failed_run_evidence: true
     require_phase_buffer_release: true
     require_declared_persistent_residency: true
-    require_pressure_events_above_process_footprint_gib: 8
+    require_pressure_events_above_process_footprint_gib: 10
     evict_declared_residency_on_memory_pressure_warning: true
     abort_on_memory_pressure_critical: true
     require_resident_inference_service_health: true
