@@ -391,6 +391,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   redundant derived `A/U` field is now bounded explicitly; exact integer
   accepted-token, expert-row, and byte authorities remain mandatory. See
   [`experiments/FW-0043-sequential-width-two-comparison.md`](experiments/FW-0043-sequential-width-two-comparison.md).
+- FW-0044 converts the favorable first q2 transaction into exact physical
+  raw-BF16 miss traffic. Even with a free future-aware 433-expert cache, free
+  MTP and fixed work, and full storage/Metal overlap, 47 plus 207 misses yield
+  only 2.583371/2.598053/2.601109 accepted TPS at p10/median/p90. The 207-miss
+  target row remains SSD-bound at about 581 ms. This supersedes FW-0043's
+  raw-BF16 q2 runtime follow-up: width two remains superior to width four, but
+  the raw-BF16 residency embodiment is rejected on this exact transaction.
+  Expert bytes per accepted token must fall before repeated endpoint work.
+  See
+  [`experiments/FW-0044-q2-raw-bf16-overlap-bound.md`](experiments/FW-0044-q2-raw-bf16-overlap-bound.md).
 
 ## Prediction errors
 
@@ -404,10 +414,13 @@ These unresolved distinctions can still change the next decision:
   amplification, production-distribution MTP acceptance and expert union, and
   achievable expert hit rate remain unresolved. FW-0040 through FW-0043 resolve
   acceptance and exact union only for two width-two and two width-four
-  `Firewing` transactions on one prompt prefix. FW-0008 measured the
-  fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
-  uncached ms/token after verified range invalidation; generalization remains
-  open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert
+  `Firewing` transactions on one prompt prefix. FW-0044 additionally rejects
+  raw-BF16 q2 residency on the first transaction but does not measure a
+  production route distribution or any reduced representation. FW-0008
+  measured the fixed 14-position n-gram trace at 51.886x physical/useful bytes
+  and 1.577 uncached ms/token after verified range invalidation;
+  generalization remains open. FW-0013 now rejects the 4,718,592,000-byte raw
+  all-miss routed-expert
   path for Firewing 4, but does not measure production route reuse, recoding,
   or speculative union. The census also establishes about 8.624 GB of ordinary
   fixed matrices if none remain resident. These are scoped component results,

@@ -1,7 +1,7 @@
 # FW-0044 - Width-two raw-BF16 overlap bound
 
-- Status: implementation ready; measurement pending
-- Disposition: pending
+- Status: completed
+- Disposition: rejected for raw-BF16 q2 residency on the frozen transaction
 - Date: 2026-09-03
 - Parent experiments: FW-0036, FW-0040, FW-0043
 - Exactness: exact source payloads, exact accepted transaction, and exact routed
@@ -21,6 +21,8 @@ stateful q2 path; it is not endpoint TPS or a production default.
 
 ## Frozen authority and method
 
+- Clean implementation commit:
+  `e5012d3cae49c4a7e32ccb60d4d7e61b8af79f8d`
 - Endpoint fixture SHA-256:
   `e2ccf01a37cc5cb2cf44a30185850b8910b06233bc32d7ddaaeb537204daa899`
 - Transaction fixture SHA-256:
@@ -66,10 +68,56 @@ target/release/firewing bench-q2-exact-overlap-bound \
   fixtures/endpoint/qwen3_8_flash_next_firewing_four_token.json \
   fixtures/mtp/qwen3_8_flash_next_first_transaction.json \
   kernels/bf16_gemv.metal \
-  IMPLEMENTATION_COMMIT \
-  /Users/chad/Models/firewing/evidence/FW-0044/q2-overlap-bound-COMMIT.json
+  e5012d3cae49c4a7e32ccb60d4d7e61b8af79f8d \
+  /Users/chad/Models/firewing/evidence/FW-0044/q2-overlap-bound-e5012d3.json
 ```
 
 ## Result
 
-Pending a clean-commit measurement.
+| Target row | Misses | Physical bytes/trial | Storage-only median | Overlap median |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 47 | 463,568,896 | 133.818 ms | 190.750 ms |
+| 1 | 207 | 2,041,675,776 | 581.664 ms | 580.886 ms |
+
+The three paired accepted-throughput bounds were 2.583371, 2.601109, and
+2.598053 TPS. Their p10/median/p90 are **2.583371 / 2.598053 / 2.601109**.
+All miss payloads authenticated exactly, every timed read reported the expected
+nonzero widened physical-byte count, every cold preparation reached zero
+resident page instances, and exact routed Metal ran concurrently.
+
+The first target row is compute-bound at about 191 ms. The 207-miss second row
+is SSD-bound at about 581 ms: overlapping roughly 204 ms of exact routed Metal
+does not improve its storage interval. Together they require about 770 ms to
+commit `A=2`, before charging any MTP or fixed endpoint work.
+
+Host safety passed with 52% system memory free at completion, no swap growth,
+no new throttled pages, and a 190.6-MB final process physical footprint. The
+measurement ran on macOS 26.6.2 build 25G83 with Rust 1.96.0.
+
+Raw receipt:
+`/Users/chad/Models/firewing/evidence/FW-0044/q2-overlap-bound-e5012d3.json`
+
+Receipt SHA-256:
+`6aa3f7cc04d35a8686ceb6c3c0b55f22b548129b67db242975b6693c79d5d6f9`
+
+The repository has 63 passing Rust tests and strict Clippy passes.
+
+## Decision, confidence, and follow-up
+
+Reject raw-BF16 q2 residency on this frozen accepted transaction. It misses
+both Firewing 4 gates under grants strictly more favorable than a realizable
+runtime, so implementing cache slots, drafting, dense work, and synchronization
+cannot rescue it. Confidence is high for the frozen route and hardware state;
+one prompt prefix still does not establish a production route distribution.
+
+This result supersedes FW-0043's raw-BF16 q2 runtime follow-up, not its width
+comparison: q2 remains materially better than q4, but neither raw-BF16 branch
+is viable here. The next branch must reduce expert bytes per accepted token.
+Test a source-faithful lossless expert representation with exact byte/output
+round trips and a cheap capacity/transport bound before building a repeated
+endpoint. Approximate formats remain explicitly modified until they pass the
+full required fidelity suite.
+
+Reusable lesson: speculative acceptance and route union must be converted into
+physical miss traffic. `A/U > 1` did not imply viable accepted TPS once the
+remaining raw expert union was issued against the SSD.
