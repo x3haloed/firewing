@@ -371,7 +371,7 @@ target/release/firewing bench-executable-cache-overlap \
   REPORT_JSON \
   --weight-format block_int8
 
-# Finer scale-grid variant (BLOCK may be 8, 16, or 32)
+# Finer scale-grid variant (BLOCK may be 4, 8, 16, or 32)
 .venv/bin/python tools/analyze_block_fp8_weight_fidelity.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
