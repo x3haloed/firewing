@@ -1,0 +1,2759 @@
+{
+  "cases": [
+    {
+      "global_rows": [
+        [
+          4064167,
+          21428206,
+          43851727,
+          63435096,
+          89826284,
+          106088217,
+          121229381,
+          156147803,
+          175176707,
+          188463481,
+          216828809,
+          228933352,
+          248448227,
+          269188956,
+          283041664,
+          314347972
+        ]
+      ],
+      "input_ids": [
+        42
+      ],
+      "name": "initial_single",
+      "physical_rows": [
+        [
+          {
+            "row": 1564155,
+            "shard": 1
+          },
+          {
+            "row": 1428110,
+            "shard": 8
+          },
+          {
+            "row": 1351523,
+            "shard": 17
+          },
+          {
+            "row": 934796,
+            "shard": 25
+          },
+          {
+            "row": 2325864,
+            "shard": 35
+          },
+          {
+            "row": 1087713,
+            "shard": 42
+          },
+          {
+            "row": 1228805,
+            "shard": 48
+          },
+          {
+            "row": 1147059,
+            "shard": 62
+          },
+          {
+            "row": 175867,
+            "shard": 70
+          },
+          {
+            "row": 962581,
+            "shard": 75
+          },
+          {
+            "row": 1827777,
+            "shard": 86
+          },
+          {
+            "row": 1432260,
+            "shard": 91
+          },
+          {
+            "row": 947039,
+            "shard": 99
+          },
+          {
+            "row": 1687672,
+            "shard": 107
+          },
+          {
+            "row": 540308,
+            "shard": 113
+          },
+          {
+            "row": 1846472,
+            "shard": 125
+          }
+        ]
+      ],
+      "previous_context": [
+        248044,
+        248044
+      ]
+    },
+    {
+      "global_rows": [
+        [
+          16121432,
+          28938500,
+          59087997,
+          73487090,
+          81148277,
+          104500129,
+          120276032,
+          149373875,
+          176283436,
+          184305849,
+          216528839,
+          231080079,
+          257961536,
+          266068568,
+          289043455,
+          305959965
+        ],
+        [
+          15220011,
+          32170723,
+          40646129,
+          76511807,
+          98682440,
+          106072663,
+          127158041,
+          141938523,
+          170367010,
+          180520041,
+          210849650,
+          234005644,
+          252857364,
+          272068622,
+          291885712,
+          311569748
+        ],
+        [
+          14605717,
+          24410875,
+          49313567,
+          72177428,
+          86060820,
+          104022010,
+          130963819,
+          146886202,
+          161523077,
+          195939126,
+          219424565,
+          220811782,
+          248020141,
+          275228530,
+          284297999,
+          309645223
+        ],
+        [
+          11040574,
+          24501192,
+          51231614,
+          76654297,
+          92730965,
+          111423247,
+          139461694,
+          156846261,
+          165574070,
+          192841407,
+          207986682,
+          225545153,
+          249179168,
+          272813213,
+          280691234,
+          300081218
+        ]
+      ],
+      "input_ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "name": "ordinary_sequence",
+      "physical_rows": [
+        [
+          {
+            "row": 1121360,
+            "shard": 6
+          },
+          {
+            "row": 1438368,
+            "shard": 11
+          },
+          {
+            "row": 1587721,
+            "shard": 23
+          },
+          {
+            "row": 986742,
+            "shard": 29
+          },
+          {
+            "row": 1147893,
+            "shard": 32
+          },
+          {
+            "row": 1999637,
+            "shard": 41
+          },
+          {
+            "row": 275456,
+            "shard": 48
+          },
+          {
+            "row": 1873167,
+            "shard": 59
+          },
+          {
+            "row": 1282596,
+            "shard": 70
+          },
+          {
+            "row": 1804973,
+            "shard": 73
+          },
+          {
+            "row": 1527807,
+            "shard": 86
+          },
+          {
+            "row": 1078975,
+            "shard": 92
+          },
+          {
+            "row": 460300,
+            "shard": 103
+          },
+          {
+            "row": 1067296,
+            "shard": 106
+          },
+          {
+            "row": 1542075,
+            "shard": 115
+          },
+          {
+            "row": 958501,
+            "shard": 122
+          }
+        ],
+        [
+          {
+            "row": 219939,
+            "shard": 6
+          },
+          {
+            "row": 2170579,
+            "shard": 12
+          },
+          {
+            "row": 645937,
+            "shard": 16
+          },
+          {
+            "row": 1511447,
+            "shard": 30
+          },
+          {
+            "row": 1181972,
+            "shard": 39
+          },
+          {
+            "row": 1072159,
+            "shard": 42
+          },
+          {
+            "row": 2157441,
+            "shard": 50
+          },
+          {
+            "row": 1937851,
+            "shard": 56
+          },
+          {
+            "row": 366194,
+            "shard": 68
+          },
+          {
+            "row": 519177,
+            "shard": 72
+          },
+          {
+            "row": 848642,
+            "shard": 84
+          },
+          {
+            "row": 1504528,
+            "shard": 93
+          },
+          {
+            "row": 356152,
+            "shard": 101
+          },
+          {
+            "row": 2067326,
+            "shard": 108
+          },
+          {
+            "row": 1884320,
+            "shard": 116
+          },
+          {
+            "row": 1568260,
+            "shard": 124
+          }
+        ],
+        [
+          {
+            "row": 2105657,
+            "shard": 5
+          },
+          {
+            "row": 1910767,
+            "shard": 9
+          },
+          {
+            "row": 1813339,
+            "shard": 19
+          },
+          {
+            "row": 2177092,
+            "shard": 28
+          },
+          {
+            "row": 1060412,
+            "shard": 34
+          },
+          {
+            "row": 1521518,
+            "shard": 41
+          },
+          {
+            "row": 963195,
+            "shard": 52
+          },
+          {
+            "row": 1885506,
+            "shard": 58
+          },
+          {
+            "row": 1522309,
+            "shard": 64
+          },
+          {
+            "row": 938190,
+            "shard": 78
+          },
+          {
+            "row": 1923521,
+            "shard": 87
+          },
+          {
+            "row": 810726,
+            "shard": 88
+          },
+          {
+            "row": 518953,
+            "shard": 99
+          },
+          {
+            "row": 227210,
+            "shard": 110
+          },
+          {
+            "row": 1796643,
+            "shard": 113
+          },
+          {
+            "row": 2143747,
+            "shard": 123
+          }
+        ],
+        [
+          {
+            "row": 1040526,
+            "shard": 4
+          },
+          {
+            "row": 2001084,
+            "shard": 9
+          },
+          {
+            "row": 1231374,
+            "shard": 20
+          },
+          {
+            "row": 1653937,
+            "shard": 30
+          },
+          {
+            "row": 230521,
+            "shard": 37
+          },
+          {
+            "row": 1422719,
+            "shard": 44
+          },
+          {
+            "row": 1961034,
+            "shard": 55
+          },
+          {
+            "row": 1845517,
+            "shard": 62
+          },
+          {
+            "row": 573278,
+            "shard": 66
+          },
+          {
+            "row": 340483,
+            "shard": 77
+          },
+          {
+            "row": 485686,
+            "shard": 83
+          },
+          {
+            "row": 544073,
+            "shard": 90
+          },
+          {
+            "row": 1677980,
+            "shard": 99
+          },
+          {
+            "row": 311905,
+            "shard": 109
+          },
+          {
+            "row": 689890,
+            "shard": 112
+          },
+          {
+            "row": 79778,
+            "shard": 120
+          }
+        ]
+      ],
+      "previous_context": [
+        248044,
+        248044
+      ]
+    },
+    {
+      "global_rows": [
+        [
+          4146169,
+          24517850,
+          44704102,
+          60965283,
+          89189606,
+          105264488,
+          129376895,
+          141526854,
+          175877694,
+          185763256,
+          210630227,
+          230252349,
+          255196147,
+          260139876,
+          295121404,
+          310027906
+        ],
+        [
+          5560156,
+          23348898,
+          56653202,
+          64218243,
+          81003143,
+          114205635,
+          124891229,
+          154118427,
+          168294437,
+          184046046,
+          211106848,
+          237316399,
+          246304847,
+          276351800,
+          286602641,
+          319620605
+        ],
+        [
+          4861206,
+          32865727,
+          40609066,
+          71639785,
+          96413981,
+          118803519,
+          133135981,
+          140309215,
+          172111016,
+          183212116,
+          209026945,
+          233841255,
+          252262165,
+          271908821,
+          285396814,
+          314879367
+        ],
+        [
+          12626367,
+          30355783,
+          59221294,
+          63633818,
+          90273982,
+          105820891,
+          139141448,
+          150235705,
+          175350187,
+          188838708,
+          203060525,
+          237342779,
+          257864128,
+          278745195,
+          299118928,
+          301586308
+        ]
+      ],
+      "input_ids": [
+        17,
+        248044,
+        23,
+        24
+      ],
+      "name": "eos_segment_boundary",
+      "physical_rows": [
+        [
+          {
+            "row": 1646157,
+            "shard": 1
+          },
+          {
+            "row": 2017742,
+            "shard": 9
+          },
+          {
+            "row": 2203898,
+            "shard": 17
+          },
+          {
+            "row": 964995,
+            "shard": 24
+          },
+          {
+            "row": 1689186,
+            "shard": 35
+          },
+          {
+            "row": 263984,
+            "shard": 42
+          },
+          {
+            "row": 1876283,
+            "shard": 51
+          },
+          {
+            "row": 1526182,
+            "shard": 56
+          },
+          {
+            "row": 876854,
+            "shard": 70
+          },
+          {
+            "row": 762368,
+            "shard": 74
+          },
+          {
+            "row": 629219,
+            "shard": 84
+          },
+          {
+            "row": 251245,
+            "shard": 92
+          },
+          {
+            "row": 194923,
+            "shard": 102
+          },
+          {
+            "row": 138628,
+            "shard": 104
+          },
+          {
+            "row": 119988,
+            "shard": 118
+          },
+          {
+            "row": 26418,
+            "shard": 124
+          }
+        ],
+        [
+          {
+            "row": 560132,
+            "shard": 2
+          },
+          {
+            "row": 848790,
+            "shard": 9
+          },
+          {
+            "row": 1652938,
+            "shard": 22
+          },
+          {
+            "row": 1717943,
+            "shard": 25
+          },
+          {
+            "row": 1002759,
+            "shard": 32
+          },
+          {
+            "row": 1705095,
+            "shard": 45
+          },
+          {
+            "row": 2390641,
+            "shard": 49
+          },
+          {
+            "row": 1617695,
+            "shard": 61
+          },
+          {
+            "row": 793633,
+            "shard": 67
+          },
+          {
+            "row": 1545170,
+            "shard": 73
+          },
+          {
+            "row": 1105840,
+            "shard": 84
+          },
+          {
+            "row": 2315271,
+            "shard": 94
+          },
+          {
+            "row": 1303671,
+            "shard": 98
+          },
+          {
+            "row": 1350480,
+            "shard": 110
+          },
+          {
+            "row": 1601273,
+            "shard": 114
+          },
+          {
+            "row": 2119081,
+            "shard": 127
+          }
+        ],
+        [
+          {
+            "row": 2361194,
+            "shard": 1
+          },
+          {
+            "row": 365571,
+            "shard": 13
+          },
+          {
+            "row": 608874,
+            "shard": 16
+          },
+          {
+            "row": 1639449,
+            "shard": 28
+          },
+          {
+            "row": 1413525,
+            "shard": 38
+          },
+          {
+            "row": 1302955,
+            "shard": 47
+          },
+          {
+            "row": 635345,
+            "shard": 53
+          },
+          {
+            "row": 308543,
+            "shard": 56
+          },
+          {
+            "row": 2110200,
+            "shard": 68
+          },
+          {
+            "row": 711240,
+            "shard": 73
+          },
+          {
+            "row": 1525949,
+            "shard": 83
+          },
+          {
+            "row": 1340139,
+            "shard": 93
+          },
+          {
+            "row": 2260965,
+            "shard": 100
+          },
+          {
+            "row": 1907525,
+            "shard": 108
+          },
+          {
+            "row": 395446,
+            "shard": 114
+          },
+          {
+            "row": 2377867,
+            "shard": 125
+          }
+        ],
+        [
+          {
+            "row": 126307,
+            "shard": 5
+          },
+          {
+            "row": 355639,
+            "shard": 12
+          },
+          {
+            "row": 1721018,
+            "shard": 23
+          },
+          {
+            "row": 1133518,
+            "shard": 25
+          },
+          {
+            "row": 273550,
+            "shard": 36
+          },
+          {
+            "row": 820387,
+            "shard": 42
+          },
+          {
+            "row": 1640788,
+            "shard": 55
+          },
+          {
+            "row": 234985,
+            "shard": 60
+          },
+          {
+            "row": 349347,
+            "shard": 70
+          },
+          {
+            "row": 1337808,
+            "shard": 75
+          },
+          {
+            "row": 559553,
+            "shard": 81
+          },
+          {
+            "row": 2341651,
+            "shard": 94
+          },
+          {
+            "row": 362892,
+            "shard": 103
+          },
+          {
+            "row": 1243863,
+            "shard": 111
+          },
+          {
+            "row": 1617500,
+            "shard": 119
+          },
+          {
+            "row": 1584868,
+            "shard": 120
+          }
+        ]
+      ],
+      "previous_context": [
+        9,
+        10
+      ]
+    },
+    {
+      "global_rows": [
+        [
+          583762,
+          20603885,
+          40617268,
+          60639701,
+          80662380,
+          100670687,
+          120683782,
+          140702459,
+          168076342,
+          189687309,
+          211570227,
+          236970354,
+          257783126,
+          278596588,
+          298868002,
+          300225407
+        ],
+        [
+          13973293,
+          38982688,
+          41490734,
+          69005804,
+          84022205,
+          109028451,
+          126538435,
+          156553034,
+          168213666,
+          188586465,
+          202358030,
+          230296566,
+          250490002,
+          270684104,
+          284082339,
+          311074302
+        ]
+      ],
+      "input_ids": [
+        102,
+        103
+      ],
+      "name": "incremental_context",
+      "physical_rows": [
+        [
+          {
+            "row": 583762,
+            "shard": 0
+          },
+          {
+            "row": 603789,
+            "shard": 8
+          },
+          {
+            "row": 617076,
+            "shard": 16
+          },
+          {
+            "row": 639413,
+            "shard": 24
+          },
+          {
+            "row": 661996,
+            "shard": 32
+          },
+          {
+            "row": 670207,
+            "shard": 40
+          },
+          {
+            "row": 683206,
+            "shard": 48
+          },
+          {
+            "row": 701787,
+            "shard": 56
+          },
+          {
+            "row": 575538,
+            "shard": 67
+          },
+          {
+            "row": 2186409,
+            "shard": 75
+          },
+          {
+            "row": 1569219,
+            "shard": 84
+          },
+          {
+            "row": 1969226,
+            "shard": 94
+          },
+          {
+            "row": 281890,
+            "shard": 103
+          },
+          {
+            "row": 1095256,
+            "shard": 111
+          },
+          {
+            "row": 1366574,
+            "shard": 119
+          },
+          {
+            "row": 223967,
+            "shard": 120
+          }
+        ],
+        [
+          {
+            "row": 1473233,
+            "shard": 5
+          },
+          {
+            "row": 1482508,
+            "shard": 15
+          },
+          {
+            "row": 1490542,
+            "shard": 16
+          },
+          {
+            "row": 1505480,
+            "shard": 27
+          },
+          {
+            "row": 1521809,
+            "shard": 33
+          },
+          {
+            "row": 1527935,
+            "shard": 43
+          },
+          {
+            "row": 1537835,
+            "shard": 50
+          },
+          {
+            "row": 1552290,
+            "shard": 62
+          },
+          {
+            "row": 712862,
+            "shard": 67
+          },
+          {
+            "row": 1085565,
+            "shard": 75
+          },
+          {
+            "row": 2357070,
+            "shard": 80
+          },
+          {
+            "row": 295462,
+            "shard": 92
+          },
+          {
+            "row": 488802,
+            "shard": 100
+          },
+          {
+            "row": 682808,
+            "shard": 108
+          },
+          {
+            "row": 1580983,
+            "shard": 113
+          },
+          {
+            "row": 1072814,
+            "shard": 124
+          }
+        ]
+      ],
+      "previous_context": [
+        100,
+        101
+      ]
+    },
+    {
+      "global_rows": [
+        [
+          9263247,
+          36987244,
+          41978101,
+          78229687,
+          90476460,
+          101466228,
+          138176723,
+          140878670,
+          170896448,
+          184247773,
+          217483719,
+          224047746,
+          242785133,
+          261718870,
+          281407189,
+          300175390
+        ],
+        [
+          5885801,
+          39442143,
+          57349114,
+          67683089,
+          83429017,
+          115585217,
+          124045153,
+          149079863,
+          174946157,
+          194737049,
+          218819037,
+          233514556,
+          245471578,
+          277625097,
+          281719849,
+          302520839
+        ],
+        [
+          18204799,
+          30983358,
+          48501439,
+          78291015,
+          93570287,
+          105570872,
+          133797543,
+          158521149,
+          178582661,
+          198209494,
+          218766759,
+          226248959,
+          248124088,
+          270195567,
+          290929800,
+          314927571
+        ]
+      ],
+      "input_ids": [
+        248319,
+        248318,
+        248317
+      ],
+      "name": "vocabulary_ceiling",
+      "physical_rows": [
+        [
+          {
+            "row": 1763211,
+            "shard": 3
+          },
+          {
+            "row": 1987076,
+            "shard": 14
+          },
+          {
+            "row": 1977909,
+            "shard": 16
+          },
+          {
+            "row": 729315,
+            "shard": 31
+          },
+          {
+            "row": 476028,
+            "shard": 36
+          },
+          {
+            "row": 1465748,
+            "shard": 40
+          },
+          {
+            "row": 676063,
+            "shard": 55
+          },
+          {
+            "row": 877998,
+            "shard": 56
+          },
+          {
+            "row": 895632,
+            "shard": 68
+          },
+          {
+            "row": 1746897,
+            "shard": 73
+          },
+          {
+            "row": 2482687,
+            "shard": 86
+          },
+          {
+            "row": 1546678,
+            "shard": 89
+          },
+          {
+            "row": 283969,
+            "shard": 97
+          },
+          {
+            "row": 1717622,
+            "shard": 104
+          },
+          {
+            "row": 1405845,
+            "shard": 112
+          },
+          {
+            "row": 173950,
+            "shard": 120
+          }
+        ],
+        [
+          {
+            "row": 885777,
+            "shard": 2
+          },
+          {
+            "row": 1941963,
+            "shard": 15
+          },
+          {
+            "row": 2348850,
+            "shard": 22
+          },
+          {
+            "row": 182765,
+            "shard": 27
+          },
+          {
+            "row": 928621,
+            "shard": 33
+          },
+          {
+            "row": 584665,
+            "shard": 46
+          },
+          {
+            "row": 1544565,
+            "shard": 49
+          },
+          {
+            "row": 1579155,
+            "shard": 59
+          },
+          {
+            "row": 2445329,
+            "shard": 69
+          },
+          {
+            "row": 2236125,
+            "shard": 77
+          },
+          {
+            "row": 1317993,
+            "shard": 87
+          },
+          {
+            "row": 1013440,
+            "shard": 93
+          },
+          {
+            "row": 470402,
+            "shard": 98
+          },
+          {
+            "row": 123765,
+            "shard": 111
+          },
+          {
+            "row": 1718505,
+            "shard": 112
+          },
+          {
+            "row": 19387,
+            "shard": 121
+          }
+        ],
+        [
+          {
+            "row": 704715,
+            "shard": 7
+          },
+          {
+            "row": 983214,
+            "shard": 12
+          },
+          {
+            "row": 1001211,
+            "shard": 19
+          },
+          {
+            "row": 790643,
+            "shard": 31
+          },
+          {
+            "row": 1069843,
+            "shard": 37
+          },
+          {
+            "row": 570368,
+            "shard": 42
+          },
+          {
+            "row": 1296907,
+            "shard": 53
+          },
+          {
+            "row": 1020393,
+            "shard": 63
+          },
+          {
+            "row": 1081809,
+            "shard": 71
+          },
+          {
+            "row": 708546,
+            "shard": 79
+          },
+          {
+            "row": 1265715,
+            "shard": 87
+          },
+          {
+            "row": 1247879,
+            "shard": 90
+          },
+          {
+            "row": 622900,
+            "shard": 99
+          },
+          {
+            "row": 194271,
+            "shard": 108
+          },
+          {
+            "row": 928408,
+            "shard": 116
+          },
+          {
+            "row": 2426071,
+            "shard": 125
+          }
+        ]
+      ],
+      "previous_context": [
+        248316,
+        248315
+      ]
+    }
+  ],
+  "checkpoint_buffers": {
+    "layer_multipliers": {
+      "shard": "model-00005-of-00131.safetensors",
+      "shard_bytes": 3355888504,
+      "shard_sha256": "54fdc7adf431d6b94d9292fc8bd7938d906b0cffe0997d76ac1a176413aa80f2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.layer_multipliers",
+      "values": [
+        23703573157769,
+        20109073645365,
+        8052911324071
+      ]
+    },
+    "ngram_heads_offsets": {
+      "shard": "model-00037-of-00131.safetensors",
+      "shard_bytes": 1742347160,
+      "shard_sha256": "73b53c94d23589bdfde55b20538a515525f22fd37c7cdf24e85738ed771218e1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_heads_offsets",
+      "values": [
+        0,
+        20000003,
+        40000026,
+        60000059,
+        80000106,
+        100000165,
+        120000228,
+        140000297,
+        160000374,
+        180000455,
+        200000548,
+        220000655,
+        240000802,
+        260000955,
+        280001114,
+        300001275
+      ]
+    },
+    "ngram_heads_vocab_sizes": {
+      "shard": "model-00037-of-00131.safetensors",
+      "shard_bytes": 1742347160,
+      "shard_sha256": "73b53c94d23589bdfde55b20538a515525f22fd37c7cdf24e85738ed771218e1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_heads_vocab_sizes",
+      "values": [
+        20000003,
+        20000023,
+        20000033,
+        20000047,
+        20000059,
+        20000063,
+        20000069,
+        20000077,
+        20000081,
+        20000093,
+        20000107,
+        20000147,
+        20000153,
+        20000159,
+        20000161,
+        20000171
+      ]
+    }
+  },
+  "configuration": {
+    "embedding_width": 2560,
+    "eos_token_id": 248044,
+    "head_width": 160,
+    "heads_per_ngram": 8,
+    "ngram_heads": 16,
+    "ngram_size": 3,
+    "ngram_vocab_size_base": 20000000,
+    "padded_rows": 320001536,
+    "rows_per_shard": 2500012,
+    "seed": 1234,
+    "split_parts": 128,
+    "unigram_vocab_size": 248320,
+    "useful_bf16_bytes_per_token": 5120
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "conversion_mapping_sha256": "319e24abfac50cd2464dfc25c336c0f71dc08b6273fef65dfdf9feb414608577",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "layout_source": "transformers.conversion_mapping.qwen4_exp_text.Concatenate(dim=0)",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_ngram_addresses",
+  "table_parts": [
+    {
+      "data_offsets": [
+        1755878424,
+        2555882264
+      ],
+      "part": 0,
+      "shard": "model-00005-of-00131.safetensors",
+      "shard_bytes": 3355888504,
+      "shard_sha256": "54fdc7adf431d6b94d9292fc8bd7938d906b0cffe0997d76ac1a176413aa80f2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
+    },
+    {
+      "data_offsets": [
+        2555882264,
+        3355886104
+      ],
+      "part": 1,
+      "shard": "model-00005-of-00131.safetensors",
+      "shard_bytes": 3355888504,
+      "shard_sha256": "54fdc7adf431d6b94d9292fc8bd7938d906b0cffe0997d76ac1a176413aa80f2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_1.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 2,
+      "shard": "model-00006-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "8277a48e1fd7ab7ff7f0282befcc6eb4e09ab2e0780c00af6685e198faba233e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_2.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 3,
+      "shard": "model-00006-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "8277a48e1fd7ab7ff7f0282befcc6eb4e09ab2e0780c00af6685e198faba233e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_3.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 4,
+      "shard": "model-00006-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "8277a48e1fd7ab7ff7f0282befcc6eb4e09ab2e0780c00af6685e198faba233e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_4.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 5,
+      "shard": "model-00006-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "8277a48e1fd7ab7ff7f0282befcc6eb4e09ab2e0780c00af6685e198faba233e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_5.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 6,
+      "shard": "model-00007-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "0fba369354e45b43efbe2773d63b7cb20caedb56ff9ed80e076bbcdaf560666a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_6.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 7,
+      "shard": "model-00007-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "0fba369354e45b43efbe2773d63b7cb20caedb56ff9ed80e076bbcdaf560666a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_7.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 8,
+      "shard": "model-00007-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "0fba369354e45b43efbe2773d63b7cb20caedb56ff9ed80e076bbcdaf560666a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_8.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 9,
+      "shard": "model-00007-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "0fba369354e45b43efbe2773d63b7cb20caedb56ff9ed80e076bbcdaf560666a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_9.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 10,
+      "shard": "model-00008-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "024f59b6f2cb27ab79a4267cff9603c398ef1a7ef9ba76009fd34a0a84a9455e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_10.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 11,
+      "shard": "model-00008-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "024f59b6f2cb27ab79a4267cff9603c398ef1a7ef9ba76009fd34a0a84a9455e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_11.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 12,
+      "shard": "model-00008-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "024f59b6f2cb27ab79a4267cff9603c398ef1a7ef9ba76009fd34a0a84a9455e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_12.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 13,
+      "shard": "model-00008-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "024f59b6f2cb27ab79a4267cff9603c398ef1a7ef9ba76009fd34a0a84a9455e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_13.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 14,
+      "shard": "model-00009-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "23fbef154f7f68e5b6f555492832c78822a827554757797daf91de48df06b496",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_14.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 15,
+      "shard": "model-00009-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "23fbef154f7f68e5b6f555492832c78822a827554757797daf91de48df06b496",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_15.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 16,
+      "shard": "model-00009-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "23fbef154f7f68e5b6f555492832c78822a827554757797daf91de48df06b496",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_16.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 17,
+      "shard": "model-00009-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "23fbef154f7f68e5b6f555492832c78822a827554757797daf91de48df06b496",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_17.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 18,
+      "shard": "model-00010-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b3a303529a190c6661870d5abebf0ac18d36922a1da8db737d19f55bd1031fe8",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_18.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 19,
+      "shard": "model-00010-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b3a303529a190c6661870d5abebf0ac18d36922a1da8db737d19f55bd1031fe8",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_19.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 20,
+      "shard": "model-00010-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b3a303529a190c6661870d5abebf0ac18d36922a1da8db737d19f55bd1031fe8",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_20.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 21,
+      "shard": "model-00010-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b3a303529a190c6661870d5abebf0ac18d36922a1da8db737d19f55bd1031fe8",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_21.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 22,
+      "shard": "model-00011-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "d1215943b48481febb33a1129c96613dec5f364613a2cc3ba1e27c23be0ca78a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_22.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 23,
+      "shard": "model-00011-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "d1215943b48481febb33a1129c96613dec5f364613a2cc3ba1e27c23be0ca78a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_23.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 24,
+      "shard": "model-00011-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "d1215943b48481febb33a1129c96613dec5f364613a2cc3ba1e27c23be0ca78a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_24.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 25,
+      "shard": "model-00011-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "d1215943b48481febb33a1129c96613dec5f364613a2cc3ba1e27c23be0ca78a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_25.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 26,
+      "shard": "model-00012-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "f63d649ea84867ec75884dace5ea4d8c723a6560463674a6ee0ce621b4b9dbc1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_26.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 27,
+      "shard": "model-00012-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "f63d649ea84867ec75884dace5ea4d8c723a6560463674a6ee0ce621b4b9dbc1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_27.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 28,
+      "shard": "model-00012-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "f63d649ea84867ec75884dace5ea4d8c723a6560463674a6ee0ce621b4b9dbc1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_28.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 29,
+      "shard": "model-00012-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "f63d649ea84867ec75884dace5ea4d8c723a6560463674a6ee0ce621b4b9dbc1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_29.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 30,
+      "shard": "model-00013-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5e0f0fb335f4c19a0158f60294e5b5c30bdfc344b003633c9c42e5e638a6808e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_30.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 31,
+      "shard": "model-00013-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5e0f0fb335f4c19a0158f60294e5b5c30bdfc344b003633c9c42e5e638a6808e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_31.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 32,
+      "shard": "model-00013-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5e0f0fb335f4c19a0158f60294e5b5c30bdfc344b003633c9c42e5e638a6808e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_32.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 33,
+      "shard": "model-00013-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5e0f0fb335f4c19a0158f60294e5b5c30bdfc344b003633c9c42e5e638a6808e",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_33.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 34,
+      "shard": "model-00014-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5ee73bd21c73b2610d2a30924f7acd24e63b1ca29e0a1f1c87f0f6a9648e347a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_34.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 35,
+      "shard": "model-00014-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5ee73bd21c73b2610d2a30924f7acd24e63b1ca29e0a1f1c87f0f6a9648e347a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_35.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 36,
+      "shard": "model-00014-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5ee73bd21c73b2610d2a30924f7acd24e63b1ca29e0a1f1c87f0f6a9648e347a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_36.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 37,
+      "shard": "model-00014-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "5ee73bd21c73b2610d2a30924f7acd24e63b1ca29e0a1f1c87f0f6a9648e347a",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_37.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 38,
+      "shard": "model-00015-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b35421bf21724db705a38ee9f779de07f9f1711be964049942960c5e3dddb1c2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_38.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 39,
+      "shard": "model-00015-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b35421bf21724db705a38ee9f779de07f9f1711be964049942960c5e3dddb1c2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_39.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 40,
+      "shard": "model-00015-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b35421bf21724db705a38ee9f779de07f9f1711be964049942960c5e3dddb1c2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_40.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 41,
+      "shard": "model-00015-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "b35421bf21724db705a38ee9f779de07f9f1711be964049942960c5e3dddb1c2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_41.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 42,
+      "shard": "model-00016-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "73c4b1bd1f3752d70f0161ec8c8a7701f0538e1ae722daf16a905e04a666e69f",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_42.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 43,
+      "shard": "model-00016-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "73c4b1bd1f3752d70f0161ec8c8a7701f0538e1ae722daf16a905e04a666e69f",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_43.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 44,
+      "shard": "model-00016-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "73c4b1bd1f3752d70f0161ec8c8a7701f0538e1ae722daf16a905e04a666e69f",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_44.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 45,
+      "shard": "model-00016-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "73c4b1bd1f3752d70f0161ec8c8a7701f0538e1ae722daf16a905e04a666e69f",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_45.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 46,
+      "shard": "model-00017-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ee60c1269974cc797bad8bfc9a0fac72437b323ceafcb225cef6980ecffce1b3",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_46.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 47,
+      "shard": "model-00017-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ee60c1269974cc797bad8bfc9a0fac72437b323ceafcb225cef6980ecffce1b3",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_47.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 48,
+      "shard": "model-00017-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ee60c1269974cc797bad8bfc9a0fac72437b323ceafcb225cef6980ecffce1b3",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_48.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 49,
+      "shard": "model-00017-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ee60c1269974cc797bad8bfc9a0fac72437b323ceafcb225cef6980ecffce1b3",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_49.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 50,
+      "shard": "model-00018-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "72cf3696aa1af4611b2da2b013868f3724082362899d9dce3e9fec908d441fc2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_50.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 51,
+      "shard": "model-00018-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "72cf3696aa1af4611b2da2b013868f3724082362899d9dce3e9fec908d441fc2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_51.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 52,
+      "shard": "model-00018-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "72cf3696aa1af4611b2da2b013868f3724082362899d9dce3e9fec908d441fc2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_52.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 53,
+      "shard": "model-00018-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "72cf3696aa1af4611b2da2b013868f3724082362899d9dce3e9fec908d441fc2",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_53.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 54,
+      "shard": "model-00019-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "bdad649be407bd8033a4abd6a24bf434ed6a173807892d18cc1c9771031bfd0c",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_54.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 55,
+      "shard": "model-00019-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "bdad649be407bd8033a4abd6a24bf434ed6a173807892d18cc1c9771031bfd0c",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_55.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 56,
+      "shard": "model-00019-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "bdad649be407bd8033a4abd6a24bf434ed6a173807892d18cc1c9771031bfd0c",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_56.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 57,
+      "shard": "model-00019-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "bdad649be407bd8033a4abd6a24bf434ed6a173807892d18cc1c9771031bfd0c",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_57.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 58,
+      "shard": "model-00020-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "2258dad55787922f1d4429aea528495511f58447baa9b4f1b7f92f58ba7110b0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_58.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 59,
+      "shard": "model-00020-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "2258dad55787922f1d4429aea528495511f58447baa9b4f1b7f92f58ba7110b0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_59.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 60,
+      "shard": "model-00020-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "2258dad55787922f1d4429aea528495511f58447baa9b4f1b7f92f58ba7110b0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_60.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 61,
+      "shard": "model-00020-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "2258dad55787922f1d4429aea528495511f58447baa9b4f1b7f92f58ba7110b0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_61.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 62,
+      "shard": "model-00021-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "775952ac572fa4ff7e5e316ecb60483d4dd96f4369d6a7a403fa31d7f9d1a6d0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_62.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 63,
+      "shard": "model-00021-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "775952ac572fa4ff7e5e316ecb60483d4dd96f4369d6a7a403fa31d7f9d1a6d0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_63.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 64,
+      "shard": "model-00021-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "775952ac572fa4ff7e5e316ecb60483d4dd96f4369d6a7a403fa31d7f9d1a6d0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_64.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 65,
+      "shard": "model-00021-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "775952ac572fa4ff7e5e316ecb60483d4dd96f4369d6a7a403fa31d7f9d1a6d0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_65.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 66,
+      "shard": "model-00022-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "7d205070bb898c59d23bc379652607911f39e219627028a29d82e8e8fecab7c0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_66.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 67,
+      "shard": "model-00022-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "7d205070bb898c59d23bc379652607911f39e219627028a29d82e8e8fecab7c0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_67.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 68,
+      "shard": "model-00022-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "7d205070bb898c59d23bc379652607911f39e219627028a29d82e8e8fecab7c0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_68.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 69,
+      "shard": "model-00022-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "7d205070bb898c59d23bc379652607911f39e219627028a29d82e8e8fecab7c0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_69.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 70,
+      "shard": "model-00023-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "598d4f772853233b88911fdb1a49f8865e3c732e93b17aea44b65f455e69e9dc",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_70.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 71,
+      "shard": "model-00023-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "598d4f772853233b88911fdb1a49f8865e3c732e93b17aea44b65f455e69e9dc",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_71.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 72,
+      "shard": "model-00023-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "598d4f772853233b88911fdb1a49f8865e3c732e93b17aea44b65f455e69e9dc",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_72.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 73,
+      "shard": "model-00023-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "598d4f772853233b88911fdb1a49f8865e3c732e93b17aea44b65f455e69e9dc",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_73.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 74,
+      "shard": "model-00024-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "09e534942e7d4eb31803b347e14dd70090f16f85c89b0ad766bdace135806f12",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_74.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 75,
+      "shard": "model-00024-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "09e534942e7d4eb31803b347e14dd70090f16f85c89b0ad766bdace135806f12",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_75.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 76,
+      "shard": "model-00024-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "09e534942e7d4eb31803b347e14dd70090f16f85c89b0ad766bdace135806f12",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_76.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 77,
+      "shard": "model-00024-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "09e534942e7d4eb31803b347e14dd70090f16f85c89b0ad766bdace135806f12",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_77.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 78,
+      "shard": "model-00025-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "482d18f0e515c23c6933593d0cce289770600c6fa539168bd304e2169cc8a2be",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_78.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 79,
+      "shard": "model-00025-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "482d18f0e515c23c6933593d0cce289770600c6fa539168bd304e2169cc8a2be",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_79.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 80,
+      "shard": "model-00025-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "482d18f0e515c23c6933593d0cce289770600c6fa539168bd304e2169cc8a2be",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_80.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 81,
+      "shard": "model-00025-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "482d18f0e515c23c6933593d0cce289770600c6fa539168bd304e2169cc8a2be",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_81.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 82,
+      "shard": "model-00026-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ac479fe29ed3e03b7c3523974371d68dace22b7744ff9236f9429cdbb9241da0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_82.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 83,
+      "shard": "model-00026-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ac479fe29ed3e03b7c3523974371d68dace22b7744ff9236f9429cdbb9241da0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_83.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 84,
+      "shard": "model-00026-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ac479fe29ed3e03b7c3523974371d68dace22b7744ff9236f9429cdbb9241da0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_84.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 85,
+      "shard": "model-00026-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "ac479fe29ed3e03b7c3523974371d68dace22b7744ff9236f9429cdbb9241da0",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_85.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 86,
+      "shard": "model-00027-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "4981d4e636723dbb063f04854e4362c1fe341d9ba80b5bb4231bb0d5ee8ab266",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_86.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 87,
+      "shard": "model-00027-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "4981d4e636723dbb063f04854e4362c1fe341d9ba80b5bb4231bb0d5ee8ab266",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_87.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 88,
+      "shard": "model-00027-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "4981d4e636723dbb063f04854e4362c1fe341d9ba80b5bb4231bb0d5ee8ab266",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_88.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 89,
+      "shard": "model-00027-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "4981d4e636723dbb063f04854e4362c1fe341d9ba80b5bb4231bb0d5ee8ab266",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_89.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 90,
+      "shard": "model-00028-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "1b45a957b1f3572d325b0795f549fb772c160bd5c5167f94a347b96e3c7b978d",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_90.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 91,
+      "shard": "model-00028-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "1b45a957b1f3572d325b0795f549fb772c160bd5c5167f94a347b96e3c7b978d",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_91.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 92,
+      "shard": "model-00028-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "1b45a957b1f3572d325b0795f549fb772c160bd5c5167f94a347b96e3c7b978d",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_92.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 93,
+      "shard": "model-00028-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "1b45a957b1f3572d325b0795f549fb772c160bd5c5167f94a347b96e3c7b978d",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_93.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 94,
+      "shard": "model-00029-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "40d2f2291ff4800373087cd00f1f95c3bd69331c32f39cfdd5d43516764b03ec",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_94.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 95,
+      "shard": "model-00029-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "40d2f2291ff4800373087cd00f1f95c3bd69331c32f39cfdd5d43516764b03ec",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_95.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 96,
+      "shard": "model-00029-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "40d2f2291ff4800373087cd00f1f95c3bd69331c32f39cfdd5d43516764b03ec",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_96.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 97,
+      "shard": "model-00029-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "40d2f2291ff4800373087cd00f1f95c3bd69331c32f39cfdd5d43516764b03ec",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_97.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 98,
+      "shard": "model-00030-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "893a9b59e412a3242252274770efe0794ce8b216b2b3907b6854b7eaa6ddd334",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_98.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 99,
+      "shard": "model-00030-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "893a9b59e412a3242252274770efe0794ce8b216b2b3907b6854b7eaa6ddd334",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_99.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 100,
+      "shard": "model-00030-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "893a9b59e412a3242252274770efe0794ce8b216b2b3907b6854b7eaa6ddd334",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_100.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 101,
+      "shard": "model-00030-of-00131.safetensors",
+      "shard_bytes": 3200016032,
+      "shard_sha256": "893a9b59e412a3242252274770efe0794ce8b216b2b3907b6854b7eaa6ddd334",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_101.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 102,
+      "shard": "model-00031-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "9b6bf01d60f21bed295b9b1d43501593b4ce7ece28aaf75618b4fb58039c0d04",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_102.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 103,
+      "shard": "model-00031-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "9b6bf01d60f21bed295b9b1d43501593b4ce7ece28aaf75618b4fb58039c0d04",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_103.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 104,
+      "shard": "model-00031-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "9b6bf01d60f21bed295b9b1d43501593b4ce7ece28aaf75618b4fb58039c0d04",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_104.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 105,
+      "shard": "model-00031-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "9b6bf01d60f21bed295b9b1d43501593b4ce7ece28aaf75618b4fb58039c0d04",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_105.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 106,
+      "shard": "model-00032-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "7453fcb5872160888730439ac71a5279d348686d68c6ba2d62ff12461443dc69",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_106.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 107,
+      "shard": "model-00032-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "7453fcb5872160888730439ac71a5279d348686d68c6ba2d62ff12461443dc69",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_107.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 108,
+      "shard": "model-00032-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "7453fcb5872160888730439ac71a5279d348686d68c6ba2d62ff12461443dc69",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_108.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 109,
+      "shard": "model-00032-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "7453fcb5872160888730439ac71a5279d348686d68c6ba2d62ff12461443dc69",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_109.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 110,
+      "shard": "model-00033-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "5b2f577ce40932031c4749f9177dab2119ff118f9f9b9df3d0d5e57c8e41d128",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_110.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 111,
+      "shard": "model-00033-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "5b2f577ce40932031c4749f9177dab2119ff118f9f9b9df3d0d5e57c8e41d128",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_111.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 112,
+      "shard": "model-00033-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "5b2f577ce40932031c4749f9177dab2119ff118f9f9b9df3d0d5e57c8e41d128",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_112.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 113,
+      "shard": "model-00033-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "5b2f577ce40932031c4749f9177dab2119ff118f9f9b9df3d0d5e57c8e41d128",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_113.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 114,
+      "shard": "model-00034-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "35b5522668652e8cc7d8eacb0d45c59eb9ed9786e9102a9b71503f746f50da64",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_114.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 115,
+      "shard": "model-00034-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "35b5522668652e8cc7d8eacb0d45c59eb9ed9786e9102a9b71503f746f50da64",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_115.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 116,
+      "shard": "model-00034-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "35b5522668652e8cc7d8eacb0d45c59eb9ed9786e9102a9b71503f746f50da64",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_116.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 117,
+      "shard": "model-00034-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "35b5522668652e8cc7d8eacb0d45c59eb9ed9786e9102a9b71503f746f50da64",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_117.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 118,
+      "shard": "model-00035-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "4fe611218d36ff7c06e4c24f7252215fdddc879ac3de2b1d569727ed31f82db1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_118.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 119,
+      "shard": "model-00035-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "4fe611218d36ff7c06e4c24f7252215fdddc879ac3de2b1d569727ed31f82db1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_119.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 120,
+      "shard": "model-00035-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "4fe611218d36ff7c06e4c24f7252215fdddc879ac3de2b1d569727ed31f82db1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_120.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 121,
+      "shard": "model-00035-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "4fe611218d36ff7c06e4c24f7252215fdddc879ac3de2b1d569727ed31f82db1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_121.weight"
+    },
+    {
+      "data_offsets": [
+        0,
+        800003840
+      ],
+      "part": 122,
+      "shard": "model-00036-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "237789c0cef556ef22c9f1ca99b7baf71b33a56b70c5828380e1008e02510649",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_122.weight"
+    },
+    {
+      "data_offsets": [
+        800003840,
+        1600007680
+      ],
+      "part": 123,
+      "shard": "model-00036-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "237789c0cef556ef22c9f1ca99b7baf71b33a56b70c5828380e1008e02510649",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_123.weight"
+    },
+    {
+      "data_offsets": [
+        1600007680,
+        2400011520
+      ],
+      "part": 124,
+      "shard": "model-00036-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "237789c0cef556ef22c9f1ca99b7baf71b33a56b70c5828380e1008e02510649",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_124.weight"
+    },
+    {
+      "data_offsets": [
+        2400011520,
+        3200015360
+      ],
+      "part": 125,
+      "shard": "model-00036-of-00131.safetensors",
+      "shard_bytes": 3200016040,
+      "shard_sha256": "237789c0cef556ef22c9f1ca99b7baf71b33a56b70c5828380e1008e02510649",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_125.weight"
+    },
+    {
+      "data_offsets": [
+        82176,
+        800086016
+      ],
+      "part": 126,
+      "shard": "model-00037-of-00131.safetensors",
+      "shard_bytes": 1742347160,
+      "shard_sha256": "73b53c94d23589bdfde55b20538a515525f22fd37c7cdf24e85738ed771218e1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_126.weight"
+    },
+    {
+      "data_offsets": [
+        800086016,
+        1600089856
+      ],
+      "part": 127,
+      "shard": "model-00037-of-00131.safetensors",
+      "shard_bytes": 1742347160,
+      "shard_sha256": "73b53c94d23589bdfde55b20538a515525f22fd37c7cdf24e85738ed771218e1",
+      "tensor": "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_127.weight"
+    }
+  ]
+}

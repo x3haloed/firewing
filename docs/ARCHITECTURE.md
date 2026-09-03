@@ -62,6 +62,17 @@ useful tensor payload is only 5,120 bytes per token, but the 16 sparse lookups
 can amplify to at least 16 storage pages when cold. Page locality, prefetch
 timing, and cache behavior must be measured before treating the table as free.
 
+FW-0005 verifies the addressing bridge rather than estimating it. The logical
+table has 320,001,536 padded rows of width 160 and is concatenated in numeric
+order from 128 checkpoint tensors, each containing 2,500,012 rows. A global row
+`r` therefore maps to table part `r / 2,500,012` and local row
+`r % 2,500,012`. Five reference cases cover initial EOS padding, ordinary
+sequences, an EOS boundary, incremental cached context, and vocabulary-edge
+IDs. An independent scalar Rust path reproduced all 224 head addresses while
+validating every physical table descriptor and the three actual int64 metadata
+payloads. This establishes what to read, not how many filesystem bytes the SSD
+will actually move.
+
 MTP can reduce routed SSD demand only when committed-token acceptance grows
 faster than the byte-weighted union of experts required for proposal and
 verification. Firewing records those quantities as `A`, `U`, and `A/U` rather
@@ -72,6 +83,7 @@ than counting proposed tokens as throughput.
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
 and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
-checkpoint can execute within 16 GiB. The native runtime will reuse generic,
-validated infrastructure patterns from Prismwing where appropriate, while all
-Qwen4-Exp semantics receive their own fixtures and fail-closed loaders.
+checkpoint can execute within 16 GiB. The native tokenizer and n-gram address
+verifiers are the first two target-specific Rust slices. The runtime reuses
+Prismwing's reference/oracle/independent-fixture discipline, while Qwen4-Exp
+semantics and checkpoint layouts remain independently derived and fail closed.

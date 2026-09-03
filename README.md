@@ -84,8 +84,8 @@ not an endpoint benchmark.
 
 ## Development
 
-The initial executable reference and native tokenizer slice are reproducible
-with:
+The initial executable reference, native tokenizer slice, and checkpoint-backed
+n-gram addressing slice are reproducible with:
 
 ```shell
 python3 -m venv .venv
@@ -93,11 +93,18 @@ python3 -m venv .venv
 .venv/bin/python tools/generate_tokenizer_fixtures.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --output fixtures/tokenizer/qwen3_8_flash_next.json
+.venv/bin/python tools/generate_ngram_address_fixture.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --model-lock spec/model.lock.json \
+  --output fixtures/ngram/qwen3_8_flash_next.json
 
 cargo test
 cargo run --release -- verify-tokenizer \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   fixtures/tokenizer/qwen3_8_flash_next.json
+cargo run --release -- verify-ngram \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json fixtures/ngram/qwen3_8_flash_next.json
 ```
 
 Transformers is a fixture authority, not the qualifying runtime. The native

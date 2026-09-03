@@ -4,6 +4,10 @@ use std::fs;
 use std::path::Path;
 use tokenizers::Tokenizer;
 
+mod ngram;
+
+pub use ngram::{NGramVerificationReport, verify_ngram_fixture};
+
 #[derive(Debug, Deserialize)]
 struct TokenizerFixture {
     schema_version: u32,

@@ -34,6 +34,11 @@
       "routed_expert_bytes_per_ordinary_token_before_cache": 4718592000,
       "ordinary_fixed_matrix_bytes_before_residency": 8623999000,
       "ngram_embedding_bank_bytes": 102400491520,
+      "ngram_logical_padded_rows": 320001536,
+      "ngram_table_parts": 128,
+      "ngram_rows_per_part": 2500012,
+      "ngram_heads_per_token": 16,
+      "ngram_bf16_values_per_head": 160,
       "ngram_useful_bf16_bytes_per_token": 5120,
       "status": "checkpoint_derived_not_measured_io_or_endpoint_tps",
       "accepted_tokens": 0,
@@ -41,6 +46,6 @@
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0001_complete_no_endpoint_measurement",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No performance claim."
+  "status": "fw_0005_complete_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No performance claim."
 }
