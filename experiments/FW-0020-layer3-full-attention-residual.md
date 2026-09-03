@@ -1,7 +1,7 @@
 # FW-0020 - Layer-3 full-attention residual composition
 
-- Status: planned
-- Disposition: unexecuted
+- Status: in progress
+- Disposition: reference fixture passed; native composition pending
 - Date: 2026-09-03
 - Parent experiments: FW-0014, FW-0019
 - Exactness: L0 bit-identical component semantics
@@ -85,8 +85,18 @@ TPS.
 
 ## Result
 
-Pending execution.
+The reference fixture passes and regenerates byte-identically. Across the
+empty-cache and active-pruning cases, the source-derived attention path exactly
+matches the official module's output, selected-token mask, raw indexer cache,
+rotated key cache, and value cache after receiving layer 3's actual gated
+hyper-connection output. The fixture binds 13 real tensors and 36 captures per
+case, including the 10,240-wide injection products and composed residual. Its
+SHA-256 is
+`21c7dbf9b34af540ef424044a797a880674752574a820d727759ff1a9ea51035`.
+All 40 Python tests pass. Native composition remains pending.
 
 ## Decision
 
-Pending. No performance default follows from component composition.
+Continue by extracting FW-0019's exact attention execution into a reusable
+native case runner, then compose it with layer 3's hyper-connection. No
+performance default follows from reference composition.
