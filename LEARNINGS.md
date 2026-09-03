@@ -342,6 +342,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   `U=0`: exact target continuation through input 369 is the next acceptance
   gate. See
   [`experiments/FW-0039-target-derived-mtp-prefill.md`](experiments/FW-0039-target-derived-mtp-prefill.md).
+- FW-0040 completes the first exact greedy width-two MTP transaction. Proposal
+  `[369,264]` matches target posterior token `264`; exact target bonus `2526`
+  yields emitted `[264,2526]`, `A=2`, both proposal rows retained, and zero
+  rollback. Exact target route unions contribute 687 expert rows and the
+  distinct live MTP bank contributes ten, giving `U=697/(48*2)=7.260417` and
+  `A/U=0.275466`. This is one favorable correctness/economics observation, not
+  endpoint TPS; sequential acceptance and physical SSD behavior remain next.
+  See
+  [`experiments/FW-0040-first-complete-mtp-transaction.md`](experiments/FW-0040-first-complete-mtp-transaction.md).
 
 ## Prediction errors
 
@@ -352,8 +361,9 @@ These unresolved distinctions can still change the next decision:
   reference.
 - Active executable bytes after reuse/recoding beyond FW-0035's measured
   98.399-MB one-layer top-10 working set, production-trace n-gram storage
-  amplification, target-derived MTP acceptance, expert union, and achievable
-  expert hit rate remain unresolved. FW-0008 measured the
+  amplification, production-distribution MTP acceptance and expert union, and
+  achievable expert hit rate remain unresolved. FW-0040 resolves acceptance
+  and exact union only for one width-two `Firewing` transaction. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
   open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert
