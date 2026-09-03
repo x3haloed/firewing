@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Screen modified block-FP8 weights on Firewing's real layer-0 mixture."""
+"""Screen modified block-scaled weights on Firewing's real layer-0 mixture."""
 
 from __future__ import annotations
 
@@ -29,24 +29,27 @@ else:
 
 MODEL_LOCK_SHA256 = "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444"
 MIXTURE_SHA256 = "975a9982919297d37dd077f774693c782295cba496542c6adf278182e27b4d89"
-BLOCK = 128
+DEFAULT_BLOCK = 128
 FP8_MAX = 448.0
 INT8_MAX = 127.0
 
 
-def block_fp8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, int]:
+def block_fp8_weight(
+    weight: torch.Tensor, block: int = DEFAULT_BLOCK
+) -> tuple[torch.Tensor, torch.Tensor, int]:
     if (
         weight.dtype != torch.bfloat16
         or weight.ndim != 2
-        or weight.shape[0] % BLOCK
-        or weight.shape[1] % BLOCK
+        or block <= 0
+        or weight.shape[0] % block
+        or weight.shape[1] % block
         or not torch.isfinite(weight.float()).all()
     ):
         raise common.AnalysisError("block-FP8 weight must be finite aligned BF16 matrix")
     rows, columns = weight.shape
     blocks = (
         weight.float()
-        .reshape(rows // BLOCK, BLOCK, columns // BLOCK, BLOCK)
+        .reshape(rows // block, block, columns // block, block)
         .permute(0, 2, 1, 3)
         .contiguous()
     )
@@ -60,19 +63,22 @@ def block_fp8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, 
     return decoded, scales.contiguous(), artifact_bytes
 
 
-def block_int8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, int]:
+def block_int8_weight(
+    weight: torch.Tensor, block: int = DEFAULT_BLOCK
+) -> tuple[torch.Tensor, torch.Tensor, int]:
     if (
         weight.dtype != torch.bfloat16
         or weight.ndim != 2
-        or weight.shape[0] % BLOCK
-        or weight.shape[1] % BLOCK
+        or block <= 0
+        or weight.shape[0] % block
+        or weight.shape[1] % block
         or not torch.isfinite(weight.float()).all()
     ):
         raise common.AnalysisError("block-INT8 weight must be finite aligned BF16 matrix")
     rows, columns = weight.shape
     blocks = (
         weight.float()
-        .reshape(rows // BLOCK, BLOCK, columns // BLOCK, BLOCK)
+        .reshape(rows // block, block, columns // block, block)
         .permute(0, 2, 1, 3)
         .contiguous()
     )
@@ -89,11 +95,11 @@ def block_int8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
 
 def error_metrics(actual: torch.Tensor, reference: torch.Tensor) -> dict[str, float]:
     if actual.shape != reference.shape:
-        raise common.AnalysisError("FP8 metric shape mismatch")
+        raise common.AnalysisError("block-weight metric shape mismatch")
     difference = actual.float().double() - reference.float().double()
     denominator = torch.linalg.vector_norm(reference.float().double()).item()
     if denominator == 0:
-        raise common.AnalysisError("FP8 metric reference norm is zero")
+        raise common.AnalysisError("block-weight metric reference norm is zero")
     return {
         "relative_l2": torch.linalg.vector_norm(difference).item() / denominator,
         "maximum_absolute_error": difference.abs().max().item(),
@@ -107,6 +113,7 @@ def analyze(
     mixture_path: Path,
     implementation_commit: str,
     weight_format: str = "block_fp8",
+    block_size: int = DEFAULT_BLOCK,
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -146,13 +153,25 @@ def analyze(
     artifact_bytes = 0
     exact_baseline_hashes = 0
     if weight_format == "block_fp8":
-        quantize = block_fp8_weight
-        mode = "modified_block_fp8_weight_only"
-        format_description = "e4m3fn_per_128x128_absmax_f32_scale"
+        quantize = lambda weight: block_fp8_weight(weight, block_size)
+        mode = (
+            "modified_block_fp8_weight_only"
+            if block_size == DEFAULT_BLOCK
+            else f"modified_block{block_size}_fp8_weight_only"
+        )
+        format_description = (
+            f"e4m3fn_per_{block_size}x{block_size}_absmax_f32_scale"
+        )
     elif weight_format == "block_int8":
-        quantize = block_int8_weight
-        mode = "modified_block_int8_weight_only"
-        format_description = "symmetric_int8_per_128x128_absmax_f32_scale"
+        quantize = lambda weight: block_int8_weight(weight, block_size)
+        mode = (
+            "modified_block_int8_weight_only"
+            if block_size == DEFAULT_BLOCK
+            else f"modified_block{block_size}_int8_weight_only"
+        )
+        format_description = (
+            f"symmetric_int8_per_{block_size}x{block_size}_absmax_f32_scale"
+        )
     else:
         raise common.AnalysisError("unknown modified block weight format")
     with safe_open(checkpoint_dir / gate["shard"], framework="pt", device="cpu") as gate_file:
@@ -212,6 +231,7 @@ def analyze(
         "model_lock_sha256": MODEL_LOCK_SHA256,
         "mixture_fixture_sha256": MIXTURE_SHA256,
         "layer": 0,
+        "block_size": block_size,
         "experts": expert_rows,
         "exact_baseline_hashes": exact_baseline_hashes + 1,
         "weight_format": format_description,
@@ -262,6 +282,9 @@ def main() -> int:
         choices=("block_fp8", "block_int8"),
         default="block_fp8",
     )
+    parser.add_argument(
+        "--block-size", type=int, choices=(32, 128), default=DEFAULT_BLOCK
+    )
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -269,6 +292,7 @@ def main() -> int:
         args.mixture_fixture,
         args.implementation_commit,
         args.weight_format,
+        args.block_size,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))

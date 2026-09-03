@@ -35,6 +35,17 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertEqual(artifact_bytes, 128 * 128 + 4)
         self.assertLess(error_metrics(decoded, weight)["relative_l2"], 0.01)
 
+    def test_symmetric_int8_block32_has_exact_scale_ledger(self) -> None:
+        weight = torch.full((128, 128), 2.0, dtype=torch.bfloat16)
+        decoded, scales, artifact_bytes = block_int8_weight(weight, 32)
+        self.assertTrue(torch.equal(decoded, weight))
+        self.assertEqual(tuple(scales.shape), (4, 4))
+        self.assertEqual(artifact_bytes, 128 * 128 + 16 * 4)
+
+    def test_invalid_block_size_fails_closed(self) -> None:
+        with self.assertRaises(AnalysisError):
+            block_int8_weight(torch.zeros((128, 128), dtype=torch.bfloat16), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
