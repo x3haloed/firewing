@@ -242,6 +242,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   not a reusable generation loop, prefill implementation, MTP path, quality
   result, or TPS measurement. See
   [`experiments/FW-0029-token-text-endpoint.md`](experiments/FW-0029-token-text-endpoint.md).
+- FW-0030 profiles that exact path without turning it into a TPS claim. The
+  two-position verifier takes 77.703 seconds and physically reads 17.319 GB in
+  an explicitly uncontrolled mixed OS-cache state. Decoder/MoE consumes 52.35%
+  of wall time, attention 38.01%, the final mixer/head 7.37%, and safety checks
+  1.79%. The current correctness implementation is 155.4x slower per
+  teacher-forced position than Firewing 4's 250 ms decode budget, but verifier
+  hashing and its layer-major two-position schedule prevent interpreting that
+  ratio as an impossibility bound or accepted TPS. Accelerated BF16 projection
+  is now the measured next priority. See
+  [`experiments/FW-0030-token-endpoint-causal-profile.md`](experiments/FW-0030-token-endpoint-causal-profile.md).
 
 ## Prediction errors
 
