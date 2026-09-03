@@ -30,6 +30,22 @@ FW0046_RECEIPT_SHA256 = "fa27310db856c9a2ef2cde1ce2f1a66e0be29f7db1a0b0dfe8357f8
 RAW_PHYSICAL_BYTES_PER_SECOND = 3_501_482_752.6893535
 
 
+def shuffle_bf16(source: bytes) -> bytes:
+    if len(source) % 2:
+        raise lossless.AnalysisError("BF16 byte shuffle requires an even byte count")
+    return source[0::2] + source[1::2]
+
+
+def unshuffle_bf16(shuffled: bytes) -> bytes:
+    if len(shuffled) % 2:
+        raise lossless.AnalysisError("BF16 byte unshuffle requires an even byte count")
+    half = len(shuffled) // 2
+    source = bytearray(len(shuffled))
+    source[0::2] = shuffled[:half]
+    source[1::2] = shuffled[half:]
+    return bytes(source)
+
+
 def route_records(
     endpoint: dict[str, Any], semantic: str, steps: tuple[int, int], expected: int
 ) -> dict[tuple[int, int], dict[str, str]]:
@@ -83,6 +99,7 @@ def analyze(
     first_manifest_path: Path,
     fw0046_receipt_path: Path,
     implementation_commit: str,
+    byte_shuffle: bool = False,
 ) -> dict[str, Any]:
     lossless.require_clean_commit(implementation_commit)
     for path, expected in (
@@ -132,11 +149,11 @@ def analyze(
     if len(union) != 1097 or len(first.keys() & second.keys()) != 321:
         raise lossless.AnalysisError("sequential union/intersection mismatch")
 
-    first_sizes = {
+    raw_first_sizes = {
         (record["layer"], record["expert"]): record["compressed_bytes"]
         for record in first_manifest["records"]
     }
-    if set(first_sizes) != set(first) or sum(first_sizes.values()) != 5_251_840_172:
+    if set(raw_first_sizes) != set(first) or sum(raw_first_sizes.values()) != 5_251_840_172:
         raise lossless.AnalysisError("first container record ledger mismatch")
     locked = {entry["path"]: entry for entry in lock["files"]}
     layouts: dict[int, tuple[Path, int, Path, int]] = {}
@@ -171,9 +188,9 @@ def analyze(
 
     compressor = zstandard.ZstdCompressor(level=1)
     decompressor = zstandard.ZstdDecompressor()
-    sizes = dict(first_sizes)
+    sizes = {} if byte_shuffle else dict(raw_first_sizes)
     new_source_bytes = 0
-    for (layer, expert), hashes in sorted(second.items()):
+    for (layer, expert), hashes in sorted(union.items()):
         if (layer, expert) in sizes:
             continue
         gate_path, gate_base, down_path, down_base = layouts[layer]
@@ -185,12 +202,16 @@ def analyze(
         ):
             raise lossless.AnalysisError("sequential new expert payload mismatch")
         source = gate + down
-        encoded = compressor.compress(source)
-        if decompressor.decompress(encoded, max_output_size=EXPERT_BYTES) != source:
+        codec_source = shuffle_bf16(source) if byte_shuffle else source
+        encoded = compressor.compress(codec_source)
+        decoded = decompressor.decompress(encoded, max_output_size=EXPERT_BYTES)
+        reconstructed = unshuffle_bf16(decoded) if byte_shuffle else decoded
+        if reconstructed != source:
             raise lossless.AnalysisError("sequential new expert round trip mismatch")
         sizes[(layer, expert)] = len(encoded)
         new_source_bytes += len(source)
-    if len(sizes) != 1097 or new_source_bytes != 410 * EXPERT_BYTES:
+    expected_processed = 1097 if byte_shuffle else 410
+    if len(sizes) != 1097 or new_source_bytes != expected_processed * EXPERT_BYTES:
         raise lossless.AnalysisError("sequential compressed union ledger mismatch")
 
     union_compressed_bytes = sum(sizes.values())
@@ -199,7 +220,11 @@ def analyze(
     accepted = 4
     return {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_two_q2_transactions_zstd1_fractional_cache_storage_oracle",
+        "semantic": (
+            "qwen3_8_flash_next_two_q2_transactions_bf16_byte_shuffle_zstd1_fractional_cache_storage_oracle"
+            if byte_shuffle
+            else "qwen3_8_flash_next_two_q2_transactions_zstd1_fractional_cache_storage_oracle"
+        ),
         "implementation_commit": implementation_commit,
         "model": MODEL,
         "revision": REVISION,
@@ -213,11 +238,12 @@ def analyze(
             "fw_0046_receipt_sha256": FW0046_RECEIPT_SHA256,
         },
         "codec": "zstandard_0.25.0_level_1_independent_expert_frames",
+        "exact_transform": "bf16_even_bytes_then_odd_bytes" if byte_shuffle else "identity",
         "first_transaction_experts": len(first),
         "second_transaction_experts": len(second),
         "cross_transaction_experts": len(first.keys() & second.keys()),
         "sequential_union_experts": len(union),
-        "new_experts_compressed_and_round_tripped": 410,
+        "experts_compressed_and_round_tripped": expected_processed,
         "source_bytes": len(union) * EXPERT_BYTES,
         "compressed_bytes": union_compressed_bytes,
         "compressed_ratio": union_compressed_bytes / (len(union) * EXPERT_BYTES),
@@ -257,6 +283,7 @@ def main() -> None:
     parser.add_argument("fw0046_receipt", type=Path)
     parser.add_argument("implementation_commit")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--byte-shuffle", action="store_true")
     args = parser.parse_args()
     report = analyze(
         args.checkpoint,
@@ -268,6 +295,7 @@ def main() -> None:
         args.first_manifest,
         args.fw0046_receipt,
         args.implementation_commit,
+        args.byte_shuffle,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

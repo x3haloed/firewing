@@ -3,10 +3,21 @@ import unittest
 from pathlib import Path
 
 from tools.analyze_q2_lossless_experts import AnalysisError
-from tools.analyze_sequential_q2_zstd_oracle import route_records
+from tools.analyze_sequential_q2_zstd_oracle import (
+    route_records,
+    shuffle_bf16,
+    unshuffle_bf16,
+)
 
 
 class SequentialQ2ZstdOracleTests(unittest.TestCase):
+    def test_bf16_byte_shuffle_round_trips_exactly(self) -> None:
+        source = bytes.fromhex("0102030405060708")
+        self.assertEqual(shuffle_bf16(source), bytes.fromhex("0103050702040608"))
+        self.assertEqual(unshuffle_bf16(shuffle_bf16(source)), source)
+        with self.assertRaises(AnalysisError):
+            shuffle_bf16(b"x")
+
     def test_second_transaction_route_union_is_frozen(self) -> None:
         endpoint = json.loads(
             Path(
