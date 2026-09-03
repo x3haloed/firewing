@@ -431,13 +431,13 @@ fn expected_tensors() -> Vec<(&'static str, &'static str, Vec<usize>)> {
     ]
 }
 
-pub fn verify_ple_fixture(
+pub(crate) fn verify_ple_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
     ngram_row_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<PleVerificationReport, String> {
+) -> Result<(PleVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture =
         serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed PLE fixture: {error}"))?;
@@ -523,6 +523,7 @@ pub fn verify_ple_fixture(
     let mut context = vec![248_044_i64; CONTEXT];
     let mut convolution_state = vec![to_bf16(0.0); HC_HIDDEN * CONV_STATE];
     let mut unique_rows = BTreeSet::new();
+    let mut outputs = Vec::with_capacity(case.steps.len());
     for (ordinal, step) in case.steps.iter().enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -639,6 +640,7 @@ pub fn verify_ple_fixture(
             .map(|(left, right)| to_bf16(from_bf16(*left) + from_bf16(*right)))
             .collect();
         require_bf16(step, "output", &[1, 1, HC_HIDDEN], &output)?;
+        outputs.push(output);
         context.remove(0);
         context.push(step.token_id);
         require_i64(step, "token_context_state", &[1, CONTEXT], &context)?;
@@ -646,25 +648,45 @@ pub fn verify_ple_fixture(
 
     let requested_embedding_bytes =
         case.steps.iter().map(|step| step.rows.len()).sum::<usize>() * HEAD_WIDTH * 2;
-    Ok(PleVerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer1_ple_cached_decode_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: 1,
-        steps_verified: 2,
-        rows_verified: unique_rows.len(),
-        exact_bf16_capture_hashes: 30,
-        exact_i64_capture_hashes: 2,
-        dense_tensors_verified: 6,
-        dense_tensor_payload_bytes,
-        requested_embedding_bytes,
-        total_verified_payload_bytes: dense_tensor_payload_bytes + requested_embedding_bytes,
-        convolution_state_bytes: convolution_state.len() * 2,
-        token_context_state_bytes: context.len() * 8,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        PleVerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_layer1_ple_cached_decode_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layer: 1,
+            steps_verified: 2,
+            rows_verified: unique_rows.len(),
+            exact_bf16_capture_hashes: 30,
+            exact_i64_capture_hashes: 2,
+            dense_tensors_verified: 6,
+            dense_tensor_payload_bytes,
+            requested_embedding_bytes,
+            total_verified_payload_bytes: dense_tensor_payload_bytes + requested_embedding_bytes,
+            convolution_state_bytes: convolution_state.len() * 2,
+            token_context_state_bytes: context.len() * 8,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        outputs,
+    ))
+}
+
+pub fn verify_ple_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<PleVerificationReport, String> {
+    verify_ple_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]

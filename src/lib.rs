@@ -15,6 +15,7 @@ mod full_attention_residual;
 mod hyper_connection;
 mod ngram;
 mod ple;
+mod ple_attention_residual;
 mod router;
 
 pub use attention_residual::{
@@ -42,6 +43,9 @@ pub use ngram::{
     verify_ngram_rows,
 };
 pub use ple::{PleVerificationReport, verify_ple_fixture};
+pub use ple_attention_residual::{
+    PleAttentionResidualVerificationReport, verify_ple_attention_residual_fixture,
+};
 pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
 
 #[derive(Debug, Deserialize)]
