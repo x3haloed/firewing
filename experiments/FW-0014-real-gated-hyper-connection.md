@@ -27,6 +27,8 @@ mode, changed weight, or relaxed comparison is allowed.
   `de4b8e4d43b917e7706784d8bb445c9af86a3540`
 - Model lock SHA-256:
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
+- Frozen fixture SHA-256:
+  `3615d35c75ed25fc7e81f5b82712017a1948260e3fe7f4b0e7cc8c92ead65503`
 - Baseline commit: `37c9451f439644e6b0a3a539531295be15da15c0`
 - Framework reference: Transformers 5.16.1
   `Qwen4ExpTextGatedResidual.forward` and `Qwen4ExpTextRMSNorm.forward`

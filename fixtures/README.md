@@ -49,3 +49,8 @@ deterministic top-10 route for every text layer and the 960 exact gate/up and
 down source extents selected by those routes. It commits absolute offsets,
 logical sizes, and payload hashes—not weight bytes—for the 4,718,592,000-byte
 FW-0013 transport trace.
+
+`hyper_connection/qwen3_8_flash_next_layer0.json` binds grouped RMS
+normalization, low-rank input mixing, and block-injection weights to four real
+layer-0 checkpoint tensors. It stores tensor identities and exact capture
+hashes, never checkpoint-derived payload bytes.

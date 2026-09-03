@@ -1,0 +1,96 @@
+{
+  "case": {
+    "expected_bf16_sha256": {
+      "hyper_input": "c489ffdc9ee671cbb4051446efe43dee9b603cefdc0e65c4d5bd464b46b54496",
+      "hyper_input_normed": "081122f79da11f90ecb3b623bc0974f096632b0a21e3cfe4c3126b0595fef82d",
+      "inject_projection": "41094d87f28cfcc245c053942d2585ebfa062ccd9231f29fe4d995da67dc502d",
+      "inject_scaled": "28742a98347106477ee63a4d5b9a681b4cd515cd9fa4363c1b0d9a49151bcedd",
+      "inject_sigmoid": "437fed58a42fb4bca1ef23f8d73ed79f34db603880ece7c03f36532920e9f640",
+      "injection_weights": "a6ac814198654f269e7155d8d209a8073eb9fac2da2ca2d8c76a5eac943a23cf",
+      "input_mix_weight": "65969988a7623efcbd3f4299d95dd9d00be0d677577bf0b58a165801c2a12f2b",
+      "mix_down": "a6f5ba303ae2fcf1097755ae2a474062743478e02888edab7df34cbe2ffd9bb8",
+      "mix_down_scaled": "154a67c0bf3945c9719285ec876a7dc338945728ecaf16e026fd7c23106d10a5",
+      "mix_down_silu": "bc87da1a68d69e38aa3d1d1741f9d9f9131a0dba5fef86ed408977d8e224d496",
+      "mix_up": "2c992ebc53d944658e4f08468453f07c4864862d7b1327c53d9c1764ff6e2a89",
+      "mixed_input": "5a5feb1857e91ff52f2820fc83aa49fda84fcc466750efdc60ffd7b07730927c",
+      "mixed_products": "60ca96b3e1cdb2099fbc05496e6f5ce0838c40b64d3c60cebfcce194890f94b7"
+    },
+    "input_spec": {
+      "add": 17,
+      "center": 131,
+      "divisor": 128,
+      "modulus": 263,
+      "multiplier": 43,
+      "sparse_stride": 1
+    },
+    "kind": "attn_hyper_connection",
+    "layer": 0,
+    "name": "layer_0_attention_affine_mod_hyper_connection",
+    "tensors": {
+      "block_inject_weight": {
+        "payload_sha256": "97548dcae39b501c2958bb607d3954b484fce8abe4ae758e8bb09e988d37abc9",
+        "shape": [
+          4,
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.block_inject_weight.weight"
+      },
+      "hc_norm": {
+        "payload_sha256": "0a3213d5fbfe4043a4800e3ca12cd05c3e7ced745f5aca03fc67ada75d169f98",
+        "shape": [
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.hc_norm.weight"
+      },
+      "input_mix_weight_down": {
+        "payload_sha256": "0cf47e5bf283e8974c8d24bb3dfc1aef536b7d0daff9ac69f9ae8f214e6aed6a",
+        "shape": [
+          320,
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.input_mix_weight_down.weight"
+      },
+      "input_mix_weight_up": {
+        "payload_sha256": "6e87eb16e95e4e24cb83f3852d4200bdff7da87d8e8989022fe8012b88c2f978",
+        "shape": [
+          10240,
+          320
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.input_mix_weight_up.weight"
+      }
+    }
+  },
+  "configuration": {
+    "boundary_dtype": "BF16",
+    "hc_count": 4,
+    "hc_lowrank": 320,
+    "hidden_size": 2560,
+    "rms_norm_eps": 1e-06,
+    "use_combine": true
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "rms_source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextRMSNorm.forward",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextGatedResidual.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_gated_hyper_connection"
+}
