@@ -595,6 +595,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   four FW-0067 topologies remain unresolved because their layer-0 ordering is
   insufficient evidence of deeper ordering. See
   [`experiments/FW-0068-modified-block8x2-affine-uint8-real-layers.md`](experiments/FW-0068-modified-block8x2-affine-uint8-real-layers.md).
+- FW-0069 closes the remaining affine-UINT8 topology frontier. All four
+  remaining 65.625%-byte representations fail the six-case gate; 4x4 is closest
+  at 1.0505% maximum mixture relative L2, while all experts remain below 2%.
+  Layer 24 token state 1 is worst for every topology. Do not build an affine
+  bank or kernel. See
+  [`experiments/FW-0069-modified-affine-uint8-real-layer-frontier.md`](experiments/FW-0069-modified-affine-uint8-real-layer-frontier.md).
 
 ## Prediction errors
 
@@ -642,7 +648,9 @@ These unresolved distinctions can still change the next decision:
   Fixed global clipping is also closed by FW-0066; activation-aware or
   error-propagating calibration remains distinct.
   FW-0067's affine UINT8 zero-point representation survives layer 0 and awaits
-  a complete topology frontier after selected 8x2 fails FW-0068.
+  a complete topology frontier after selected 8x2 fails FW-0068. FW-0069
+  completes that frontier and rejects every remaining topology; affine UINT8
+  is closed at this rung.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range

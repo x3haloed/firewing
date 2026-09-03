@@ -2,7 +2,7 @@
 
 - Status: completed
 - Disposition: conditional
-- Follow-up: FW-0068 rejects selected 8x2; remaining topologies require audit
+- Follow-up: FW-0068 and FW-0069 reject all five topologies
 - Date: 2026-09-03
 - Parent experiment: FW-0066
 - Mode: modified block-affine UINT8 weight-only screens
@@ -68,3 +68,6 @@ are dominated for this next test.
 FW-0068 rejects 8x2 on two of six real-layer mixtures. Because the other four
 topologies also passed this record, they remain unresolved until a common
 real-layer frontier is run.
+
+FW-0069 completed that frontier and rejected all four. No affine-UINT8 survivor
+from this record remains active.

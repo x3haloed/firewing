@@ -858,7 +858,7 @@
       "performance_claim": null
     },
     "modified_affine_uint8_topology": {
-      "status": "fw_0067_block8x2_rejected_by_fw_0068_other_shapes_pending",
+      "status": "fw_0067_all_shapes_rejected_by_fw_0068_and_fw_0069",
       "implementation_commit": "16a2fc4ca425ba95a8a006bbcfa881bdbb2af465",
       "artifact_to_source_ratio": 0.65625,
       "tested_shapes": [[1, 16], [2, 8], [4, 4], [8, 2], [16, 1]],
@@ -886,9 +886,23 @@
       "concurrency": 1,
       "accepted_tokens": 0,
       "performance_claim": null
+    },
+    "modified_affine_uint8_real_layer_frontier": {
+      "status": "fw_0069_all_remaining_topologies_rejected",
+      "implementation_commit": "c0042d8b3523b35537f89676ea5b31b15415cd79",
+      "artifact_to_source_ratio": 0.65625,
+      "tested_shapes": [[1, 16], [2, 8], [4, 4], [16, 1]],
+      "minimum_maximum_mixture_relative_l2": 0.010505304134515414,
+      "best_shape": [4, 4],
+      "maximum_expert_relative_l2_across_frontier": 0.011117656955944077,
+      "all_shapes_pass_continuation_gates": false,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0068_affine_uint8_selected_rejected_topology_frontier_open",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded two-token native text-to-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch under favorable overlap. FW-0037 through FW-0043 establish two exact sequential width-two MTP transactions and reject width four on that prefix. FW-0044 rejects raw-BF16 q2 residency; FW-0045 through FW-0048 establish parallel lossless BF16 byte-shuffle compression. FW-0049 measures transformed overlap above 4 TPS, FW-0050 supplies a capacity-respecting offline schedule, and FW-0051 physically replays its misses at 4.286 median TPS while granting hit traffic free. FW-0052 reduces exact resident routed compute to a 151.906-ms 48-layer projection. FW-0053's mixed materialized-BF16 cache survives only while physical, decode, and Metal resources are modeled independently. FW-0054 stops its physical installation on swap growth, and FW-0055 brackets its viable capacity above 3.75 GB. FW-0056 reverses the branch after charging shared unified-memory traffic. FW-0057 through FW-0066 close naive FP8, symmetric INT8, and global clipping. FW-0067 adds affine zero points at a 65.625% byte ratio and all five topologies pass layer 0. FW-0068 rejects selected 8x2 on two of six real-layer mixtures, leaving the other four topologies unresolved. Exact compressed execution and activation-aware, outlier-aware, error-propagating, or recovered compact formats remain open. None of these bounds is endpoint TPS."
+  "status": "fw_0069_affine_uint8_closed_compact_search_open",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded two-token native text-to-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch under favorable overlap. FW-0037 through FW-0043 establish two exact sequential width-two MTP transactions and reject width four on that prefix. FW-0044 rejects raw-BF16 q2 residency; FW-0045 through FW-0048 establish parallel lossless BF16 byte-shuffle compression. FW-0049 measures transformed overlap above 4 TPS, FW-0050 supplies a capacity-respecting offline schedule, and FW-0051 physically replays its misses at 4.286 median TPS while granting hit traffic free. FW-0052 reduces exact resident routed compute to a 151.906-ms 48-layer projection. FW-0053's mixed materialized-BF16 cache survives only while physical, decode, and Metal resources are modeled independently. FW-0054 stops its physical installation on swap growth, and FW-0055 brackets its viable capacity above 3.75 GB. FW-0056 reverses the branch after charging shared unified-memory traffic. FW-0057 through FW-0066 close naive FP8, symmetric INT8, and global clipping. FW-0067 adds affine zero points at a 65.625% byte ratio and all five topologies pass layer 0. FW-0068 and FW-0069 then reject every topology on the six-case real-layer gate; 4x4 is closest at 1.0505% maximum mixture error. Exact compressed execution and activation-aware, outlier-aware, error-propagating, or recovered compact formats remain open. None of these bounds is endpoint TPS."
 }
