@@ -64,3 +64,8 @@ It exercises initial-state construction followed by cached single-token decode.
 hyper-connection and Gated DeltaNet across two consecutive layer-0 calls. It
 stores only exact tensor and capture hashes for the four-stream input, mixed
 attention input, cache states, injection products, and composed residual.
+
+`decoder_layer/qwen3_8_flash_next_layer0.json` continues those same two calls
+through the independently parameterized MLP hyper-connection, actual dynamic
+top-10 routes, selected routed experts, shared expert, and final four-stream
+layer residual.
