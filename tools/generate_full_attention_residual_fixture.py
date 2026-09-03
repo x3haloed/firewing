@@ -82,6 +82,7 @@ def build_fixture(
     model_lock_path: Path,
     full_attention_fixture_path: Path,
     *,
+    _layer: int = LAYER,
     _hidden_overrides: list[torch.Tensor] | None = None,
     _past_lengths: tuple[int, int] = (0, LONG_PAST),
     _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
@@ -107,23 +108,24 @@ def build_fixture(
             and parent is not None
             and parent.get("semantic") != "qwen3_8_flash_next_layer3_full_attention_qsa"
         )
+        or (_require_committed_parent and _layer != LAYER)
         or (_hidden_overrides is not None and len(_hidden_overrides) != 2)
         or (_sequential_cache and _past_lengths != (0, 1))
     ):
-        raise ValueError("layer-3 attention-residual parent authority mismatch")
+        raise ValueError(f"layer-{_layer} attention-residual parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))["text_config"]
     if (
         raw_config["hidden_size"] != HIDDEN
         or raw_config["hc_count"] != HC_COUNT
-        or raw_config["layer_types"][LAYER] != "full_attention"
-        or LAYER + 1 in raw_config["ple_layer_ids"]
+        or raw_config["layer_types"][_layer] != "full_attention"
+        or _layer + 1 in raw_config["ple_layer_ids"]
     ):
-        raise ValueError("unsupported layer-3 attention-residual configuration")
+        raise ValueError(f"unsupported layer-{_layer} attention-residual configuration")
     config = Qwen4ExpTextConfig(**raw_config)
     config._attn_implementation = "eager"
     hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
-    attention = Qwen4ExpTextAttention(config, LAYER).to(torch.bfloat16).eval()
+    attention = Qwen4ExpTextAttention(config, _layer).to(torch.bfloat16).eval()
     rotary = Qwen4ExpTextRotaryEmbedding(config).eval()
     index_path = checkpoint_dir / "model.safetensors.index.json"
     weight_map = json.loads(index_path.read_text(encoding="utf-8"))["weight_map"]
@@ -131,7 +133,7 @@ def build_fixture(
     tensors: dict[str, Any] = {}
     hyper_state = {}
     for key, local_name in HYPER_LOCAL_TENSORS.items():
-        name = f"model.language_model.layers.{LAYER}.attn_hyper_connection.{local_name}"
+        name = f"model.language_model.layers.{_layer}.attn_hyper_connection.{local_name}"
         value, record = load_tensor(checkpoint_dir, lock, weight_map, name, HYPER_SHAPES[key])
         hyper_state[local_name] = value
         tensors[f"attn_hyper_connection.{key}"] = record
@@ -149,7 +151,7 @@ def build_fixture(
         "indexer.k_layernorm.weight": [INDEX_DIM],
     }
     attention_state = {}
-    prefix = f"model.language_model.layers.{LAYER}.self_attn"
+    prefix = f"model.language_model.layers.{_layer}.self_attn"
     for local_name, shape in shapes.items():
         value, record = load_tensor(
             checkpoint_dir, lock, weight_map, f"{prefix}.{local_name}", shape
@@ -174,9 +176,9 @@ def build_fixture(
         positions = torch.arange(past_length + 1, dtype=torch.int64).view(1, -1)
         attention_mask = torch.zeros((1, 1, 1, past_length + 1), dtype=torch.bfloat16)
         if sequential_caches is None:
-            explicit_cache = prepare_cache(config, past_length)
-            official_cache = prepare_cache(config, past_length)
-            indexer_cache = prepare_cache(config, past_length)
+            explicit_cache = prepare_cache(config, past_length, _layer)
+            official_cache = prepare_cache(config, past_length, _layer)
+            indexer_cache = prepare_cache(config, past_length, _layer)
         else:
             explicit_cache, official_cache, indexer_cache = sequential_caches
         with torch.no_grad():
@@ -188,7 +190,7 @@ def build_fixture(
                 position_embeddings,
                 attention_mask,
                 explicit_cache,
-                LAYER,
+                _layer,
             )
             official_mask = attention.indexer(
                 mixed_input, position_embeddings, attention_mask, indexer_cache
@@ -203,7 +205,7 @@ def build_fixture(
                 attention_output.unsqueeze(-2) * injection_weights.unsqueeze(-1)
             ).contiguous()
             composed_output = (preserved + injection_products.flatten(-2)).contiguous()
-        layer = official_cache.layers[LAYER]
+        layer = official_cache.layers[_layer]
         if (
             not torch.equal(preserved, hyper_input)
             or not torch.equal(attention_output, official_output)
@@ -212,7 +214,7 @@ def build_fixture(
             or not torch.equal(attention_captures["key_cache"], layer.keys)
             or not torch.equal(attention_captures["value_cache"], layer.values)
         ):
-            raise ValueError(f"layer-3 attention-residual authority mismatch at case {ordinal}")
+            raise ValueError(f"layer-{_layer} attention-residual authority mismatch at case {ordinal}")
         captures = {
             "hyper_input": hyper_input,
             "mixed_input": mixed_input,
@@ -256,7 +258,7 @@ def build_fixture(
             ),
         },
         "configuration": {
-            "layer": LAYER,
+            "layer": _layer,
             "layer_type": "full_attention",
             "hidden_size": HIDDEN,
             "hc_count": HC_COUNT,

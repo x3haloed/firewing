@@ -121,3 +121,9 @@ states and crosses into layer 3's full-attention decoder. Its second step
 retains the first step's real indexer, key, and value caches at position one;
 the fixture freezes only hashes and layer-3-owned tensor metadata, keeping the
 separate 2,080-position active-QSA authority intact.
+
+`accumulated/qwen3_8_flash_next_layers4_47.json` is a flat hash-only walk over
+the remaining 44 decoder layers. It follows the checkpoint's exact 33-linear,
+11-full-attention suffix schedule, freezes 880 dynamic expert selections, and
+links every layer input to the preceding real layer output without recursively
+embedding prior fixtures or committing activation payloads.

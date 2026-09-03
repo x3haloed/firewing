@@ -107,16 +107,18 @@ def capture(value: torch.Tensor) -> dict[str, Any]:
     }
 
 
-def prepare_cache(config: Qwen4ExpTextConfig, past_length: int) -> DynamicCache:
+def prepare_cache(
+    config: Qwen4ExpTextConfig, past_length: int, layer: int = LAYER
+) -> DynamicCache:
     cache = DynamicCache(config=config)
     if past_length:
         cache.update_indexer(
-            deterministic_bf16((1, past_length, INDEX_DIM), STATE_SPECS["indexer_keys"]), LAYER
+            deterministic_bf16((1, past_length, INDEX_DIM), STATE_SPECS["indexer_keys"]), layer
         )
         cache.update(
             deterministic_bf16((1, KV_HEADS, past_length, HEAD_DIM), STATE_SPECS["key_states"]),
             deterministic_bf16((1, KV_HEADS, past_length, HEAD_DIM), STATE_SPECS["value_states"]),
-            LAYER,
+            layer,
         )
     return cache
 

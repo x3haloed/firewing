@@ -53,7 +53,21 @@ Planned commands:
 .venv/bin/python tools/generate_accumulated_layers4_47_fixture.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --model-lock spec/model.lock.json \
+  --ngram-fixture fixtures/ngram/qwen3_8_flash_next.json \
+  --ngram-row-fixture fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  --layer0-hyper-fixture fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  --layer0-deltanet-fixture fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  --layer0-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  --layer0-sparse-moe-fixture fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  --layer0-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  --ple-fixture fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  --layer1-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  --layer1-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
+  --layers01-fixture fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
+  --layer2-fixture fixtures/accumulated/qwen3_8_flash_next_layer2.json \
   --layer3-fixture fixtures/accumulated/qwen3_8_flash_next_layer3.json \
+  --full-attention-fixture fixtures/full_attention/qwen3_8_flash_next_layer3.json \
+  --attention-residual-fixture fixtures/attention_residual/qwen3_8_flash_next_layer3.json \
   --output fixtures/accumulated/qwen3_8_flash_next_layers4_47.json
 
 cargo run --release -- verify-accumulated-layers4-47 \
@@ -92,7 +106,20 @@ real prefill, modality processing, latency, and TPS.
 
 ## Result
 
-Pending.
+The source-derived walker completes all 44 remaining layers and regenerates
+byte-identically. It follows the exact 33-linear/11-full-attention suffix,
+freezes all 880 expert selections, and links every layer input hash to the
+preceding real output. Across the two steps, 27 selections reuse an expert
+within the same layer, leaving 853 layer-scoped unique expert payloads for the
+native byte ledger. The final layer-47 output hashes are
+`7a2a93674993a3720bf921db9c97b9e81c38db83860086d8f6988fb6b51d9c9c`
+and `3c63332aa6808d414ca198e88f52ee5c16c70f681753c2aa6ad85ac9e50c0714`.
+
+The 2.0 MiB hash-only fixture has SHA-256
+`6ed2e16da1e64fb8001c26608d7972f4910190f74768055b5778dc7891ebf525`.
+All 59 Python tests pass, and the generalized full-attention source path still
+regenerates FW-0020's committed layer-3 fixture byte-for-byte. Independent
+native verification is pending.
 
 ## Decision
 
