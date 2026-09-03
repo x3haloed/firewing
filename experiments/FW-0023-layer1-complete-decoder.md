@@ -85,7 +85,17 @@ real prefill, endpoint behavior, modality processing, latency, and TPS.
 
 ## Result
 
-Pending.
+The reference fixture passes and regenerates byte-identically without changing
+FW-0021's layer-3 fixture. The initial route is
+`[507, 237, 249, 207, 325, 106, 274, 142, 282, 293]`; the cached route is
+`[286, 408, 142, 306, 250, 106, 237, 208, 117, 235]`. Three experts recur
+naturally across the two calls and each source execution order is ascending.
+The fixture binds nine dense tensors, both expert banks, 16 captures per step,
+and twenty selected expert records. Its SHA-256 is
+`04c84ca2fd12c63636371186730067faa419fd5abf13dbfe6a4dccb7671b87d6`.
+All 44 Python tests pass.
+
+Native verification is pending.
 
 ## Decision
 

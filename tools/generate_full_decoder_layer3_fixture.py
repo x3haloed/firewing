@@ -46,28 +46,39 @@ def build_fixture(
     model_lock_path: Path,
     full_attention_fixture_path: Path,
     attention_residual_fixture_path: Path,
+    *,
+    _parent_execution: tuple[dict[str, Any], list[torch.Tensor]] | None = None,
+    _parent_semantic: str = "qwen3_8_flash_next_layer3_full_attention_residual",
+    _layer: int = LAYER,
+    _layer_type: str = "full_attention",
+    _semantic: str = SEMANTIC,
+    _reference_hashes: dict[str, str] | None = None,
+    _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
 ) -> dict[str, Any]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
     parent = json.loads(attention_residual_fixture_path.read_text(encoding="utf-8"))
-    generated, post_attention = build_attention_residual(
-        checkpoint_dir,
-        model_lock_path,
-        full_attention_fixture_path,
-        _return_outputs=True,
-    )
+    if _parent_execution is None:
+        generated, post_attention = build_attention_residual(
+            checkpoint_dir,
+            model_lock_path,
+            full_attention_fixture_path,
+            _return_outputs=True,
+        )
+    else:
+        generated, post_attention = _parent_execution
     if (
         revision != lock["revision"]
         or parent != generated
         or parent.get("revision") != revision
-        or parent.get("semantic") != "qwen3_8_flash_next_layer3_full_attention_residual"
+        or parent.get("semantic") != _parent_semantic
     ):
-        raise ValueError("layer-3 decoder parent authority mismatch")
+        raise ValueError(f"layer-{_layer} decoder parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))["text_config"]
     if (
-        raw_config["layer_types"][LAYER] != "full_attention"
+        raw_config["layer_types"][_layer] != _layer_type
         or raw_config["hidden_size"] != HIDDEN
         or raw_config["hc_count"] != HC_COUNT
         or raw_config["num_experts"] != EXPERTS
@@ -77,7 +88,7 @@ def build_fixture(
         or raw_config["hidden_act"] != "silu"
         or raw_config.get("norm_topk_prob", True) is not True
     ):
-        raise ValueError("unsupported layer-3 decoder configuration")
+        raise ValueError(f"unsupported layer-{_layer} decoder configuration")
     config = Qwen4ExpTextConfig(**raw_config)
     mlp_hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
     index_path = checkpoint_dir / "model.safetensors.index.json"
@@ -85,12 +96,12 @@ def build_fixture(
 
     mlp_names = {
         f"mlp_hyper_connection.{key}": (
-            f"model.language_model.layers.{LAYER}.mlp_hyper_connection.{local_name}",
+            f"model.language_model.layers.{_layer}.mlp_hyper_connection.{local_name}",
             HYPER_SHAPES[key],
         )
         for key, local_name in HYPER_LOCAL_TENSORS.items()
     }
-    shared_prefix = f"model.language_model.layers.{LAYER}.mlp.shared_expert"
+    shared_prefix = f"model.language_model.layers.{_layer}.mlp.shared_expert"
     dense_names = {
         **mlp_names,
         "router": (f"model.language_model.layers.{LAYER}.mlp.gate.weight", [EXPERTS, HIDDEN]),
@@ -98,7 +109,7 @@ def build_fixture(
         "shared_up_weight": (f"{shared_prefix}.up_proj.weight", [INTERMEDIATE, HIDDEN]),
         "shared_down_weight": (f"{shared_prefix}.down_proj.weight", [HIDDEN, INTERMEDIATE]),
         "shared_expert_gate_weight": (
-            f"model.language_model.layers.{LAYER}.mlp.shared_expert_gate.weight",
+            f"model.language_model.layers.{_layer}.mlp.shared_expert_gate.weight",
             [1, HIDDEN],
         ),
     }
@@ -111,7 +122,7 @@ def build_fixture(
         strict=True,
     )
 
-    expert_prefix = f"model.language_model.layers.{LAYER}.mlp.experts"
+    expert_prefix = f"model.language_model.layers.{_layer}.mlp.experts"
     gate_up_name = f"{expert_prefix}.gate_up_proj"
     down_name = f"{expert_prefix}.down_proj"
     expert_banks = {}
@@ -143,7 +154,7 @@ def build_fixture(
                         router_logits.dtype
                     ).contiguous()
                 if not torch.equal(preserved, post):
-                    raise ValueError(f"layer-3 MLP hyper connection mutated input at case {ordinal}")
+                    raise ValueError(f"layer-{_layer} MLP hyper connection mutated input at case {ordinal}")
                 selection = top_indices.reshape(-1).tolist()
                 scores = top_values.reshape(-1).tolist()
                 experts, routed = execute_mixture(
@@ -183,7 +194,7 @@ def build_fixture(
                 steps.append(
                     {
                         "ordinal": ordinal,
-                        "mode": "initial" if ordinal == 0 else "active_qsa_pruning",
+                        "mode": _modes[ordinal],
                         "selected_experts": selection,
                         "expert_execution_order": sorted(selection),
                         "experts": experts,
@@ -193,7 +204,7 @@ def build_fixture(
 
     return {
         "schema_version": 1,
-        "semantic": SEMANTIC,
+        "semantic": _semantic,
         "model": MODEL,
         "revision": revision,
         "reference": {
@@ -203,12 +214,18 @@ def build_fixture(
             "config_sha256": sha256_file(config_path),
             "tensor_index_sha256": sha256_file(index_path),
             "model_lock_sha256": sha256_file(model_lock_path),
-            "full_attention_fixture_sha256": sha256_file(full_attention_fixture_path),
-            "attention_residual_fixture_sha256": sha256_file(attention_residual_fixture_path),
+            **(
+                _reference_hashes
+                if _reference_hashes is not None
+                else {
+                    "full_attention_fixture_sha256": sha256_file(full_attention_fixture_path),
+                    "attention_residual_fixture_sha256": sha256_file(attention_residual_fixture_path),
+                }
+            ),
         },
         "configuration": {
-            "layer": LAYER,
-            "layer_type": "full_attention",
+            "layer": _layer,
+            "layer_type": _layer_type,
             "hidden_size": HIDDEN,
             "hc_count": HC_COUNT,
             "num_experts": EXPERTS,

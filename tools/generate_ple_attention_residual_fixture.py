@@ -51,7 +51,9 @@ def build_fixture(
     ngram_fixture_path: Path,
     ngram_row_fixture_path: Path,
     ple_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -107,6 +109,7 @@ def build_fixture(
     explicit_cache = DynamicCache(config=config)
     official_cache = DynamicCache(config=config)
     steps = []
+    composed_outputs = []
     for ordinal, (ple_step, ple_output) in enumerate(
         zip(regenerated_ple["case"]["steps"], ple_outputs, strict=True)
     ):
@@ -140,6 +143,7 @@ def build_fixture(
             attention_output.unsqueeze(-2) * injection_weights.unsqueeze(-1)
         ).contiguous()
         composed = (official_hyper_input + injection_products.flatten(-2)).contiguous()
+        composed_outputs.append(composed)
         captures = {
             "hidden_states": hidden,
             "ple_output": ple_output,
@@ -162,7 +166,7 @@ def build_fixture(
             }
         )
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -193,6 +197,9 @@ def build_fixture(
             "steps": steps,
         },
     }
+    if _return_outputs:
+        return fixture, composed_outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:

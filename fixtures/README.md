@@ -82,6 +82,12 @@ through the independently parameterized MLP hyper-connection, actual dynamic
 top-10 routes, selected routed experts, shared expert, and final four-stream
 layer residual.
 
+`decoder_layer/qwen3_8_flash_next_layer1_ple.json` continues FW-0022's initial
+and cached PLE-bearing attention residuals through layer 1's independently
+parameterized MLP hyper-connection, dynamic routes, selected experts, shared
+expert, and final residual. Its two real routes overlap where the model chooses
+the same expert; no artificial disjointness constraint is imposed.
+
 `decoder_layer/qwen3_8_flash_next_layer3.json` continues the empty-cache and
 active-QSA layer-3 attention residuals through that layer's real MLP
 hyper-connection, twenty distinct selected routed experts, shared expert, and
