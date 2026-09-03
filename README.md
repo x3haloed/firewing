@@ -234,7 +234,7 @@ target/release/firewing bench-checkpoint-catalog \
   fixtures/expert/qwen3_8_flash_next_real.json \
   IMPLEMENTATION_COMMIT
 
-# Exact resident top-10 routed MoE Metal probe (component timing, not TPS)
+# Exact resident top-10 routed MoE fused-Metal probe (component timing, not TPS)
 target/release/firewing bench-metal-top10-moe \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \

@@ -476,6 +476,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   and eviction from prior route history are now the decisive cache questions.
   See
   [`experiments/FW-0051-capacity-cache-physical-overlap.md`](experiments/FW-0051-capacity-cache-physical-overlap.md).
+- FW-0052 moves exact BF16-staged SwiGLU between gate/up and down projections
+  into the same Metal command buffer using a CPU-authoritative 65,536-entry
+  lookup table. Thirty interleaved real-weight pairs reduce median top-10
+  routed-MoE time from 3.513 to 3.165 ms (1.110094x); all expert and mixture
+  hashes pass. The 48-layer resident-compute projection falls to 151.906 ms,
+  leaving 98.094 ms of the 250-ms token budget for omitted work. This promotes
+  a component implementation, not endpoint TPS, and does not resolve the
+  offline cache's causality. See
+  [`experiments/FW-0052-exact-metal-swiglu-fusion.md`](experiments/FW-0052-exact-metal-swiglu-fusion.md).
 
 ## Prediction errors
 
@@ -499,8 +508,11 @@ These unresolved distinctions can still change the next decision:
   and FW-0049 establishes that physical transformed decoding plus inverse
   shuffle can overlap four rows of routed Metal above 4 TPS. FW-0050 supplies
   a capacity-respecting offline schedule at the same compulsory-miss count.
-  FW-0051 physically replays that schedule above 4 TPS. Causality, actual
-  resident cache installation, and full endpoint work remain unresolved.
+  FW-0051 physically replays that schedule above 4 TPS. FW-0052 reduces the
+  exact resident routed-compute projection to 151.906 ms/token, but that
+  component result is not yet integrated into the physical overlap path.
+  Causality, actual resident cache installation, and full endpoint work remain
+  unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
