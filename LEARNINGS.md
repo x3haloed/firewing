@@ -443,6 +443,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   result. Physical page amplification, parallel decompression, inverse shuffle,
   four-row Metal contention, and causal cache state remain mandatory. See
   [`experiments/FW-0048-bf16-byte-shuffle-zstd-oracle.md`](experiments/FW-0048-bf16-byte-shuffle-zstd-oracle.md).
+- FW-0049 shows that FW-0048's transformed representation survives real
+  page-aligned transport and inverse installation on the frozen sequential
+  trace. A largest-fitting free whole-frame cache leaves 3.124 GB of physical
+  misses. Eight workers overlap those reads, zstd decode, and inverse shuffle
+  with 192 exact routed Metal executions at 4.196951/4.276656/4.291624
+  accepted TPS p10/median/p90. All physical ledgers and 1,097 source hashes
+  match, with no swap growth or throttling. This is still not endpoint TPS:
+  the free cache is clairvoyant and the measurement never evicts newly loaded
+  frames when capacity is exceeded. A capacity-respecting sequential oracle
+  is now the cheapest required falsification. See
+  [`experiments/FW-0049-sequential-shuffle-physical-overlap.md`](experiments/FW-0049-sequential-shuffle-physical-overlap.md).
 
 ## Prediction errors
 
@@ -463,8 +474,10 @@ These unresolved distinctions can still change the next decision:
   fast enough under a future-known cache. FW-0047 then rejects that exact
   representation across two sequential transactions even under a fractional
   cache oracle. FW-0048's exact BF16 byte shuffle reopens the storage ceiling,
-  but physical transformed decoding, causal cache behavior, actual resident
-  capacity, and full endpoint work remain unresolved.
+  and FW-0049 establishes that physical transformed decoding plus inverse
+  shuffle can overlap four rows of routed Metal above 4 TPS. Capacity-respecting
+  cache behavior, causality, actual resident capacity, and full endpoint work
+  remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
