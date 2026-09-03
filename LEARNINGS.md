@@ -80,6 +80,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   BF16 combination. Shared weights add 9,835,520 logical bytes, making the
   tested full MoE block 108,139,520 bytes. Norm, hyper-connection, residual,
   real activation, and physical-I/O behavior remain unresolved.
+- FW-0013 rejects direct raw-BF16 all-miss expert streaming as the Firewing-4
+  path. The fixed 48-layer trace verified 960 real extents and moved
+  4,734,296,064 physical bytes per cold trial. Eight readers achieved a
+  3,289.722 ms complete median and a 372.548 ms median slowest-worker `pread`
+  critical path, still 1.490x the 250 ms source budget before model compute or
+  other traffic. A full cacheable prefault left only 59.539% of selected page
+  instances resident, so the following trials are post-prefault rather than a
+  valid warm-OS-cache state. See
+  [`experiments/FW-0013-all-layer-source-expert-acquisition.md`](experiments/FW-0013-all-layer-source-expert-acquisition.md).
 
 ## Prediction errors
 
@@ -88,15 +97,16 @@ These unresolved distinctions can still change the next decision:
 - Whether hosted Qwen3.8-Flash is distributionally and semantically equivalent
   enough to the open Qwen3.8-Flash-Next checkpoint to serve as its behavioral
   reference.
-- Active executable bytes, production-trace n-gram storage amplification, MTP
-  acceptance, expert union, and cold internal-SSD demand. FW-0008 measured the
+- Active executable bytes after reuse/recoding, production-trace n-gram storage
+  amplification, MTP acceptance, expert union, and achievable expert hit rate
+  remain unresolved. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
-  open. The complete census
-  establishes a 4,718,592,000-byte routed-expert source demand per ordinary
-  token before caching or speculative union, plus about 8.624 GB of ordinary
-  fixed matrices if none remain resident. These are byte-ledger bounds, not
-  endpoint measurements.
+  open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert
+  path for Firewing 4, but does not measure production route reuse, recoding,
+  or speculative union. The census also establishes about 8.624 GB of ordinary
+  fixed matrices if none remain resident. These are scoped component results,
+  not endpoint measurements.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

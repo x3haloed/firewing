@@ -1,7 +1,7 @@
 # FW-0013 - All-layer source expert acquisition
 
-- Status: planned
-- Disposition: unexecuted
+- Status: completed
+- Disposition: rejected for raw all-miss Firewing 4; retained diagnostic
 - Date: 2026-09-03
 - Parent experiments: FW-0001, FW-0008, FW-0009, FW-0012
 - Exactness: L0 source payload acquisition; no arithmetic change
@@ -36,9 +36,13 @@ MTP amortization, or Firewing 4 as a whole.
   process-I/O counter, `F_NOCACHE`, `F_RDAHEAD=0`, range invalidation, and
   interleaved worker-count patterns pinned in `docs/SOURCES.md`
 
-The implementation commit, fixture hash, toolchain versions, OS build, and raw
-receipt hash will be filled after execution. No final result may be recorded
-from a dirty implementation without stating that deviation.
+- Implementation commit:
+  `b0e5f72836c08dd565d9fe5ea8242ab3690527f4`
+- Toolchain: Rust/Cargo 1.96.0; macOS 26.6.2 (`25G83`)
+- Raw external receipt:
+  `/Users/chad/Models/firewing/evidence/FW-0013/expert-acquisition.json`
+- Raw receipt SHA-256:
+  `b8e5a175c0402bced494ebb1cc4a61f903f2ff8a1a094fa8a17d043311f942b5`
 
 ## Method and commands
 
@@ -57,9 +61,9 @@ Run worker counts 1, 2, 4, and 8 in these interleaved orders:
 `[1,2,4,8]`, `[8,4,2,1]`, and `[2,8,1,4]`. For each cold trial, map only the
 selected page-aligned ranges, apply `MS_INVALIDATE` and `MADV_DONTNEED`, verify
 their resident-page count before and after invalidation, then use descriptors
-configured with `F_NOCACHE=1` and `F_RDAHEAD=0`. Warm trials use cacheable
-descriptors after one declared full-trace prefault. Hash verification is
-recorded separately from positional-read time and included in complete
+configured with `F_NOCACHE=1` and `F_RDAHEAD=0`. Post-prefault trials use
+cacheable descriptors after one declared full-trace prefault. Hash verification
+is recorded separately from positional-read time and included in complete
 diagnostic wall time.
 
 ```shell
@@ -106,9 +110,53 @@ latency, full capability, and accepted TPS.
 
 ## Result
 
-Pending execution. Preserve invalid, unfavorable, and cache-contaminated runs.
+All 24 measured trials verified all 960 extent hashes and the exact
+4,718,592,000 logical-byte ledger. The destination upper bound was 52,559,872
+bytes. Every cold trial reported 4,734,296,064 process physical bytes (median
+for every worker count), while the aligned request ledger was 4,734,288,216
+bytes. Cold preparation observed zero selected resident-page instances after
+invalidation in every trial.
+
+| Workers | Cold complete median | Cold slowest-reader median | Logical GB/s, complete |
+| ---: | ---: | ---: | ---: |
+| 1 | 15,036.522 ms | 1,636.904 ms | 0.314 |
+| 2 | 10,175.853 ms | 1,111.395 ms | 0.464 |
+| 4 | 5,303.798 ms | 551.411 ms | 0.890 |
+| 8 | 3,289.722 ms | 372.548 ms | 1.434 |
+
+The slowest worker's timed `pread` total is the conservative transport-only
+critical-path proxy; complete wall time additionally includes mandatory
+per-extent SHA-256 verification. Even the best transport-only proxy is 1.490x
+the 250 ms Firewing-4 source budget (12.666 logical GB/s versus the required
+18.874 GB/s). Complete diagnostic wall time is 13.159x the budget.
+
+The intended warm-state prediction failed. The prefault itself physically read
+4,808,843,264 bytes and, immediately afterward, only 172,044 of 288,960
+selected page instances (59.539%) were resident. Subsequent cacheable trials
+continued to report substantial physical I/O, so they are preserved and named
+`post_prefault_cacheable_exact_pread`; they are not reported as warm-OS-cache
+measurements. This establishes that one full trace pass does not produce the
+assumed resident state on this host, without assigning an unevidenced cache
+replacement cause.
+
+Protocol deviation: the first clean implementation run at commit `c0c1544`
+was overwritten when the receipt schema was amended to expose the unexpected
+post-prefault residency and per-worker read critical path. Its receipt hash was
+`2fcb092556f1d94f990a74c5627d64c4a04186b7cca16751e44a50e510eb9259`;
+the final clean rerun above is the retained raw artifact. This preservation
+failure does not affect the final run's gates, but future reruns must use unique
+receipt names.
 
 ## Decision
 
-Pending. A rejection applies only to raw-source all-miss streaming under the
-measured schedule and hardware. It does not change the Firewing target.
+Reject direct raw-BF16 all-miss expert streaming as the Firewing-4 runtime path
+under this schedule and hardware. Eight readers improve acquisition materially,
+but do not reach the 250 ms transport budget before any expert arithmetic,
+shared/fixed traffic, n-gram traffic, or MTP union is added. The
+transport-only critical path remains below 1,000 ms, so this result does not
+conservatively reject a one-token/s raw transport path; the slower complete
+diagnostic includes integrity work that a production runtime would not perform.
+
+Firewing 4 itself remains open. The next useful branch must reduce physical
+expert demand through measured reuse/residency, lossless recoding, or MTP union
+amortization rather than optimizing this all-miss raw schedule as the default.
