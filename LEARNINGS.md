@@ -496,6 +496,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   physically replay mixed hit decodes, representation transitions, and actual
   installation first. See
   [`experiments/FW-0053-mixed-representation-cache-oracle.md`](experiments/FW-0053-mixed-representation-cache-oracle.md).
+- FW-0054 rejects direct physical promotion of FW-0053's 4.259-GB mixed cache
+  on the observed shared target host. The fail-closed runner stopped before
+  warmup or timing when cache-plus-Metal installation grew swap by 733.741 MB;
+  process physical footprint was 4.410 GB and system-free memory still read
+  34%. No TPS sample exists. Nominal capacity and free percentage are therefore
+  insufficient evidence that a multi-gigabyte application cache is safely
+  resident. Solve a smaller-capacity traffic/decode frontier, then isolate its
+  cache-only installation boundary before another overlap run. See
+  [`experiments/FW-0054-mixed-cache-physical-overlap.md`](experiments/FW-0054-mixed-cache-physical-overlap.md).
 
 ## Prediction errors
 
@@ -521,10 +530,11 @@ These unresolved distinctions can still change the next decision:
   a capacity-respecting offline schedule at the same compulsory-miss count.
   FW-0051 physically replays only misses above 4 TPS, and FW-0052 reduces exact
   resident routed compute. FW-0053 repairs the representation ledger with a
-  mixed compressed/decoded offline schedule that still bounds at 4.483 TPS,
-  but its all-hit decode traffic and representation transitions have not been
-  physically replayed. Causality, actual resident cache installation, and full
-  endpoint work remain unresolved.
+  mixed compressed/decoded offline schedule that still bounds at 4.483 TPS.
+  FW-0054 then rejects its direct 4.259-GB physical instantiation under the
+  host-safety gate before timing because swap grew during installation.
+  Smaller safe mixed-cache capacity, causality, and full endpoint work remain
+  unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
@@ -539,6 +549,15 @@ These unresolved distinctions can still change the next decision:
   unpaced exact physical refill takes 1,063 ms storage-only. Uncertain: how
   much of the discrepancy comes from removal of hash pacing versus the actual
   endpoint extent order. Evidence: the FW-0036 receipt and experiment record.
+- Expected: FW-0053's 4.259-GB mixed cache and 98.530-MB Metal runner would
+  install without swap growth on the 16-GiB target host.
+  Observed: FW-0054 stopped at their combined installation boundary after
+  733,741,056 bytes of swap growth, with a 4,409,634,304-byte process physical
+  footprint and 34% system-free memory.
+  Uncertain: whether the safe cache ceiling is intrinsic to this target's
+  protected shared state or shifts materially with target-compliant background
+  occupancy, and exactly where that ceiling lies.
+  Evidence: the FW-0054 failure receipt and experiment record.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

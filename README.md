@@ -330,6 +330,18 @@ target/release/firewing bench-capacity-cache-overlap \
   /Users/chad/Models/firewing/evidence/FW-0052/metal-swiglu-c2bac85.json \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Physical FW-0053 mixed-cache replay (favorable bound, not endpoint TPS;
+# the recorded FW-0054 attempt stops on host-safety swap growth)
+target/release/firewing bench-executable-cache-overlap \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  kernels/bf16_gemv.metal \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1-manifest-6271f3d.json \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1.fwz \
+  /Users/chad/Models/firewing/evidence/FW-0053/executable-cache-5f69eee.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
