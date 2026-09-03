@@ -355,6 +355,18 @@ runtime passing every target gate, including reproducible batch-one decode at
   SSD behavior remain next.
   See
   [`experiments/FW-0040-first-complete-mtp-transaction.md`](experiments/FW-0040-first-complete-mtp-transaction.md).
+- FW-0041 extends that same transaction authority to a source-faithful recursive
+  width-four proposal. The MTP proposes `[369,264,220,17]`, while exact target
+  posterior tokens are `[264,2526,16,15]`; the second comparison therefore
+  mismatches, emits correction `[264,2526]`, retains two proposal rows, and
+  rolls back two. Acceptance remains `A=2`, but exact target route unions grow
+  to 1,183 rows and the three live recursive draft steps add 30 distinct rows.
+  The combined 1,213 rows give `U=1213/480=2.527083` and
+  `A/U=0.791426`: 1.7403x the width-two routed-expert payload for no additional
+  accepted output. This rejects width four at this prompt location as a
+  routed-byte-leverage win; it does not estimate a production acceptance
+  distribution or endpoint TPS. See
+  [`experiments/FW-0041-recursive-width-four-mtp-rollback.md`](experiments/FW-0041-recursive-width-four-mtp-rollback.md).
 
 ## Prediction errors
 
@@ -366,8 +378,9 @@ These unresolved distinctions can still change the next decision:
 - Active executable bytes after reuse/recoding beyond FW-0035's measured
   98.399-MB one-layer top-10 working set, production-trace n-gram storage
   amplification, production-distribution MTP acceptance and expert union, and
-  achievable expert hit rate remain unresolved. FW-0040 resolves acceptance
-  and exact union only for one width-two `Firewing` transaction. FW-0008 measured the
+  achievable expert hit rate remain unresolved. FW-0040 and FW-0041 resolve
+  acceptance and exact union only for one width-two and one width-four
+  `Firewing` transaction at the same prompt location. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
   open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert

@@ -18,7 +18,10 @@ throughput measurement and cannot establish sustained TPS or a runtime default.
 
 ## Frozen authority and method
 
-- Implementation commit: `9c002e8411e0d13a6aac34d8a61d42f4e5680a6c`
+- Corrected accounting verifier commit:
+  `1dc0a7edf6d109f238df2cd99e3f90ac9b87ab6a`
+- Original transaction-semantics commit:
+  `9c002e8411e0d13a6aac34d8a61d42f4e5680a6c`
 - SGLang source commit: `78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385`
 - Checkpoint revision: `de4b8e4d43b917e7706784d8bb445c9af86a3540`
 - Greedy EAGLE acceptance source-lock SHA-256:
@@ -26,7 +29,7 @@ throughput measurement and cannot establish sustained TPS or a runtime default.
 - Four-token target fixture SHA-256:
   `e2ccf01a37cc5cb2cf44a30185850b8910b06233bc32d7ddaaeb537204daa899`
 - Transaction fixture SHA-256:
-  `9a497d60b75f0b0ade7e65dac53dbfa9b06979e76671051c45cd6e0142bb9da7`
+  `9954668a28b64944c0830760a799383082e834be22106ec1613df12d748b9757`
 - Batch size: 1
 - Concurrency: 1
 - Sampling: greedy
@@ -92,7 +95,7 @@ target/release/firewing verify-mtp-transaction \
   fixtures/mtp/qwen3_8_flash_next_causal_prefill_logits.json \
   fixtures/endpoint/qwen3_8_flash_next_firewing_four_token.json \
   fixtures/mtp/qwen3_8_flash_next_first_transaction.json \
-  /Users/chad/Models/firewing/evidence/FW-0040/first-transaction-9c002e8.json
+  /Users/chad/Models/firewing/evidence/FW-0040/first-transaction-1dc0a7e.json
 ```
 
 ## Result
@@ -112,16 +115,24 @@ zero rows, and records one correct draft plus the bonus:
 - total logically verified target-plus-draft payload: 39,973,590,016 bytes.
 
 Raw joined receipt:
-`/Users/chad/Models/firewing/evidence/FW-0040/first-transaction-9c002e8.json`
+`/Users/chad/Models/firewing/evidence/FW-0040/first-transaction-1dc0a7e.json`
 
 Receipt SHA-256:
-`6cde3394248d60c9735a8e09e1569b513610f517d2aa449e873c63c00c659772`
+`63372f9d6d318d710f1a843a3f7a717d94386ab59de8e70cce0695b71ac16bb0`
 
-The joined correctness replay took 205.976 seconds. It deliberately uses
+The joined correctness replay took 207.777 seconds. It deliberately uses
 scalar, hash-heavy verification and repeated checkpoint authentication. This is
 not decode latency or accepted TPS. The separately preserved four-token target
 receipt has SHA-256
 `199adc49313ed992d61f822a43c131935ec1e7eb9e281ddaad36664e53104e6f`.
+
+The earlier receipt
+`/Users/chad/Models/firewing/evidence/FW-0040/first-transaction-9c002e8.json`
+is preserved as superseded evidence. Its token, route, commit, and rollback
+observations remain valid, but its derived `U` and `A/U` are invalid because it
+divided by verification positions rather than the 480-row one-token target
+baseline. The corrected fixture and verifier fail closed on
+`one_token_expert_rows=480`.
 
 Two bounded implementation prediction errors were resolved before acceptance:
 the generalized PLE generator initially labeled its third step with stale
@@ -130,7 +141,7 @@ rows. The fixes preserve the original two-token fixture byte-for-byte, derive
 PLE metadata from live context, and require embedded output rows to match the
 already identity-bounded parent output count.
 
-The repository has 55 passing Rust tests and strict Clippy passes.
+The repository has 57 passing Rust tests and strict Clippy passes.
 
 ## Decision, limitations, and follow-up
 
