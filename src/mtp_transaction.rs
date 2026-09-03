@@ -458,8 +458,13 @@ pub fn verify_mtp_recursive_transaction_fixture(
     .map_err(|error| error.to_string())?;
     let config = &fixture.configuration;
     let recursive_lock_sha256 = sha256_file(recursive_lock_path)?;
+    let transaction_index = match fixture.semantic.as_str() {
+        "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction" => 1,
+        "qwen3_8_flash_next_second_recursive_greedy_mtp_transaction" => 2,
+        _ => 0,
+    };
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction"
+        || transaction_index == 0
         || fixture.model != MODEL
         || fixture.revision != REVISION
         || fixture.reference.implementation
@@ -509,10 +514,29 @@ pub fn verify_mtp_recursive_transaction_fixture(
         recursive_decoder_fixture_path,
         recursive_output_fixture_path,
     )?;
-    let expected_token_ids = [16_207, 22_856]
-        .into_iter()
+    let history_positions = draft.target_input_token_ids.len();
+    if (transaction_index == 1 && history_positions != 2)
+        || (transaction_index == 2 && history_positions != 4)
+    {
+        return Err("recursive transaction index and retained history disagree".to_owned());
+    }
+    let expected_token_ids = draft
+        .target_input_token_ids
+        .iter()
+        .copied()
         .chain(draft.proposal_token_ids.iter().copied())
         .collect::<Vec<_>>();
+    let (target_semantic, target_report_semantic) = match expected_token_ids.len() {
+        6 => (
+            "qwen3_8_flash_next_firewing_six_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_six_token_cached_text_logits_verification",
+        ),
+        8 => (
+            "qwen3_8_flash_next_firewing_eight_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_eight_token_cached_text_logits_verification",
+        ),
+        _ => return Err("unsupported recursive target transaction length".to_owned()),
+    };
     let (target, _) = verify_token_text_endpoint_fixture_with_expected_outputs(
         checkpoint_dir,
         model_lock_path,
@@ -521,15 +545,15 @@ pub fn verify_mtp_recursive_transaction_fixture(
         ngram_row_fixture_path,
         ple_fixture_path,
         target_transaction_fixture_path,
-        "qwen3_8_flash_next_firewing_six_token_cached_text_logits",
-        "qwen3_8_flash_next_firewing_six_token_cached_text_logits_verification",
+        target_semantic,
+        target_report_semantic,
         &expected_token_ids,
     )?;
     let proposal = draft.proposal_token_ids;
     let posterior = target
         .top20_token_ids_by_step
         .iter()
-        .skip(2)
+        .skip(history_positions)
         .map(|tokens| tokens.first().copied().ok_or("target posterior is empty"))
         .collect::<Result<Vec<_>, _>>()?;
     if proposal.len() != config.q || posterior.len() != config.q {
@@ -569,7 +593,7 @@ pub fn verify_mtp_recursive_transaction_fixture(
         &fs::read(target_transaction_fixture_path).map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())?;
-    let target_routes = selected_routes(&target_value, 2)?;
+    let target_routes = selected_routes(&target_value, history_positions)?;
     if target_routes.len() != TARGET_LAYERS
         || target_routes.iter().any(|steps| {
             steps.len() != config.q
@@ -594,7 +618,7 @@ pub fn verify_mtp_recursive_transaction_fixture(
     let draft_unique = draft
         .selected_experts_by_step
         .iter()
-        .skip(1)
+        .skip(history_positions - 1)
         .flatten()
         .copied()
         .collect::<BTreeSet<_>>()
@@ -638,7 +662,11 @@ pub fn verify_mtp_recursive_transaction_fixture(
         .ok_or("recursive transaction verified byte count overflow")?;
     Ok(MtpTransactionVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction_verification",
+        semantic: if transaction_index == 1 {
+            "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction_verification"
+        } else {
+            "qwen3_8_flash_next_second_recursive_greedy_mtp_transaction_verification"
+        },
         model: fixture.model,
         revision: fixture.revision,
         source_commit: fixture.reference.source_commit,

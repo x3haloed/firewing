@@ -226,14 +226,19 @@ def main() -> int:
         "endpoint_fixture_sha256": sha256_file(args.endpoint_fixture),
         "causal_seed_fixture_sha256": sha256_file(args.seed_output),
     }
+    prefill_positions = len(fused)
+    modes = tuple(
+        "mtp_prefill_initial" if ordinal == 0 else "mtp_prefill_cached"
+        for ordinal in range(prefill_positions)
+    )
     attention, post_attention = build_attention(
         checkpoint_dir,
         args.model_lock,
         args.seed_output,
         _layer=0,
         _hidden_overrides=fused,
-        _past_lengths=(0, 1),
-        _modes=("mtp_prefill_initial", "mtp_prefill_cached"),
+        _past_lengths=tuple(range(prefill_positions)),
+        _modes=modes,
         _semantic=ATTENTION_SEMANTIC,
         _reference_hashes=shared_refs,
         _require_committed_parent=False,
@@ -255,7 +260,7 @@ def main() -> int:
         _layer_type="full_attention",
         _semantic=DECODER_SEMANTIC,
         _reference_hashes=decoder_refs,
-        _modes=("mtp_prefill_initial", "mtp_prefill_cached"),
+        _modes=modes,
         _require_committed_parent=False,
         _layer_prefix=LAYER_PREFIX,
         _mtp_config=True,

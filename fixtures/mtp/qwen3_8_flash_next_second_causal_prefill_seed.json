@@ -1,0 +1,151 @@
+{
+  "configuration": {
+    "boundary_dtype": "BF16",
+    "cache_mode": "sequential_mtp_prefill",
+    "mtp_positions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "mtp_prefill_token_ids": [
+      22856,
+      369,
+      264,
+      2526
+    ],
+    "target_input_token_ids": [
+      16207,
+      22856,
+      369,
+      264
+    ],
+    "target_next_token_id": 2526
+  },
+  "embedding": {
+    "shape": [
+      248320,
+      2560
+    ],
+    "shard": "model-00130-of-00131.safetensors",
+    "shard_bytes": 2974788136,
+    "shard_sha256": "2d651616c258aaeae8ba1c4631bcbc6e72f3dca8f2a2f3add3b00c4bb45f95c2",
+    "tensor": "model.language_model.embed_tokens.weight"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+    "endpoint_fixture_sha256": "e2ccf01a37cc5cb2cf44a30185850b8910b06233bc32d7ddaaeb537204daa899",
+    "fusion_fixture_sha256": "5575367e78c0726399f8c6c4b8c495cc0d18721277dd2fe4059120ba5f44dc3e",
+    "implementation": "sglang_eagle_prefill_rotation_and_qwen4_exp_mtp_fusion",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "mtp_source_lock_sha256": "8160eed0480d8a5bacad0803569f2031626dde26a87eff2b79e62058f7699282",
+    "scheduler_source_lock_sha256": "8ae9341b655e4310644b2e7442c60305b7b8907f18800407e523b3480b6aac68",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_target_derived_mtp_prefill_fusion",
+  "steps": [
+    {
+      "captures": {
+        "embedding": "129db59b8a6936e7ab2add31a3d780d62025aa8c5c42d9cd756f51314f13b0a2",
+        "embedding_normed": "3181042c407fb3f590e795c57b3bb1d8fd3bb6cf8bffa4cc5ea7f93e947829a1",
+        "embedding_projected": "16e836e3cdafc046b1a5e2088b67c10b1ef533c248cffd127d1ebb2044ab3670",
+        "fused_hidden": "2b0689670a3c14673a37dfa00115a15bc1e163cdd5b87bdf366f5192c3403d5e",
+        "target_hidden": "e2339add57802a1801c865add3f308403651493d2d9e898eca8d9c61c77c956b",
+        "target_hidden_normed": "70d0f57ee05125e7f860a0e532f43cb3db2f607089e703a65221ebd6bdb46a7f",
+        "target_hidden_projected": "50506c7e047afb42c9dc1838accceadb050cc72823040cb9f3f134d36a8249ca"
+      },
+      "mtp_input_token_id": 22856,
+      "ordinal": 0,
+      "target_hidden_endpoint_ordinal": 0
+    },
+    {
+      "captures": {
+        "embedding": "7a03debbf49a9318963efcff921eefbfec367fab7f7aa01f91b6b4f0e464ef94",
+        "embedding_normed": "4b47f8a49a28a24855587559c035a2436eadde4424b38599ca8e46351df834b8",
+        "embedding_projected": "66def881dbf40c8441181781f1565c893b174044211df77bda6f4c6838521b5d",
+        "fused_hidden": "01aedba76c6b869fa60be058ac5011051065e241701b67ecf03ec42cb0709d4d",
+        "target_hidden": "4925fee6b857552918e1f194de9af59fda824fcea164d0a39f4d218fc99de93a",
+        "target_hidden_normed": "8fa3e10852fb3fc6aece30caf09f69c2459023729e1fa8d29577caef33c77acb",
+        "target_hidden_projected": "04a2927ec08912933d2fa00a05fd4da885b3d8cfc18a0cb143b74ddacc54725c"
+      },
+      "mtp_input_token_id": 369,
+      "ordinal": 1,
+      "target_hidden_endpoint_ordinal": 1
+    },
+    {
+      "captures": {
+        "embedding": "82faeb6fb6a1bc2f0d4373e7aeaa29b67c30cbf401c28218e6d2231f08bb7f83",
+        "embedding_normed": "a325adf51897fae3dd62fefe7abd6a774e792ac980cf34a88b337bed2f8b4127",
+        "embedding_projected": "3ac3f8698e322c29af039fc8df7dc9c0df8ea2bf32863ae4e7802e28198856ed",
+        "fused_hidden": "4fb14466bf5e1476a5a7d087aaf4e5563dab294528f17f148d7e2f8708503c5b",
+        "target_hidden": "3648e5cd86e7b38afb2f03ea34e47730ac9393eff7b94ff82c127070037881dc",
+        "target_hidden_normed": "18c9514977a5e425d139dafbb052e368b3b78d8eb21180dc848355a15ade7ab0",
+        "target_hidden_projected": "91e214aa18e8e9d813ac2699a6d47e1d6f9bc74d6987056cff9daa45bf44ae78"
+      },
+      "mtp_input_token_id": 264,
+      "ordinal": 2,
+      "target_hidden_endpoint_ordinal": 2
+    },
+    {
+      "captures": {
+        "embedding": "a9b39f13ccbee08edb55b8c813ae6c60077841395b69df810251ab35758f54e0",
+        "embedding_normed": "d1766dcd4a78b61ad15264d05d5a99b00ec2462a6a425100d6e73cf6af7c6256",
+        "embedding_projected": "356c496d8ee7659abc7575f80195ef1f8abbeec3a4fecf7cd62035e9b0a05f50",
+        "fused_hidden": "ae5a84b01c133db11c2cc34665274c671bb9547c7e04866aee0520c1c21e9839",
+        "target_hidden": "ef0147efab89547db8a7c5d604a5d421248fe8c87c8076c0f7bafb8da238793a",
+        "target_hidden_normed": "18c48418ee1ae6f607a8aad556dc10376e73e2a7c6b7af22d04bcf80cfe21276",
+        "target_hidden_projected": "385718c9f561266e31dab63056a5ea945721694a56d4c3604a21b635e595774d"
+      },
+      "mtp_input_token_id": 2526,
+      "ordinal": 3,
+      "target_hidden_endpoint_ordinal": 3
+    }
+  ],
+  "tensors": {
+    "fc_embedding": {
+      "payload_sha256": "241d6e87ded317a61b1aeb3ca4e28c53f1caba09ad5be66092e91fe5e3e14751",
+      "shape": [
+        2560,
+        2560
+      ],
+      "shard": "model-00120-of-00131.safetensors",
+      "shard_bytes": 1948519840,
+      "shard_sha256": "6a13f7374f7998ce5413fd1a94a2796f10a389ac4ba0da073e80fa91eca1b40e",
+      "tensor": "mtp.fc_embedding.weight"
+    },
+    "fc_hidden": {
+      "payload_sha256": "97c8e427ad0177e2c713ed24a397d815b523eda15ef453f1ae6463f6c70a8f96",
+      "shape": [
+        2560,
+        2560
+      ],
+      "shard": "model-00124-of-00131.safetensors",
+      "shard_bytes": 1729707128,
+      "shard_sha256": "bf22358402faf83962759e05b13480151b138d03203d30f04524f8d53e498c7c",
+      "tensor": "mtp.fc_hidden.weight"
+    },
+    "pre_fc_norm_embedding": {
+      "payload_sha256": "04c4a570850e06f2d8913da8220d54d4c7f87db6eb6d45480b938e8ba41d6a86",
+      "shape": [
+        2560
+      ],
+      "shard": "model-00114-of-00131.safetensors",
+      "shard_bytes": 1832523512,
+      "shard_sha256": "b8d004974b91dad16757c9ad6be6682756e17843c7026e441f2a075de33ab4f5",
+      "tensor": "mtp.pre_fc_norm_embedding.weight"
+    },
+    "pre_fc_norm_hidden": {
+      "payload_sha256": "b933b44559879449b1baf2af8385c5c237347307e3fd452394870cb53e6eab6d",
+      "shape": [
+        10240
+      ],
+      "shard": "model-00118-of-00131.safetensors",
+      "shard_bytes": 1716620424,
+      "shard_sha256": "ffe5cc04b3c2bdfeaba652267ecce7f9ded512646840effe6dd1908f65a299b4",
+      "tensor": "mtp.pre_fc_norm_hidden.weight"
+    }
+  }
+}

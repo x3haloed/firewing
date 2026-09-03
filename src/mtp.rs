@@ -4,7 +4,7 @@ use crate::full_attention_residual::verify_full_attention_residual_fixture_bytes
 use crate::hyper_connection::pytorch_inner_square_sum;
 use crate::text_output::verify_embedded_text_output_fixture_with_names;
 use crate::token_text_endpoint::{
-    TokenTextEndpointVerificationReport, verify_token_text_endpoint_fixture_with_outputs,
+    TokenTextEndpointVerificationReport, verify_token_text_endpoint_fixture_with_expected_outputs,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1017,6 +1017,15 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         return Err("unsupported EAGLE scheduler source authority".to_owned());
     }
     let config = &seed.configuration;
+    let target_count = config.target_input_token_ids.len();
+    let expected_positions = (0..target_count).collect::<Vec<_>>();
+    let expected_mtp_inputs = config
+        .target_input_token_ids
+        .iter()
+        .skip(1)
+        .copied()
+        .chain(std::iter::once(config.target_next_token_id))
+        .collect::<Vec<_>>();
     if seed.schema_version != 1
         || seed.semantic != "qwen3_8_flash_next_target_derived_mtp_prefill_fusion"
         || seed.model != MODEL
@@ -1032,19 +1041,29 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         || seed.reference.model_lock_sha256 != sha256_file(model_lock_path)?
         || seed.reference.tensor_index_sha256
             != sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
-        || config.target_input_token_ids != [16_207, 22_856]
-        || config.mtp_prefill_token_ids.len() != 2
-        || config.mtp_prefill_token_ids[0] != 22_856
-        || config.mtp_prefill_token_ids[1] != config.target_next_token_id
-        || config.mtp_positions != [0, 1]
+        || !matches!(target_count, 2 | 4)
+        || config.target_input_token_ids[..2] != [16_207, 22_856]
+        || config.mtp_prefill_token_ids != expected_mtp_inputs
+        || config.mtp_positions != expected_positions
         || config.cache_mode != "sequential_mtp_prefill"
         || config.boundary_dtype != "BF16"
-        || seed.steps.len() != 2
+        || seed.steps.len() != target_count
     {
         return Err("causal MTP seed identity or configuration mismatch".to_owned());
     }
 
-    let (target_report, target_hiddens) = verify_token_text_endpoint_fixture_with_outputs(
+    let (target_semantic, target_report_semantic) = match target_count {
+        2 => (
+            "qwen3_8_flash_next_firewing_two_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_two_token_cached_text_logits_verification",
+        ),
+        4 => (
+            "qwen3_8_flash_next_firewing_four_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_four_token_cached_text_logits_verification",
+        ),
+        _ => unreachable!(),
+    };
+    let (target_report, target_hiddens) = verify_token_text_endpoint_fixture_with_expected_outputs(
         checkpoint_dir,
         model_lock_path,
         tokenizer_fixture_path,
@@ -1052,10 +1071,15 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         ngram_row_fixture_path,
         ple_fixture_path,
         endpoint_fixture_path,
+        target_semantic,
+        target_report_semantic,
+        &config.target_input_token_ids,
     )?;
-    if target_hiddens.len() != 2
-        || target_report.top20_token_ids_by_step.len() != 2
-        || target_report.top20_token_ids_by_step[1].first().copied()
+    if target_hiddens.len() != target_count
+        || target_report.top20_token_ids_by_step.len() != target_count
+        || target_report.top20_token_ids_by_step[target_count - 1]
+            .first()
+            .copied()
             != Some(config.target_next_token_id)
     {
         return Err("target endpoint does not produce the causal MTP bonus token".to_owned());
@@ -1107,7 +1131,7 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         tensor_values.insert(key, value);
     }
 
-    let mut fused_hiddens = Vec::with_capacity(2);
+    let mut fused_hiddens = Vec::with_capacity(target_count);
     for (ordinal, step) in seed.steps.iter().enumerate() {
         if step.ordinal != ordinal
             || step.target_hidden_endpoint_ordinal != ordinal
@@ -1203,7 +1227,15 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         return Err("causal MTP component chain mismatch".to_owned());
     }
 
-    let hidden_overrides = [fused_hiddens[0].clone(), fused_hiddens[1].clone()];
+    let modes = (0..target_count)
+        .map(|ordinal| {
+            if ordinal == 0 {
+                "mtp_prefill_initial"
+            } else {
+                "mtp_prefill_cached"
+            }
+        })
+        .collect::<Vec<_>>();
     let (attention_report, post_attention) =
         verify_full_attention_residual_fixture_bytes_with_prefix(
             checkpoint_dir,
@@ -1212,11 +1244,11 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
             "qwen3_8_flash_next_target_derived_mtp_prefill_attention",
             "qwen3_8_flash_next_target_derived_mtp_prefill_attention_verification",
             0,
-            &[0, 1],
-            &["mtp_prefill_initial", "mtp_prefill_cached"],
+            &expected_positions,
+            &modes,
             true,
             None,
-            Some(&hidden_overrides),
+            Some(&fused_hiddens),
             "mtp.layers.0",
         )?;
     let (decoder_report, decoder_outputs) = verify_decoder_mlp_fixture_bytes_with_prefix(
@@ -1227,7 +1259,7 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         "full_attention",
         "qwen3_8_flash_next_target_derived_mtp_prefill_decoder",
         "qwen3_8_flash_next_target_derived_mtp_prefill_decoder_verification",
-        &["mtp_prefill_initial", "mtp_prefill_cached"],
+        &modes,
         attention_report.total_verified_payload_bytes,
         post_attention,
         "mtp.layers.0",
@@ -1251,7 +1283,7 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
     let total_verified_payload_bytes = target_report
         .total_verified_payload_bytes
         .checked_add(fusion_payload_bytes)
-        .and_then(|value| value.checked_add(2 * HIDDEN * 2))
+        .and_then(|value| value.checked_add(target_count * HIDDEN * 2))
         .and_then(|value| value.checked_add(decoder_report.total_verified_payload_bytes))
         .and_then(|value| value.checked_add(output_report.output_verified_payload_bytes))
         .ok_or("causal MTP payload byte count overflow")?;
@@ -1267,9 +1299,9 @@ fn verify_mtp_causal_prefill_fixture_with_outputs(
         mtp_prefill_token_ids: config.mtp_prefill_token_ids.clone(),
         proposal_token_id,
         target_endpoint: target_report,
-        fusion_steps_verified: 2,
-        exact_fusion_capture_hashes: 14,
-        exact_bf16_capture_hashes: 14
+        fusion_steps_verified: target_count,
+        exact_fusion_capture_hashes: target_count * 7,
+        exact_bf16_capture_hashes: target_count * 7
             + attention_report.exact_bf16_capture_hashes
             + decoder_report.exact_bf16_capture_hashes,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
@@ -1438,6 +1470,11 @@ pub fn verify_mtp_recursive_fixture(
     )
     .map_err(|error| error.to_string())?;
     let config = &seed.configuration;
+    let prefill_positions = config.prefill_positions;
+    let total_positions = prefill_positions
+        .checked_add(config.recursive_positions)
+        .ok_or("recursive MTP position count overflow")?;
+    let expected_positions = (0..total_positions).collect::<Vec<_>>();
     if seed.schema_version != 1
         || seed.semantic != "qwen3_8_flash_next_recursive_mtp_fusion"
         || seed.model != MODEL
@@ -1452,15 +1489,17 @@ pub fn verify_mtp_recursive_fixture(
         || seed.reference.model_lock_sha256 != sha256_file(model_lock_path)?
         || seed.reference.tensor_index_sha256
             != sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
-        || config.target_input_token_ids != [16_207, 22_856]
-        || config.target_next_token_id != 369
-        || config.mtp_input_token_ids != [22_856, 369, 264, 220]
-        || config.mtp_positions != [0, 1, 2, 3]
-        || config.prefill_positions != 2
+        || !matches!(prefill_positions, 2 | 4)
+        || config.target_input_token_ids.len() != prefill_positions
+        || config.target_input_token_ids[..2] != [16_207, 22_856]
+        || config.mtp_input_token_ids.len() != total_positions
+        || config.mtp_input_token_ids[..prefill_positions - 1] != config.target_input_token_ids[1..]
+        || config.mtp_input_token_ids[prefill_positions - 1] != config.target_next_token_id
+        || config.mtp_positions != expected_positions
         || config.recursive_positions != 2
         || config.cache_mode != "sequential_mtp_prefill_then_recursive_decode"
         || config.boundary_dtype != "BF16"
-        || seed.steps.len() != 4
+        || seed.steps.len() != total_positions
     {
         return Err("recursive MTP seed identity or configuration mismatch".to_owned());
     }
@@ -1482,6 +1521,12 @@ pub fn verify_mtp_recursive_fixture(
             causal_decoder_fixture_path,
             causal_output_fixture_path,
         )?;
+    if causal.target_input_token_ids != config.target_input_token_ids
+        || causal.target_next_token_id != config.target_next_token_id
+        || causal.mtp_prefill_token_ids != config.mtp_input_token_ids[..prefill_positions]
+    {
+        return Err("recursive MTP seed differs from causal prefill authority".to_owned());
+    }
     let lock: ModelLock =
         serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -1567,14 +1612,19 @@ pub fn verify_mtp_recursive_fixture(
         return Err("recursive MTP component chain mismatch".to_owned());
     }
 
-    let modes = [
-        "mtp_prefill_initial",
-        "mtp_prefill_cached",
-        "mtp_recursive_cached",
-        "mtp_recursive_cached",
-    ];
-    let mut fused = Vec::with_capacity(4);
-    for ordinal in 0..2 {
+    let modes = (0..total_positions)
+        .map(|ordinal| {
+            if ordinal == 0 {
+                "mtp_prefill_initial"
+            } else if ordinal < prefill_positions {
+                "mtp_prefill_cached"
+            } else {
+                "mtp_recursive_cached"
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut fused = Vec::with_capacity(total_positions);
+    for ordinal in 0..prefill_positions {
         fused.push(verify_recursive_fusion_step(
             checkpoint_dir,
             &lock,
@@ -1597,7 +1647,7 @@ pub fn verify_mtp_recursive_fixture(
     let mut final_attention_report = None;
     let mut final_decoder_report = None;
     let mut final_decoder_outputs = Vec::new();
-    for count in 2..=4 {
+    for count in prefill_positions..=total_positions {
         let mut prefix_attention_value = attention_value.clone();
         let mut prefix_decoder_value = decoder_value.clone();
         prefix_attention_value["cases"]
@@ -1641,10 +1691,10 @@ pub fn verify_mtp_recursive_fixture(
             post_attention,
             "mtp.layers.0",
         )?;
-        if count == 2 && decoder_outputs != causal_decoder_outputs {
+        if count == prefill_positions && decoder_outputs != causal_decoder_outputs {
             return Err("recursive MTP prefix differs from causal decoder authority".to_owned());
         }
-        if count < 4 {
+        if count < total_positions {
             let ordinal = count;
             let next_fused = verify_recursive_fusion_step(
                 checkpoint_dir,
@@ -1681,18 +1731,23 @@ pub fn verify_mtp_recursive_fixture(
             output_report
                 .top20_token_ids_by_step
                 .iter()
-                .skip(1)
+                .skip(prefill_positions - 1)
                 .map(|tokens| tokens[0]),
         )
         .collect::<Vec<_>>();
-    if proposal_token_ids != [369, 264, 220, 17] {
+    let expected_proposal = match prefill_positions {
+        2 => &[369, 264, 220, 17][..],
+        4 => &[2526, 11, 8581, 11][..],
+        _ => unreachable!(),
+    };
+    if proposal_token_ids != expected_proposal {
         return Err("recursive MTP proposal identity mismatch".to_owned());
     }
     let total_verified_payload_bytes = causal
         .target_endpoint
         .total_verified_payload_bytes
         .checked_add(fusion_payload_bytes)
-        .and_then(|value| value.checked_add(4 * HIDDEN * 2))
+        .and_then(|value| value.checked_add(total_positions * HIDDEN * 2))
         .and_then(|value| value.checked_add(decoder_report.total_verified_payload_bytes))
         .and_then(|value| value.checked_add(output_report.output_verified_payload_bytes))
         .ok_or("recursive MTP payload byte count overflow")?;
@@ -1706,10 +1761,10 @@ pub fn verify_mtp_recursive_fixture(
         target_next_token_id: config.target_next_token_id,
         mtp_input_token_ids: config.mtp_input_token_ids.clone(),
         proposal_token_ids,
-        fusion_steps_verified: 4,
-        recurrent_hidden_links_verified: 2,
-        exact_fusion_capture_hashes: 28,
-        exact_bf16_capture_hashes: 28
+        fusion_steps_verified: total_positions,
+        recurrent_hidden_links_verified: config.recursive_positions,
+        exact_fusion_capture_hashes: total_positions * 7,
+        exact_bf16_capture_hashes: total_positions * 7
             + attention_report.exact_bf16_capture_hashes
             + decoder_report.exact_bf16_capture_hashes,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,

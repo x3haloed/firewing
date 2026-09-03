@@ -14,6 +14,17 @@ const KV_HEADS: usize = 2;
 const HEAD_DIM: usize = 256;
 const INDEX_HEADS: usize = 4;
 const INDEX_DIM: usize = 128;
+
+fn pytorch_bf16_attention_value_dot(left: &[u16], right: &[u16]) -> f32 {
+    if left.len() == 8 && right.len() == 8 {
+        let products = std::array::from_fn::<_, 8, _>(|index| {
+            from_bf16(left[index]) * from_bf16(right[index])
+        });
+        return ((products[0] + products[1]) + (products[2] + products[3]))
+            + ((products[4] + products[5]) + (products[6] + products[7]));
+    }
+    crate::expert::pytorch_bf16_vector_dot(left, right)
+}
 const LONG_PAST: usize = 2080;
 
 unsafe extern "C" {
@@ -1002,7 +1013,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_prefix(
                     value_column[position] =
                         value_cache[(kv_head * positions + position) * HEAD_DIM + column];
                 }
-                attention_value.push(to_bf16(crate::expert::pytorch_bf16_vector_dot(
+                attention_value.push(to_bf16(pytorch_bf16_attention_value_dot(
                     probability,
                     &value_column,
                 )));
@@ -1191,6 +1202,18 @@ mod tests {
         let balanced = (1.0 + epsilon) + (epsilon + epsilon);
         assert_eq!(sequential, 1.0);
         assert_ne!(sequential, balanced);
+    }
+
+    #[test]
+    fn eight_value_attention_uses_contiguous_pairwise_reduction() {
+        let left = [16881, 15993, 15887, 16119, 16350, 16700, 16236, 15912];
+        let right = [16620, 16685, 16390, 16871, 15891, 16499, 16506, 16799];
+        let observed = pytorch_bf16_attention_value_dot(&left, &right);
+        assert_eq!(observed.to_bits(), 1_133_600_686);
+        assert_ne!(
+            observed.to_bits(),
+            crate::expert::pytorch_bf16_vector_dot(&left, &right).to_bits()
+        );
     }
 
     #[test]
