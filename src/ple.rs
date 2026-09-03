@@ -431,20 +431,21 @@ fn expected_tensors() -> Vec<(&'static str, &'static str, Vec<usize>)> {
     ]
 }
 
-pub(crate) fn verify_ple_fixture_with_outputs(
+pub(crate) fn verify_ple_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
     ngram_row_fixture_path: &Path,
-    fixture_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(PleVerificationReport, Vec<Vec<u16>>), String> {
-    let fixture: Fixture =
-        serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
-            .map_err(|error| format!("malformed PLE fixture: {error}"))?;
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed PLE fixture: {error}"))?;
     let config = &fixture.configuration;
     let case = &fixture.case;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer1_ple_cached_decode"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation != "source_derived_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
@@ -466,6 +467,7 @@ pub(crate) fn verify_ple_fixture_with_outputs(
         || case.name != "layer_1_two_token_ple"
         || case.tensors.len() != 6
         || case.steps.len() != 2
+        || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err("PLE fixture identity or configuration is unsupported".to_owned());
     }
@@ -539,7 +541,15 @@ pub(crate) fn verify_ple_fixture_with_outputs(
         {
             return Err(format!("PLE step {ordinal} metadata mismatch"));
         }
-        let hidden = make_input(&step.input_spec, ordinal)?;
+        let generated_hidden = make_input(&step.input_spec, ordinal)?;
+        let hidden = hidden_overrides
+            .map(|values| values[ordinal].clone())
+            .unwrap_or(generated_hidden);
+        if hidden.len() != HC_HIDDEN {
+            return Err(format!(
+                "PLE hidden override shape mismatch at step {ordinal}"
+            ));
+        }
         require_bf16(step, "hidden_states", &[1, 1, HC_HIDDEN], &hidden)?;
         let mut embedding = Vec::with_capacity(HIDDEN);
         for row in &step.rows {
@@ -670,6 +680,25 @@ pub(crate) fn verify_ple_fixture_with_outputs(
         },
         outputs,
     ))
+}
+
+pub(crate) fn verify_ple_fixture_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<(PleVerificationReport, Vec<Vec<u16>>), String> {
+    let bytes = fs::read(fixture_path).map_err(|error| error.to_string())?;
+    verify_ple_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        &bytes,
+        "qwen3_8_flash_next_layer1_ple_cached_decode",
+        None,
+    )
 }
 
 pub fn verify_ple_fixture(

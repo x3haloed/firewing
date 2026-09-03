@@ -459,16 +459,16 @@
     },
     "model": "Qwen/Qwen3.8-Flash-Next",
     "reference": {
+      "attention_residual_fixture_sha256": "b75aeba72b2e32897f576ab01372e1fa410d066ce15f177f1ea85830ff8a968c",
       "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
       "hidden_source": "accumulated.layer0_output",
       "implementation": "source_derived_huggingface_transformers_qwen4_exp",
       "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
       "ngram_fixture_sha256": "cdfd44ad62dc8fe60219b1f97e966faf776e49f30e7f46fb11f07d7e913a1430",
       "ngram_row_fixture_sha256": "8896518e313ff0cb9d847fe5f6170b8f56ec168196c50d18a527ef89e3e2ffce",
+      "ple_fixture_sha256": "7836ba5d02cdfb27d19d3dab4ee672a5ba38e7b375fae2157ddd747da294a924",
       "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward",
-      "source_layer1_attention_fixture_sha256": "b75aeba72b2e32897f576ab01372e1fa410d066ce15f177f1ea85830ff8a968c",
       "source_layer1_fixture_sha256": "5a6ba892475dcb73f986d7e5afaacf6705c36b60a574e97ca3255822c2a1b6f0",
-      "source_ple_fixture_sha256": "7836ba5d02cdfb27d19d3dab4ee672a5ba38e7b375fae2157ddd747da294a924",
       "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
       "transformers_version": "5.16.1"
     },

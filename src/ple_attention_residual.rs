@@ -1,7 +1,7 @@
 use crate::deltanet::{read_tensor, run_deltanet_step, zero_deltanet_state};
 use crate::expert::{bf16_hash, from_bf16, to_bf16};
 use crate::hyper_connection::run_hyper_connection;
-use crate::ple::verify_ple_fixture_with_outputs;
+use crate::ple::{PleVerificationReport, verify_ple_fixture_with_outputs};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -282,21 +282,23 @@ fn expected_tensors() -> Vec<(String, Vec<usize>, String, String)> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
+pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
     ngram_row_fixture_path: &Path,
     ple_fixture_path: &Path,
-    fixture_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    hidden_overrides: Option<&[Vec<u16>]>,
+    ple_execution: Option<(PleVerificationReport, Vec<Vec<u16>>)>,
 ) -> Result<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
-    let fixture: Fixture =
-        serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
-            .map_err(|error| format!("malformed PLE-attention fixture: {error}"))?;
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed PLE-attention fixture: {error}"))?;
     let config = &fixture.configuration;
     let case = &fixture.case;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer1_ple_attention_residual_cached_decode"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation != "huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
@@ -312,6 +314,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
         || case.name != "layer_1_two_token_ple_attention_residual"
         || case.tensors.len() != 13
         || case.steps.len() != 2
+        || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err("PLE-attention fixture identity or configuration is unsupported".to_owned());
     }
@@ -325,13 +328,16 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
     {
         return Err("PLE-attention reference identity mismatch".to_owned());
     }
-    let (ple_report, ple_outputs) = verify_ple_fixture_with_outputs(
-        checkpoint_dir,
-        model_lock_path,
-        ngram_fixture_path,
-        ngram_row_fixture_path,
-        ple_fixture_path,
-    )?;
+    let (ple_report, ple_outputs) = match ple_execution {
+        Some(execution) => execution,
+        None => verify_ple_fixture_with_outputs(
+            checkpoint_dir,
+            model_lock_path,
+            ngram_fixture_path,
+            ngram_row_fixture_path,
+            ple_fixture_path,
+        )?,
+    };
     let lock: ModelLock =
         serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -394,7 +400,15 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
         {
             return Err(format!("PLE-attention step {ordinal} metadata mismatch"));
         }
-        let hidden = make_input(&step.input_spec, ordinal)?;
+        let generated_hidden = make_input(&step.input_spec, ordinal)?;
+        let hidden = hidden_overrides
+            .map(|values| values[ordinal].clone())
+            .unwrap_or(generated_hidden);
+        if hidden.len() != HC_HIDDEN {
+            return Err(format!(
+                "PLE-attention hidden override shape mismatch at step {ordinal}"
+            ));
+        }
         require_bf16(step, "hidden_states", &[1, 1, HC_HIDDEN], &hidden)?;
         require_bf16(step, "ple_output", &[1, 1, HC_HIDDEN], ple_output)?;
         let post_ple: Vec<_> = hidden
@@ -474,6 +488,28 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
         },
         composed_outputs,
     ))
+}
+
+pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
+    let bytes = fs::read(fixture_path).map_err(|error| error.to_string())?;
+    verify_ple_attention_residual_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        &bytes,
+        "qwen3_8_flash_next_layer1_ple_attention_residual_cached_decode",
+        None,
+        None,
+    )
 }
 
 pub fn verify_ple_attention_residual_fixture(

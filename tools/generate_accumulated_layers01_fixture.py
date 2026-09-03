@@ -63,8 +63,8 @@ def build_fixture(
     reference_hashes = {
         "ngram_fixture_sha256": sha256_file(ngram_fixture_path),
         "ngram_row_fixture_sha256": sha256_file(ngram_row_fixture_path),
-        "source_ple_fixture_sha256": sha256_file(ple_fixture_path),
-        "source_layer1_attention_fixture_sha256": sha256_file(layer1_attention_fixture_path),
+        "ple_fixture_sha256": sha256_file(ple_fixture_path),
+        "attention_residual_fixture_sha256": sha256_file(layer1_attention_fixture_path),
         "source_layer1_fixture_sha256": sha256_file(layer1_fixture_path),
         "hidden_source": "accumulated.layer0_output",
     }

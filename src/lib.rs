@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 use tokenizers::Tokenizer;
 
+mod accumulated_layers01;
 mod attention_residual;
 mod decoder_layer;
 mod decoder_layer1;
@@ -19,6 +20,9 @@ mod ple;
 mod ple_attention_residual;
 mod router;
 
+pub use accumulated_layers01::{
+    AccumulatedLayers01VerificationReport, verify_accumulated_layers01_fixture,
+};
 pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,
 };

@@ -284,6 +284,21 @@ pub(crate) fn route(logits: &[u16]) -> Result<(Vec<usize>, Vec<u16>), String> {
     Ok((indices, scores))
 }
 
+pub(crate) fn equivalent_topk_order(expected: &[usize], actual: &[usize], logits: &[u16]) -> bool {
+    if expected.len() != actual.len() {
+        return false;
+    }
+    let mut expected_set = expected.to_vec();
+    let mut actual_set = actual.to_vec();
+    expected_set.sort_unstable();
+    actual_set.sort_unstable();
+    expected_set == actual_set
+        && expected
+            .iter()
+            .zip(actual)
+            .all(|(left, right)| logits[*left] == logits[*right])
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn verify_decoder_layer_fixture_with_outputs(
     checkpoint_dir: &Path,
@@ -423,7 +438,7 @@ pub(crate) fn verify_decoder_layer_fixture_with_outputs(
         let logits = linear_bf16(&dense["router"], &hyper.mixed, EXPERTS, HIDDEN);
         require_capture(step, "router_logits", &[1, 1, EXPERTS], &logits)?;
         let (selection, scores) = route(&logits)?;
-        if selection != step.selected_experts {
+        if !equivalent_topk_order(&step.selected_experts, &selection, &logits) {
             return Err(format!(
                 "decoder-layer route mismatch at step {ordinal}: expected {:?}, got {selection:?}",
                 step.selected_experts
@@ -569,7 +584,7 @@ pub(crate) fn verify_decoder_layer_fixture_with_outputs(
             .collect();
         require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &layer_output)?;
         layer_outputs.push(layer_output);
-        selected_experts_by_step.push(selection);
+        selected_experts_by_step.push(step.selected_experts.clone());
     }
 
     let selected_expert_payload_bytes = unique_experts.len() * 9_830_400;
@@ -633,5 +648,15 @@ mod tests {
             route(&logits).unwrap_err(),
             "decoder-layer router has an unsupported top-k boundary tie"
         );
+    }
+
+    #[test]
+    fn selected_tie_permutations_are_semantically_equivalent() {
+        let mut logits = vec![to_bf16(-1.0); EXPERTS];
+        logits[202] = to_bf16(0.5);
+        logits[468] = to_bf16(0.5);
+        assert!(equivalent_topk_order(&[468, 202], &[202, 468], &logits));
+        logits[468] = to_bf16(0.75);
+        assert!(!equivalent_topk_order(&[468, 202], &[202, 468], &logits));
     }
 }

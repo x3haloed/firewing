@@ -1,4 +1,4 @@
-use crate::decoder_layer::route;
+use crate::decoder_layer::{equivalent_topk_order, route};
 use crate::deltanet::read_tensor;
 use crate::expert::{
     add_bf16, bf16_hash, from_bf16, linear_bf16, read_expert_slice, sigmoid_bf16, swiglu_bf16,
@@ -380,7 +380,7 @@ pub fn verify_decoder_layer3_fixture(
         let logits = linear_bf16(&dense["router"], &hyper.mixed, EXPERTS, HIDDEN);
         require_capture(step, "router_logits", &[1, 1, EXPERTS], &logits)?;
         let (selection, scores) = route(&logits)?;
-        if selection != step.selected_experts {
+        if !equivalent_topk_order(&step.selected_experts, &selection, &logits) {
             return Err(format!("layer-3 decoder route mismatch at step {ordinal}"));
         }
         require_capture(step, "selected_scores", &[1, 1, TOP_K], &scores)?;
@@ -525,7 +525,7 @@ pub fn verify_decoder_layer3_fixture(
             .map(|(left, right)| add_bf16(*left, *right))
             .collect::<Vec<_>>();
         require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &output)?;
-        selected_experts_by_step.push(selection);
+        selected_experts_by_step.push(step.selected_experts.clone());
     }
 
     let selected_expert_bytes = unique_experts.len() * 9_830_400;

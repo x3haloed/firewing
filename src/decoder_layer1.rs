@@ -1,11 +1,13 @@
-use crate::decoder_layer::route;
+use crate::decoder_layer::{equivalent_topk_order, route};
 use crate::deltanet::read_tensor;
 use crate::expert::{
     add_bf16, bf16_hash, from_bf16, linear_bf16, read_expert_slice, sigmoid_bf16, swiglu_bf16,
     to_bf16,
 };
 use crate::hyper_connection::run_hyper_connection;
-use crate::ple_attention_residual::verify_ple_attention_residual_fixture_with_outputs;
+use crate::ple_attention_residual::{
+    PleAttentionResidualVerificationReport, verify_ple_attention_residual_fixture_with_outputs,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -245,22 +247,22 @@ fn require_locked_tensor(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_decoder_layer1_fixture(
+pub(crate) fn verify_decoder_layer1_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
     ngram_row_fixture_path: &Path,
     ple_fixture_path: &Path,
     attention_residual_fixture_path: &Path,
-    fixture_path: &Path,
-) -> Result<DecoderLayer1VerificationReport, String> {
-    let fixture: Fixture = serde_json::from_slice(
-        &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
-    )
-    .map_err(|error| format!("malformed layer-1 decoder fixture: {error}"))?;
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    attention_execution: Option<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>)>,
+) -> Result<(DecoderLayer1VerificationReport, Vec<Vec<u16>>), String> {
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed layer-1 decoder fixture: {error}"))?;
     let config = &fixture.configuration;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer1_ple_complete_decoder"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation != "source_derived_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
@@ -301,14 +303,17 @@ pub fn verify_decoder_layer1_fixture(
     if lock.model != fixture.model || lock.revision != fixture.revision {
         return Err("layer-1 decoder model lock mismatch".to_owned());
     }
-    let (attention_report, post_attention) = verify_ple_attention_residual_fixture_with_outputs(
-        checkpoint_dir,
-        model_lock_path,
-        ngram_fixture_path,
-        ngram_row_fixture_path,
-        ple_fixture_path,
-        attention_residual_fixture_path,
-    )?;
+    let (attention_report, post_attention) = match attention_execution {
+        Some(execution) => execution,
+        None => verify_ple_attention_residual_fixture_with_outputs(
+            checkpoint_dir,
+            model_lock_path,
+            ngram_fixture_path,
+            ngram_row_fixture_path,
+            ple_fixture_path,
+            attention_residual_fixture_path,
+        )?,
+    };
 
     let mut dense = BTreeMap::new();
     let mut hyper_weights = BTreeMap::new();
@@ -362,6 +367,7 @@ pub fn verify_decoder_layer1_fixture(
 
     let mut unique_experts = BTreeSet::new();
     let mut selected_experts_by_step = Vec::new();
+    let mut layer_outputs = Vec::with_capacity(fixture.steps.len());
     for (ordinal, (step, post)) in fixture.steps.iter().zip(post_attention).enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -388,7 +394,7 @@ pub fn verify_decoder_layer1_fixture(
         let logits = linear_bf16(&dense["router"], &hyper.mixed, EXPERTS, HIDDEN);
         require_capture(step, "router_logits", &[1, 1, EXPERTS], &logits)?;
         let (selection, scores) = route(&logits)?;
-        if selection != step.selected_experts {
+        if !equivalent_topk_order(&step.selected_experts, &selection, &logits) {
             return Err(format!("layer-1 decoder route mismatch at step {ordinal}"));
         }
         require_capture(step, "selected_scores", &[1, 1, TOP_K], &scores)?;
@@ -533,30 +539,59 @@ pub fn verify_decoder_layer1_fixture(
             .map(|(left, right)| add_bf16(*left, *right))
             .collect::<Vec<_>>();
         require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &output)?;
-        selected_experts_by_step.push(selection);
+        layer_outputs.push(output);
+        selected_experts_by_step.push(step.selected_experts.clone());
     }
 
     let selected_expert_bytes = unique_experts.len() * 9_830_400;
     let parent_bytes = attention_report.total_verified_payload_bytes;
-    Ok(DecoderLayer1VerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer1_ple_complete_decoder_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: LAYER,
-        steps_verified: 2,
-        exact_bf16_capture_hashes: 32,
-        exact_weighted_expert_hashes: 20,
-        dense_tensors_verified: 9,
-        unique_experts_verified: unique_experts.len(),
-        attention_residual_tensor_payload_bytes: parent_bytes,
-        dense_tensor_payload_bytes: dense_bytes,
-        selected_expert_payload_bytes: selected_expert_bytes,
-        total_verified_payload_bytes: parent_bytes + dense_bytes + selected_expert_bytes,
-        selected_experts_by_step,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        DecoderLayer1VerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_layer1_ple_complete_decoder_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layer: LAYER,
+            steps_verified: 2,
+            exact_bf16_capture_hashes: 32,
+            exact_weighted_expert_hashes: 20,
+            dense_tensors_verified: 9,
+            unique_experts_verified: unique_experts.len(),
+            attention_residual_tensor_payload_bytes: parent_bytes,
+            dense_tensor_payload_bytes: dense_bytes,
+            selected_expert_payload_bytes: selected_expert_bytes,
+            total_verified_payload_bytes: parent_bytes + dense_bytes + selected_expert_bytes,
+            selected_experts_by_step,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        layer_outputs,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_decoder_layer1_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    attention_residual_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<DecoderLayer1VerificationReport, String> {
+    let bytes = fs::read(fixture_path).map_err(|error| error.to_string())?;
+    verify_decoder_layer1_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        attention_residual_fixture_path,
+        &bytes,
+        "qwen3_8_flash_next_layer1_ple_complete_decoder",
+        None,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]
