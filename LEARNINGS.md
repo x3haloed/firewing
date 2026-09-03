@@ -69,6 +69,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   accumulation failed the down hash; PyTorch's aarch64 BF16 GEMV reduction
   topology (eight four-lane accumulators and a fixed tree) passes exactly. This
   validates one expert/input pair, not a ten-expert mixture or endpoint.
+- FW-0011 extends that path to all ten selected layer-0 experts and exactly
+  matches every weighted output plus the final mixture. Qwen executes active
+  experts in ascending expert-ID order rather than router-rank order and
+  accumulates into BF16 after each contribution. The selected logical source
+  payload is 98,304,000 bytes for one layer/token; physical I/O remains
+  unmeasured.
 
 ## Prediction errors
 

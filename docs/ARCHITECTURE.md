@@ -113,6 +113,14 @@ eight four-lane accumulators and a fixed reduction tree. This confirms the
 9,830,400-byte per-expert ledger constant and one numerical path, not the full
 ten-expert mixture, real activation routes, or storage behavior.
 
+FW-0011 closes the top-10 routed mixture for that layer/token. The router's
+ranked selection is not the execution schedule: the published expert mask
+visits active experts in ascending ID order, and `index_add_` rounds the BF16
+destination after each weighted contribution. Native execution exactly matches
+all ten weighted outputs and the final mixture while reading 98,304,000 logical
+expert bytes. This is not measured physical SSD traffic and excludes the
+shared expert, residual, and real layer activation.
+
 ## Current implementation boundary
 
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
@@ -120,8 +128,8 @@ and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
 checkpoint can execute within 16 GiB. The native tokenizer, n-gram address
 verifier, and bounded sparse row reader are the first target-specific Rust
-slices; the real-weight router and single-expert verifier are the first MoE
-primitives. The runtime reuses Prismwing's
+slices; the real-weight router, expert, and top-10 mixture verifiers are the
+first MoE primitives. The runtime reuses Prismwing's
 reference/oracle/independent-fixture discipline and its source-derived ARM
 reduction insight, while Qwen4-Exp semantics and checkpoint layouts remain
 independently derived and fail closed.

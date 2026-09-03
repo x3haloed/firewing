@@ -33,3 +33,8 @@ expert slices and six BF16 captures. It contains no weight or output payloads.
 `tools/generate_expert_fixture.py` runs the Transformers expert equation; the
 native verifier independently reads the bounded slices and reproduces
 PyTorch's source-derived aarch64 BF16 reduction order.
+
+`mixture/qwen3_8_flash_next_real.json` extends the same input to all ten routed
+experts. It freezes router-rank order, ascending source execution order, route
+weights, twenty selected payload hashes, ten weighted-output hashes, and the
+final BF16 mixture hash without embedding checkpoint-derived payloads.

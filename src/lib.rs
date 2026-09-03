@@ -8,7 +8,10 @@ mod expert;
 mod ngram;
 mod router;
 
-pub use expert::{ExpertVerificationReport, verify_expert_fixture};
+pub use expert::{
+    ExpertVerificationReport, MixtureVerificationReport, verify_expert_fixture,
+    verify_mixture_fixture,
+};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,

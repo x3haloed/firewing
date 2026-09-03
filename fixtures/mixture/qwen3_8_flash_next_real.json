@@ -1,0 +1,149 @@
+{
+  "case": {
+    "down": {
+      "shard": "model-00003-of-00131.safetensors",
+      "shard_bytes": 1832518264,
+      "shard_sha256": "b783fbb3bdf185b4576ffee9ba786dbd9a218ec3cac9d92706d99216567b37a6",
+      "tensor": "model.language_model.layers.0.mlp.experts.down_proj"
+    },
+    "expert_execution_order": [
+      191,
+      206,
+      211,
+      247,
+      295,
+      337,
+      349,
+      363,
+      376,
+      384
+    ],
+    "experts": [
+      {
+        "down_payload_sha256": "a4cf7c21fc4d66756451486df13a5fd4d8c48246dc12c3436c6b593c7b63bae3",
+        "expert": 191,
+        "gate_up_payload_sha256": "fb79d8183e6a186b1770fc02bb4eb7ced824cc7bdf427435e570f043d355b1aa",
+        "route_weight_bf16": 0.1015625,
+        "weighted_down_bf16_sha256": "2a3f9564307ed4c7233299d0b0d94992c462f6517772979a93ab48ae012ee9c1"
+      },
+      {
+        "down_payload_sha256": "bb0313e8b12882f0c9e34dd508705a9272a100cfc76385aadd4f7ebfa993f793",
+        "expert": 206,
+        "gate_up_payload_sha256": "b93ea307ec0f489e636dba176b2b5a10172cf7d6a847b3e6f048763e9885e823",
+        "route_weight_bf16": 0.09375,
+        "weighted_down_bf16_sha256": "c86fd7b34f8bbc8be32f907b1d358b6e4904748755e5364bb0760e603bb8f9dd"
+      },
+      {
+        "down_payload_sha256": "8222df8c43f89887b96e897bc6b3da201077655345ab9a5648964b18f8f6e9f5",
+        "expert": 211,
+        "gate_up_payload_sha256": "78a0677616f3e88d525d51f4166b4985d6ce1b0c6374d37700082756de13c43b",
+        "route_weight_bf16": 0.0986328125,
+        "weighted_down_bf16_sha256": "2e83e59e67abe6aecd9269d086cad6632c279e680f9bd454f53f98e0e0fd5021"
+      },
+      {
+        "down_payload_sha256": "5e025ba5f8d5db02cc96512bd554b8b0ffb457fdcf8e87635c86186c536f4c69",
+        "expert": 247,
+        "gate_up_payload_sha256": "7f8739f6c37d7cd1c97ce37b8f1fcb538669c1f08c030c223c644c77c1fc1ae1",
+        "route_weight_bf16": 0.08984375,
+        "weighted_down_bf16_sha256": "3ddeecdd8967b7c62bacf81b91d5f14e4fdb54bd2bd0a16857bd81c37f990e43"
+      },
+      {
+        "down_payload_sha256": "34bea599de957fbbb05db6622fffbe88cf7f92215e8f025d84da07af86cee856",
+        "expert": 295,
+        "gate_up_payload_sha256": "d3f99292a93f2e73828201bf1e2c0f20aae9c3efa47fe0c9025ee41bc983106a",
+        "route_weight_bf16": 0.08984375,
+        "weighted_down_bf16_sha256": "3405a3f6e754b3340bec63441ee90430a68a07e1b58bb823da2fa76f121d639e"
+      },
+      {
+        "down_payload_sha256": "580265517d1d32509b0a5cf292f38bbc44c5fc836d9b8d48a9da8938b421c8da",
+        "expert": 337,
+        "gate_up_payload_sha256": "015bc598b809fd43a1735cb56361f076762fdfb158bd69d9388de6932c02c036",
+        "route_weight_bf16": 0.09521484375,
+        "weighted_down_bf16_sha256": "54bee3bf20b6afbe2d3ddf8fb96a6f685f6771669ad019f2c5c345f74d9529b1"
+      },
+      {
+        "down_payload_sha256": "1245fdc20a961590cc81913c5d7e7a7e2bfd42180247e5a40f09379c69578004",
+        "expert": 349,
+        "gate_up_payload_sha256": "85e58184c098feae7ac2fe7191481320a95c044daa0eb554aa2d536e688781fd",
+        "route_weight_bf16": 0.111328125,
+        "weighted_down_bf16_sha256": "e60fe1b61939d536cd38acd6b7bc095435b1ca01727f198adc5a69c678c93c5d"
+      },
+      {
+        "down_payload_sha256": "2471503937e4d0fb8c00444aa976949c8a534573c7172b66036128b0ce5d3a4a",
+        "expert": 363,
+        "gate_up_payload_sha256": "6eda63d7c7f784f17096b2a4c7c13cf7f97cfdd67fdc98130154fbe26bf4443d",
+        "route_weight_bf16": 0.09619140625,
+        "weighted_down_bf16_sha256": "006587b1c636438bf9bb650e222c17ae2bf76fe42e58e9dc6a6c901b893472a7"
+      },
+      {
+        "down_payload_sha256": "68662cb48d8d4fab7f017959173581c8d43b331826478eb260e59429d88d48f3",
+        "expert": 376,
+        "gate_up_payload_sha256": "f9d79ddd2ff2129bfd0a19fd87ba2932af0d9c8fae18bde498dabe7a31e3a109",
+        "route_weight_bf16": 0.11962890625,
+        "weighted_down_bf16_sha256": "ffd37f62b3dba99a97b44adbaceca430bd50ed2967e28dca3d05972c2ca37004"
+      },
+      {
+        "down_payload_sha256": "d37c2e2dab127e1e1dbed47b677af4570231cc6d522b1953210119651d661c6d",
+        "expert": 384,
+        "gate_up_payload_sha256": "ce8e0cd4735f72e5a87c32bafefff07ef2cb8f5e3e217d6f970b2204845af929",
+        "route_weight_bf16": 0.10400390625,
+        "weighted_down_bf16_sha256": "562602bc8a8b22b26a0c6c3394c8ce1d5432b4f3cfccfadd23311d91e099458a"
+      }
+    ],
+    "gate_up": {
+      "shard": "model-00002-of-00131.safetensors",
+      "shard_bytes": 3355443368,
+      "shard_sha256": "1da92de7cf72dcca86faf05007925389ceb24427609e8d3b478d53d97fd97a63",
+      "tensor": "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    },
+    "input_bf16_sha256": "fd49d326938089ac718c04ad9ac207759b98dabef7db86a8c2646cec11ad37a1",
+    "input_spec": {
+      "add": 11,
+      "center": 128,
+      "divisor": 128,
+      "modulus": 257,
+      "multiplier": 37,
+      "sparse_stride": 1
+    },
+    "layer": 0,
+    "mixture_bf16_sha256": "2796b0267238a75c07aad4b240d12365e14e3911f9e4acb5522248a1aa248514",
+    "name": "layer_0_affine_mod_top10",
+    "top_k_selection_order": [
+      376,
+      349,
+      384,
+      191,
+      211,
+      363,
+      337,
+      206,
+      247,
+      295
+    ]
+  },
+  "configuration": {
+    "activation": "silu",
+    "boundary_dtype": "BF16",
+    "hidden_size": 2560,
+    "input_dtype": "BF16",
+    "intermediate_size": 640,
+    "mixture_accumulator_dtype": "BF16",
+    "num_experts": 512,
+    "top_k": 10,
+    "weight_dtype": "BF16"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "expert_fixture_sha256": "10315f99986464e85e186cc32d55488d9c68f7db0979f5cef1411c6b7e8a4752",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "router_fixture_sha256": "bbf73e4361d81b60e8ab49898422ba5fd0d2a90f312433ac43a013e48c89d39b",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextExperts.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_top10_expert_mixture"
+}

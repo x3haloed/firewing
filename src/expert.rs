@@ -114,6 +114,92 @@ pub struct ExpertVerificationReport {
     pub performance_claim: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct MixtureFixture {
+    schema_version: u32,
+    semantic: String,
+    model: String,
+    revision: String,
+    reference: MixtureReference,
+    configuration: MixtureConfiguration,
+    case: MixtureCase,
+}
+
+#[derive(Deserialize)]
+struct MixtureReference {
+    implementation: String,
+    transformers_version: String,
+    source: String,
+    config_sha256: String,
+    tensor_index_sha256: String,
+    model_lock_sha256: String,
+    router_fixture_sha256: String,
+    expert_fixture_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct MixtureConfiguration {
+    hidden_size: usize,
+    intermediate_size: usize,
+    num_experts: usize,
+    top_k: usize,
+    activation: String,
+    input_dtype: String,
+    weight_dtype: String,
+    boundary_dtype: String,
+    mixture_accumulator_dtype: String,
+}
+
+#[derive(Deserialize)]
+struct MixtureCase {
+    name: String,
+    layer: usize,
+    input_spec: InputSpec,
+    input_bf16_sha256: String,
+    top_k_selection_order: Vec<usize>,
+    expert_execution_order: Vec<usize>,
+    gate_up: TensorBank,
+    down: TensorBank,
+    experts: Vec<MixtureExpert>,
+    mixture_bf16_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct TensorBank {
+    tensor: String,
+    shard: String,
+    shard_bytes: u64,
+    shard_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct MixtureExpert {
+    expert: usize,
+    route_weight_bf16: f32,
+    gate_up_payload_sha256: String,
+    down_payload_sha256: String,
+    weighted_down_bf16_sha256: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MixtureVerificationReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub layer: usize,
+    pub top_k_selection_order: Vec<usize>,
+    pub expert_execution_order: Vec<usize>,
+    pub unique_experts: usize,
+    pub exact_weighted_expert_hashes: usize,
+    pub exact_mixture_hashes: usize,
+    pub gate_up_payload_bytes: usize,
+    pub down_payload_bytes: usize,
+    pub total_expert_payload_bytes: usize,
+    pub accepted_tokens: usize,
+    pub performance_claim: Option<String>,
+}
+
 fn is_hash(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -335,6 +421,32 @@ fn require_locked_tensor(
     Ok(())
 }
 
+fn require_locked_bank(
+    checkpoint_dir: &Path,
+    lock: &ModelLock,
+    tensor: &TensorBank,
+) -> Result<(), String> {
+    let records: Vec<_> = lock
+        .files
+        .iter()
+        .filter(|file| file.path == tensor.shard)
+        .collect();
+    if records.len() != 1
+        || records[0].size != tensor.shard_bytes
+        || records[0].lfs_sha256.as_deref() != Some(tensor.shard_sha256.as_str())
+        || fs::metadata(checkpoint_dir.join(&tensor.shard))
+            .map_err(|error| error.to_string())?
+            .len()
+            != tensor.shard_bytes
+    {
+        return Err(format!(
+            "mixture shard {} does not match model lock",
+            tensor.shard
+        ));
+    }
+    Ok(())
+}
+
 pub fn verify_expert_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -500,6 +612,190 @@ pub fn verify_expert_fixture(
     })
 }
 
+pub fn verify_mixture_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    router_fixture_path: &Path,
+    expert_fixture_path: &Path,
+    mixture_fixture_path: &Path,
+) -> Result<MixtureVerificationReport, String> {
+    let fixture: MixtureFixture =
+        serde_json::from_slice(&fs::read(mixture_fixture_path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed mixture fixture: {error}"))?;
+    let config = &fixture.configuration;
+    let case = &fixture.case;
+    const SELECTION: [usize; 10] = [376, 349, 384, 191, 211, 363, 337, 206, 247, 295];
+    const EXECUTION: [usize; 10] = [191, 206, 211, 247, 295, 337, 349, 363, 376, 384];
+    const SCORE_BITS_BY_SELECTION: [u16; 10] = [
+        0x3df5, 0x3de4, 0x3dd5, 0x3dd0, 0x3dca, 0x3dc5, 0x3dc3, 0x3dc0, 0x3db8, 0x3db8,
+    ];
+    if fixture.schema_version != 1
+        || fixture.semantic != "qwen3_8_flash_next_real_top10_expert_mixture"
+        || fixture.model != MODEL
+        || fixture.reference.implementation != "huggingface_transformers_qwen4_exp"
+        || fixture.reference.transformers_version != "5.16.1"
+        || fixture.reference.source
+            != "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextExperts.forward"
+        || config.hidden_size != 2560
+        || config.intermediate_size != 640
+        || config.num_experts != 512
+        || config.top_k != 10
+        || config.activation != "silu"
+        || [
+            &config.input_dtype,
+            &config.weight_dtype,
+            &config.boundary_dtype,
+            &config.mixture_accumulator_dtype,
+        ] != ["BF16", "BF16", "BF16", "BF16"]
+        || case.name != "layer_0_affine_mod_top10"
+        || case.layer != 0
+        || case.top_k_selection_order != SELECTION
+        || case.expert_execution_order != EXECUTION
+        || case.experts.len() != config.top_k
+        || case.gate_up.tensor != "model.language_model.layers.0.mlp.experts.gate_up_proj"
+        || case.down.tensor != "model.language_model.layers.0.mlp.experts.down_proj"
+    {
+        return Err("mixture fixture identity or configuration is unsupported".to_owned());
+    }
+    let identity_hashes = [
+        &fixture.reference.config_sha256,
+        &fixture.reference.tensor_index_sha256,
+        &fixture.reference.model_lock_sha256,
+        &fixture.reference.router_fixture_sha256,
+        &fixture.reference.expert_fixture_sha256,
+        &case.input_bf16_sha256,
+        &case.gate_up.shard_sha256,
+        &case.down.shard_sha256,
+        &case.mixture_bf16_sha256,
+    ];
+    if !identity_hashes.iter().all(|value| is_hash(value))
+        || case.experts.iter().any(|entry| {
+            !is_hash(&entry.gate_up_payload_sha256)
+                || !is_hash(&entry.down_payload_sha256)
+                || !is_hash(&entry.weighted_down_bf16_sha256)
+        })
+        || sha256_file(model_lock_path)? != fixture.reference.model_lock_sha256
+        || sha256_file(router_fixture_path)? != fixture.reference.router_fixture_sha256
+        || sha256_file(expert_fixture_path)? != fixture.reference.expert_fixture_sha256
+        || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
+        || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
+            != fixture.reference.tensor_index_sha256
+    {
+        return Err("mixture reference identity mismatch".to_owned());
+    }
+    for (&expert, &score_bits) in SELECTION.iter().zip(&SCORE_BITS_BY_SELECTION) {
+        let entries: Vec<_> = case
+            .experts
+            .iter()
+            .filter(|entry| entry.expert == expert)
+            .collect();
+        if entries.len() != 1
+            || to_bf16(entries[0].route_weight_bf16) != score_bits
+            || entries[0].route_weight_bf16 != from_bf16(score_bits)
+        {
+            return Err("mixture expert weights do not match the router authority".to_owned());
+        }
+    }
+    if case
+        .experts
+        .iter()
+        .map(|entry| entry.expert)
+        .collect::<Vec<_>>()
+        != EXECUTION
+    {
+        return Err("mixture entries are not in source expert order".to_owned());
+    }
+
+    let lock: ModelLock =
+        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    if lock.model != fixture.model || lock.revision != fixture.revision {
+        return Err("mixture model lock mismatch".to_owned());
+    }
+    require_locked_bank(checkpoint_dir, &lock, &case.gate_up)?;
+    require_locked_bank(checkpoint_dir, &lock, &case.down)?;
+    let hidden = make_hidden(config.hidden_size, &case.input_spec)?;
+    if bf16_hash(&hidden) != case.input_bf16_sha256 {
+        return Err("mixture input hash mismatch".to_owned());
+    }
+
+    let mut mixture = vec![to_bf16(0.0); config.hidden_size];
+    for entry in &case.experts {
+        let gate_up_weight = read_expert_slice(
+            &checkpoint_dir.join(&case.gate_up.shard),
+            &case.gate_up.tensor,
+            entry.expert,
+            config.num_experts,
+            config.intermediate_size * 2,
+            config.hidden_size,
+        )?;
+        let down_weight = read_expert_slice(
+            &checkpoint_dir.join(&case.down.shard),
+            &case.down.tensor,
+            entry.expert,
+            config.num_experts,
+            config.hidden_size,
+            config.intermediate_size,
+        )?;
+        if bf16_hash(&gate_up_weight) != entry.gate_up_payload_sha256
+            || bf16_hash(&down_weight) != entry.down_payload_sha256
+        {
+            return Err(format!("mixture expert {} payload mismatch", entry.expert));
+        }
+        let gate_up = linear_bf16(
+            &gate_up_weight,
+            &hidden,
+            config.intermediate_size * 2,
+            config.hidden_size,
+        );
+        let (gate, up) = gate_up.split_at(config.intermediate_size);
+        let swiglu = swiglu_bf16(gate, up);
+        let down = linear_bf16(
+            &down_weight,
+            &swiglu,
+            config.hidden_size,
+            config.intermediate_size,
+        );
+        let weighted: Vec<_> = down
+            .iter()
+            .map(|value| to_bf16(from_bf16(*value) * entry.route_weight_bf16))
+            .collect();
+        if bf16_hash(&weighted) != entry.weighted_down_bf16_sha256 {
+            return Err(format!(
+                "mixture expert {} weighted output mismatch",
+                entry.expert
+            ));
+        }
+        for (output, contribution) in mixture.iter_mut().zip(weighted) {
+            *output = to_bf16(from_bf16(*output) + from_bf16(contribution));
+        }
+    }
+    if bf16_hash(&mixture) != case.mixture_bf16_sha256 {
+        return Err("mixture output hash mismatch".to_owned());
+    }
+
+    let gate_up_payload_bytes =
+        config.top_k * config.intermediate_size * 2 * config.hidden_size * 2;
+    let down_payload_bytes = config.top_k * config.hidden_size * config.intermediate_size * 2;
+    Ok(MixtureVerificationReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_real_top10_expert_mixture_verification",
+        model: fixture.model,
+        revision: fixture.revision,
+        layer: case.layer,
+        top_k_selection_order: case.top_k_selection_order.clone(),
+        expert_execution_order: case.expert_execution_order.clone(),
+        unique_experts: case.experts.len(),
+        exact_weighted_expert_hashes: case.experts.len(),
+        exact_mixture_hashes: 1,
+        gate_up_payload_bytes,
+        down_payload_bytes,
+        total_expert_payload_bytes: gate_up_payload_bytes + down_payload_bytes,
+        accepted_tokens: 0,
+        performance_claim: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -551,5 +847,19 @@ mod tests {
         .expect("fixture parses");
         let hidden = make_hidden(2560, &fixture.case.input_spec).expect("input builds");
         assert_eq!(bf16_hash(&hidden), fixture.case.input_bf16_sha256);
+    }
+
+    #[test]
+    fn bf16_mixture_order_is_observable() {
+        let mut first = to_bf16(0.0);
+        for value in [256.0, -256.0, 1.0] {
+            first = to_bf16(from_bf16(first) + value);
+        }
+        let mut second = to_bf16(0.0);
+        for value in [256.0, 1.0, -256.0] {
+            second = to_bf16(from_bf16(second) + value);
+        }
+        assert_eq!(from_bf16(first), 1.0);
+        assert_eq!(from_bf16(second), 0.0);
     }
 }
