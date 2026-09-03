@@ -322,6 +322,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   is a correctness boundary with `A=0`, `U=0`; the complete MTP layer, shared
   head, recursive proposals, acceptance, and union remain next. See
   [`experiments/FW-0037-qwen4-mtp-input-fusion.md`](experiments/FW-0037-qwen4-mtp-input-fusion.md).
+- FW-0038 completes a layer-local native MTP proposal path from two independent
+  four-stream fusion cases through sequential full-attention/QSA state, the
+  complete real MTP MoE decoder, its dedicated final mixer, and the shared
+  248,320-row target LM head. The native verifier authenticates 20 distinct
+  selected experts, 108 BF16 decoder-path captures, two full-logit hashes, and
+  1,649,143,296 bounded logical payload bytes; the two positions produce
+  disjoint routes and different top-1 proposals. This remains `A=0`, `U=0`
+  because the inputs are layer-local rather than target-derived and no exact
+  verifier commits a proposal. A causal target/MTP window is now the next
+  correctness and economics gate. See
+  [`experiments/FW-0038-qwen4-mtp-proposal-path.md`](experiments/FW-0038-qwen4-mtp-proposal-path.md).
 
 ## Prediction errors
 
@@ -332,7 +343,7 @@ These unresolved distinctions can still change the next decision:
   reference.
 - Active executable bytes after reuse/recoding beyond FW-0035's measured
   98.399-MB one-layer top-10 working set, production-trace n-gram storage
-  amplification, MTP-layer execution, acceptance, expert union, and achievable
+  amplification, target-derived MTP acceptance, expert union, and achievable
   expert hit rate remain unresolved. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
