@@ -74,6 +74,35 @@ class Block4Int8RealLayerTests(unittest.TestCase):
         self.assertEqual(result["mixture"]["relative_l2"], 0.0)
         self.assertEqual(result["artifact_to_source_ratio"], 0.625)
 
+    def test_affine_topology_accounts_zero_point_bytes(self) -> None:
+        hidden = torch.ones(16, dtype=torch.bfloat16)
+        gate_up = torch.ones((2, 32, 16), dtype=torch.bfloat16)
+        down = torch.ones((2, 16, 16), dtype=torch.bfloat16)
+        bank = TensorBank({"gate": gate_up, "down": down})
+        references = [
+            expert_forward(
+                hidden,
+                gate_up[expert],
+                down[expert],
+                torch.tensor(0.5, dtype=torch.bfloat16),
+            )["weighted_down"]
+            for expert in (0, 1)
+        ]
+        result = quantized_mixture(
+            hidden,
+            [0, 1],
+            [0.5, 0.5],
+            bank,
+            bank,
+            "gate",
+            "down",
+            accumulate_bf16_in_expert_order(references),
+            (8, 2),
+            "affine_uint8",
+        )
+        self.assertEqual(result["mixture"]["relative_l2"], 0.0)
+        self.assertEqual(result["artifact_to_source_ratio"], 0.65625)
+
     def test_duplicate_route_fails_closed(self) -> None:
         hidden = torch.ones(4, dtype=torch.bfloat16)
         reference = torch.ones(4, dtype=torch.bfloat16)

@@ -13,6 +13,7 @@ import torch
 if __package__:
     from tools import analyze_q2_lossless_experts as common
     from tools.analyze_block_fp8_weight_fidelity import (
+        block_affine_uint8_weight,
         block_int8_weight,
         error_metrics,
         write_json,
@@ -23,7 +24,12 @@ if __package__:
     from tools.generate_ngram_address_fixture import sha256_file
 else:
     import analyze_q2_lossless_experts as common
-    from analyze_block_fp8_weight_fidelity import block_int8_weight, error_metrics, write_json
+    from analyze_block_fp8_weight_fidelity import (
+        block_affine_uint8_weight,
+        block_int8_weight,
+        error_metrics,
+        write_json,
+    )
     from generate_accumulated_layers4_47_fixture import build_fixture
     from generate_expert_fixture import expert_forward
     from generate_mixture_fixture import accumulate_bf16_in_expert_order
@@ -47,6 +53,7 @@ def quantized_mixture(
     down_name: str,
     reference_mixture: torch.Tensor,
     block_shape: tuple[int, int] = DEFAULT_BLOCK_SHAPE,
+    weight_format: str = "symmetric_int8",
 ) -> dict[str, Any]:
     if (
         hidden.dtype != torch.bfloat16
@@ -58,6 +65,8 @@ def quantized_mixture(
         raise common.AnalysisError("INT8 real-layer mixture authority mismatch")
     if len(block_shape) != 2 or block_shape[0] * block_shape[1] != 16:
         raise common.AnalysisError("INT8 real-layer scale topology must cover 16 weights")
+    if weight_format not in ("symmetric_int8", "affine_uint8"):
+        raise common.AnalysisError("unknown INT8 real-layer weight format")
     score_by_expert = dict(zip(selection, scores, strict=True))
     contributions = []
     expert_rows = []
@@ -68,12 +77,13 @@ def quantized_mixture(
         down = down_file.get_slice(down_name)[expert].contiguous()
         route_weight = torch.tensor(score_by_expert[expert], dtype=torch.bfloat16)
         reference = expert_forward(hidden, gate_up, down, route_weight)["weighted_down"]
-        quantized_gate_up, gate_scales, gate_bytes = block_int8_weight(
-            gate_up, block_shape
+        quantize = (
+            block_int8_weight
+            if weight_format == "symmetric_int8"
+            else block_affine_uint8_weight
         )
-        quantized_down, down_scales, down_bytes = block_int8_weight(
-            down, block_shape
-        )
+        quantized_gate_up, gate_scales, gate_bytes = quantize(gate_up, block_shape)
+        quantized_down, down_scales, down_bytes = quantize(down, block_shape)
         candidate = expert_forward(
             hidden, quantized_gate_up, quantized_down, route_weight
         )["weighted_down"]
@@ -107,6 +117,7 @@ def analyze(
     implementation_commit: str,
     block_rows: int = DEFAULT_BLOCK_SHAPE[0],
     block_columns: int = DEFAULT_BLOCK_SHAPE[1],
+    weight_format: str = "symmetric_int8",
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -131,6 +142,7 @@ def analyze(
             values["down_name"],
             values["reference_mixture"],
             block_shape,
+            weight_format,
         )
         observations.append(
             {"layer": layer, "ordinal": values["ordinal"], **result}
@@ -173,13 +185,14 @@ def analyze(
         if block_shape == DEFAULT_BLOCK_SHAPE
         else f"block{block_rows}x{block_columns}"
     )
+    format_tag = "int8" if weight_format == "symmetric_int8" else "affine_uint8"
     return {
         "schema_version": 1,
         "semantic": (
-            f"qwen3_8_flash_next_modified_{topology_tag}_int8_"
+            f"qwen3_8_flash_next_modified_{topology_tag}_{format_tag}_"
             "source_accumulated_real_layer_screen"
         ),
-        "mode": f"modified_{topology_tag}_int8_weight_only",
+        "mode": f"modified_{topology_tag}_{format_tag}_weight_only",
         "implementation_commit": implementation_commit,
         "model": common.MODEL,
         "revision": common.REVISION,
@@ -187,6 +200,7 @@ def analyze(
         "accumulated_fixture_sha256": ACCUMULATED_FIXTURE_SHA256,
         "selected_layers": list(SELECTED_LAYERS),
         "block_shape": [block_rows, block_columns],
+        "weight_format": weight_format,
         "observations": observations,
         "maximum_mixture_relative_l2": maximum_mixture,
         "maximum_expert_weighted_down_relative_l2": maximum_expert,
@@ -195,7 +209,10 @@ def analyze(
             "each_expert_weighted_down_relative_l2_maximum": 0.02,
         },
         "passes_continuation_gates": passes,
-        "decision": f"{'continue' if passes else 'reject'}_modified_{topology_tag}_int8_weight_only",
+        "decision": (
+            f"{'continue' if passes else 'reject'}_modified_"
+            f"{topology_tag}_{format_tag}_weight_only"
+        ),
         "limitations": [
             "six source-accumulated real layer-local inputs only",
             "source routes are held fixed",
@@ -215,6 +232,11 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("--block-rows", type=int, default=DEFAULT_BLOCK_SHAPE[0])
     parser.add_argument("--block-columns", type=int, default=DEFAULT_BLOCK_SHAPE[1])
+    parser.add_argument(
+        "--weight-format",
+        choices=("symmetric_int8", "affine_uint8"),
+        default="symmetric_int8",
+    )
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -222,6 +244,7 @@ def main() -> int:
         args.implementation_commit,
         args.block_rows,
         args.block_columns,
+        args.weight_format,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))
