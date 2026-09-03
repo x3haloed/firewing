@@ -312,6 +312,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   raw cache; pursue MTP union amortization or exact lossless byte reduction.
   See
   [`experiments/FW-0036-exact-storage-compute-overlap-bound.md`](experiments/FW-0036-exact-storage-compute-overlap-bound.md).
+- FW-0037 resolves the first Qwen4-Exp MTP semantic boundary from SGLang model
+  support PR #36497 at pinned commit `78c5024e`. Unlike Qwen3-Next's ordinary
+  concatenation path, Qwen4-Exp consumes all four 2,560-wide pre-final-mixer
+  target streams, applies one 10,240-wide zero-centered RMSNorm, projects each
+  stream with a shared `fc_hidden`, and adds a separately normalized/projected
+  next-token embedding to every stream. The independent real-weight verifier
+  matches seven exact BF16 hashes across 26,240,000 logical tensor bytes. This
+  is a correctness boundary with `A=0`, `U=0`; the complete MTP layer, shared
+  head, recursive proposals, acceptance, and union remain next. See
+  [`experiments/FW-0037-qwen4-mtp-input-fusion.md`](experiments/FW-0037-qwen4-mtp-input-fusion.md).
 
 ## Prediction errors
 
@@ -322,8 +332,8 @@ These unresolved distinctions can still change the next decision:
   reference.
 - Active executable bytes after reuse/recoding beyond FW-0035's measured
   98.399-MB one-layer top-10 working set, production-trace n-gram storage
-  amplification, MTP acceptance, expert union, and achievable expert hit rate
-  remain unresolved. FW-0008 measured the
+  amplification, MTP-layer execution, acceptance, expert union, and achievable
+  expert hit rate remain unresolved. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
   open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert

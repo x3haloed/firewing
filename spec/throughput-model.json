@@ -261,9 +261,27 @@
       "A": 0,
       "U": 0,
       "performance_claim": null
+    },
+    "qwen4_exp_mtp_input_fusion": {
+      "status": "fw_0037_source_pinned_real_weight_boundary_verified",
+      "implementation_commit": "3244bac498d13100bbe3b608ed55f002bc54ee32",
+      "source_commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+      "source_lock_sha256": "8160eed0480d8a5bacad0803569f2031626dde26a87eff2b79e62058f7699282",
+      "raw_report_sha256": "4de435309c92acd7ce6e6665042409a5551ddf0c599b61789012ad861eed26d1",
+      "target_hidden_streams": 4,
+      "target_hidden_width": 10240,
+      "embedding_width": 2560,
+      "real_tensor_payload_bytes": 26240000,
+      "exact_capture_hashes": 7,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "A": 0,
+      "U": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0036_12gib_raw_bf16_residency_rejected_mtp_or_lossless_bytes_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured the first exact endpoint profile; FW-0031 through FW-0033 isolated and removed repeated payload authentication for a repeatable 1.661711x full-path gain while retaining 17.175 GB median physical traffic. FW-0034 grants perfect future-aware residency and zero non-storage cost on the two-position route trace: 10 GiB is rejected at 3.995 storage-only TPS, while 12 GiB initially survived analytically at 6.049 aggregate and 3.400 worst-token storage-only TPS. FW-0035 measures exact amortized top-10 Metal work at 3.639 ms/layer and a 174.690-ms 48-layer projection. FW-0036 supersedes FW-0034's transport projection with the real unpaced miss trace: even with perfect overlap and extensive favorable grants, the paired two-position rate is only 1.596 diagnostic TPS. The 12-GiB raw-BF16 residency branch is rejected; MTP union amortization or exact lossless byte reduction is next. No accepted TPS is claimed."
+  "status": "fw_0037_mtp_input_fusion_verified_complete_mtp_layer_and_acceptance_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured the first exact endpoint profile; FW-0031 through FW-0033 isolated and removed repeated payload authentication for a repeatable 1.661711x full-path gain while retaining 17.175 GB median physical traffic. FW-0034 grants perfect future-aware residency and zero non-storage cost on the two-position route trace: 10 GiB is rejected at 3.995 storage-only TPS, while 12 GiB initially survived analytically at 6.049 aggregate and 3.400 worst-token storage-only TPS. FW-0035 measures exact amortized top-10 Metal work at 3.639 ms/layer and a 174.690-ms 48-layer projection. FW-0036 supersedes FW-0034's transport projection with the real unpaced miss trace: even with perfect overlap and extensive favorable grants, the paired two-position rate is only 1.596 diagnostic TPS. The 12-GiB raw-BF16 residency branch is rejected. FW-0037 pins the Qwen4-Exp MTP source and exactly verifies its real-weight four-stream input fusion across seven BF16 captures; complete MTP-layer execution, acceptance A, and expert union U remain unresolved. No accepted TPS is claimed."
 }
