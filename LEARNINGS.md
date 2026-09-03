@@ -379,6 +379,18 @@ runtime passing every target gate, including reproducible batch-one decode at
   attention matmul uses a contiguous pairwise reduction for eight values, not
   the expert GEMV reducer's cross-lane tree. See
   [`experiments/FW-0042-sequential-mtp-transaction.md`](experiments/FW-0042-sequential-mtp-transaction.md).
+- FW-0043 supplies the matching second width-two authority. Proposal
+  `[2526,11]` fully matches target posterior prefix 11 and emits target bonus
+  45815, giving `A=2`, `U=741/480=1.543750`, `A/U=1.295547`, and zero rollback.
+  It emits the same `[11,45815]` as width four while using 30.49% fewer routed
+  expert rows. Across the two exact transactions, width two emits the same four
+  tokens with 1,438 rows versus width four's 2,279: aggregate `A/U` is 1.335188
+  versus 0.842475. Prefer width two for the next runtime tranche, while keeping
+  the choice provisional until sequential full-path and broader acceptance
+  evidence exists. A one-ULP Python/Rust JSON parse discrepancy in the
+  redundant derived `A/U` field is now bounded explicitly; exact integer
+  accepted-token, expert-row, and byte authorities remain mandatory. See
+  [`experiments/FW-0043-sequential-width-two-comparison.md`](experiments/FW-0043-sequential-width-two-comparison.md).
 
 ## Prediction errors
 
@@ -390,9 +402,9 @@ These unresolved distinctions can still change the next decision:
 - Active executable bytes after reuse/recoding beyond FW-0035's measured
   98.399-MB one-layer top-10 working set, production-trace n-gram storage
   amplification, production-distribution MTP acceptance and expert union, and
-  achievable expert hit rate remain unresolved. FW-0040 and FW-0041 resolve
-  acceptance and exact union only for one width-two and one width-four
-  `Firewing` transaction at the same prompt location. FW-0008 measured the
+  achievable expert hit rate remain unresolved. FW-0040 through FW-0043 resolve
+  acceptance and exact union only for two width-two and two width-four
+  `Firewing` transactions on one prompt prefix. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
   uncached ms/token after verified range invalidation; generalization remains
   open. FW-0013 now rejects the 4,718,592,000-byte raw all-miss routed-expert

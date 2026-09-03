@@ -324,9 +324,45 @@
       "A": 0,
       "U": 0,
       "performance_claim": null
+    },
+    "qwen4_exp_two_transaction_width_comparison": {
+      "status": "fw_0043_width_two_preferred_on_exact_two_transaction_prefix",
+      "implementation_commit": "fb5265f3081c4b2400ae16b9ef7c811a6f2c4bb6",
+      "source_commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+      "acceptance_source_lock_sha256": "fb542f23be3114aaace7da5bcd2202229c411687f19e469ec12c4d41e5c75976",
+      "width_two_receipt_sha256": [
+        "63372f9d6d318d710f1a843a3f7a717d94386ab59de8e70cce0695b71ac16bb0",
+        "64de0d45e4e7ce87dc4bc473445034555ea48fa54b1b42d338c55764306435b3"
+      ],
+      "width_four_receipt_sha256": [
+        "f27efff525a63a8dea676e0ce54ad02e7d2c313fd68f05e62d6e9034604a2f03",
+        "21064b940cb92e35a2674007d14c23ebbd1565c095eb1e6c1dac718846382dae"
+      ],
+      "transaction_count": 2,
+      "one_token_expert_rows": 480,
+      "width_two": {
+        "q": 2,
+        "accepted_tokens": 4,
+        "combined_expert_rows": 1438,
+        "sum_equivalent_U": 2.995833333333333,
+        "accepted_over_union": 1.3351877607788596,
+        "rolled_back_proposal_rows": 0
+      },
+      "width_four": {
+        "q": 4,
+        "accepted_tokens": 4,
+        "combined_expert_rows": 2279,
+        "sum_equivalent_U": 4.747916666666667,
+        "accepted_over_union": 0.8424747696358051,
+        "rolled_back_proposal_rows": 4
+      },
+      "width_four_over_width_two_expert_rows": 1.5848400556328233,
+      "decision": "prefer_width_two_for_next_target_faithful_runtime_tranche",
+      "scope": "two exact greedy transactions at one prompt prefix; not an acceptance distribution, full-path timing, or endpoint TPS",
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0039_target_derived_live_mtp_proposal_verified_exact_acceptance_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 and FW-0038 pin and verify the complete Qwen4-Exp MTP layer-local proposal path. FW-0039 replaces its synthetic roots with exact target pre-final-mixer hiddens, pins the EAGLE prefill rotation from `[16207,22856]` to `[22856,369]`, and independently reproduces live proposal token 264. Exact target continuation, accepted A, combined union U, and accepted TPS remain unresolved."
+  "status": "fw_0043_width_two_preferred_for_next_target_faithful_runtime_tranche",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 through FW-0039 establish the exact Qwen4-Exp MTP proposal path. FW-0040 through FW-0043 independently verify two sequential width-two and width-four transactions. Both widths emit the same four target-authorized tokens; width two uses 1,438 combined expert rows versus width four's 2,279 and is preferred for the next target-faithful runtime tranche. This is routed-byte evidence on one prefix, not an acceptance distribution, physical SSD result, complete endpoint timing, or accepted TPS."
 }
