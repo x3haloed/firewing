@@ -308,7 +308,7 @@ pub(crate) fn verify_attention_residual_fixture_bytes_with_outputs(
         || config.recurrent_state_dtype != "F32"
         || case.name != expected_case_name
         || case.tensors.len() != 13
-        || case.steps.len() != 2
+        || case.steps.is_empty()
         || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err(
@@ -389,10 +389,11 @@ pub(crate) fn verify_attention_residual_fixture_bytes_with_outputs(
                 "attention-residual step {ordinal} metadata mismatch"
             ));
         }
-        let generated_input = make_input(&step.input_spec, ordinal)?;
-        let hyper_input = hidden_overrides
-            .map(|values| values[ordinal].clone())
-            .unwrap_or(generated_input);
+        let hyper_input = if let Some(values) = hidden_overrides {
+            values[ordinal].clone()
+        } else {
+            make_input(&step.input_spec, ordinal)?
+        };
         if hyper_input.len() != HC_HIDDEN {
             return Err(format!(
                 "attention-residual hidden override shape mismatch at step {ordinal}"
@@ -454,10 +455,10 @@ pub(crate) fn verify_attention_residual_fixture_bytes_with_outputs(
             model: fixture.model,
             revision: fixture.revision,
             layer,
-            steps_verified: 2,
+            steps_verified: case.steps.len(),
             tensors_verified: 13,
-            exact_bf16_capture_hashes: 14,
-            exact_f32_capture_hashes: 2,
+            exact_bf16_capture_hashes: case.steps.len() * 7,
+            exact_f32_capture_hashes: case.steps.len(),
             tensor_payload_bytes,
             accepted_tokens: 0,
             performance_claim: None,

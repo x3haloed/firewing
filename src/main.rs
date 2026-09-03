@@ -10,8 +10,8 @@ use firewing::{
     verify_mixture_fixture, verify_mtp_causal_prefill_fixture, verify_mtp_input_fusion_fixture,
     verify_mtp_proposal_fixture, verify_ngram_fixture, verify_ngram_rows,
     verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
-    verify_sparse_moe_fixture, verify_text_output_fixture, verify_token_text_endpoint_fixture,
-    verify_tokenizer_fixture,
+    verify_sparse_moe_fixture, verify_text_output_fixture, verify_token_text_continuation_fixture,
+    verify_token_text_endpoint_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -29,6 +29,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing verify-token-text-endpoint CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-token-text-continuation CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
     );
     eprintln!(
         "  firewing verify-mtp-input-fusion CHECKPOINT_DIR MODEL_LOCK SOURCE_LOCK FIXTURE_JSON [REPORT_JSON]"
@@ -342,6 +345,19 @@ fn main() {
         ),
         Some("verify-token-text-endpoint") if (9..=10).contains(&args.len()) => (
             verify_token_text_endpoint_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(9),
+        ),
+        Some("verify-token-text-continuation") if (9..=10).contains(&args.len()) => (
+            verify_token_text_continuation_fixture(
                 Path::new(&args[2]),
                 Path::new(&args[3]),
                 Path::new(&args[4]),

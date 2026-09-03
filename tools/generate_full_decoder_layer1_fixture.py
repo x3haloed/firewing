@@ -79,7 +79,10 @@ def build_fixture(
         _layer_type="linear_attention",
         _semantic=_semantic,
         _reference_hashes=reference_hashes,
-        _modes=("initial_chunk", "cached_recurrent"),
+        _modes=tuple(
+            "initial_chunk" if ordinal == 0 else "cached_recurrent"
+            for ordinal in range(len(post_attention))
+        ),
         _require_committed_parent=_hidden_overrides is None,
         _return_outputs=True,
     )

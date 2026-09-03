@@ -212,8 +212,8 @@ fn verify_output_core_with_names(
     head_name: &str,
 ) -> Result<EmbeddedTextOutputVerification, String> {
     if tensors.len() != 4
-        || steps.len() != 2
-        || decoder_outputs.len() != 2
+        || steps.is_empty()
+        || steps.len() != decoder_outputs.len()
         || steps.iter().any(|step| {
             step.captures.len() != 10
                 || !step.captures.values().all(|value| is_hash(value))

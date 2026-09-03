@@ -251,7 +251,7 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
     layer_type: &str,
     expected_semantic: &str,
     verification_semantic: &'static str,
-    modes: [&str; 2],
+    modes: &[&str],
     parent_bytes: usize,
     post_attention: Vec<Vec<u16>>,
 ) -> Result<(DecoderLayer3VerificationReport, Vec<Vec<u16>>), String> {
@@ -279,7 +279,7 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_prefix(
     layer_type: &str,
     expected_semantic: &str,
     verification_semantic: &'static str,
-    modes: [&str; 2],
+    modes: &[&str],
     parent_bytes: usize,
     post_attention: Vec<Vec<u16>>,
     layer_prefix: &str,
@@ -306,7 +306,9 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_prefix(
         || config.router_softmax_dtype != "F32"
         || fixture.tensors.len() != 9
         || fixture.expert_banks.len() != 2
-        || fixture.steps.len() != 2
+        || fixture.steps.is_empty()
+        || fixture.steps.len() != modes.len()
+        || fixture.steps.len() != post_attention.len()
     {
         return Err("decoder fixture identity or configuration is unsupported".to_owned());
     }
@@ -566,9 +568,9 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_prefix(
             model: fixture.model,
             revision: fixture.revision,
             layer,
-            steps_verified: 2,
-            exact_bf16_capture_hashes: 32,
-            exact_weighted_expert_hashes: 20,
+            steps_verified: fixture.steps.len(),
+            exact_bf16_capture_hashes: fixture.steps.len() * 16,
+            exact_weighted_expert_hashes: fixture.steps.len() * TOP_K,
             dense_tensors_verified: 9,
             unique_experts_verified: unique_experts.len(),
             attention_residual_tensor_payload_bytes: parent_bytes,
@@ -617,7 +619,7 @@ pub fn verify_decoder_layer3_fixture(
         "full_attention",
         "qwen3_8_flash_next_layer3_complete_decoder",
         "qwen3_8_flash_next_layer3_complete_decoder_verification",
-        ["initial", "active_qsa_pruning"],
+        &["initial", "active_qsa_pruning"],
         attention_report.total_verified_payload_bytes,
         post_attention,
     )

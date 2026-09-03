@@ -23,6 +23,7 @@ const HC_COUNT: usize = 4;
 const HC_HIDDEN: usize = HIDDEN * HC_COUNT;
 const VOCAB: usize = 248_320;
 const TOKEN_IDS: [usize; 2] = [16_207, 22_856];
+const THREE_TOKEN_IDS: [usize; 3] = [16_207, 22_856, 369];
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -287,7 +288,7 @@ fn four_stream_root(row: &[u16]) -> Result<Vec<u16>, String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
+fn verify_token_text_endpoint_fixture_with_expected_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     tokenizer_fixture_path: &Path,
@@ -295,6 +296,9 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
     ngram_row_fixture_path: &Path,
     ple_fixture_path: &Path,
     fixture_path: &Path,
+    expected_fixture_semantic: &str,
+    expected_verification_semantic: &'static str,
+    expected_token_ids: &[usize],
 ) -> Result<(TokenTextEndpointVerificationReport, Vec<Vec<u16>>), String> {
     let total_started = Instant::now();
     let setup_started = Instant::now();
@@ -306,8 +310,8 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
             eviction_order: 2,
         },
         PersistentResidencyDeclaration {
-            object: "two_current_four_stream_hidden_roots".to_owned(),
-            maximum_bytes: (2 * 4 * 2560 * 2) as u64,
+            object: "current_four_stream_hidden_roots".to_owned(),
+            maximum_bytes: (expected_token_ids.len() * 4 * 2560 * 2) as u64,
             lifetime: "replaced_at_each_layer_and_released_after_output".to_owned(),
             eviction_order: 1,
         },
@@ -337,21 +341,21 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
         })
         .collect::<Vec<_>>();
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_firewing_two_token_cached_text_logits"
+        || fixture.semantic != expected_fixture_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation
             != "source_derived_and_official_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || config.text != "Firewing"
-        || config.token_ids != TOKEN_IDS
+        || config.token_ids != expected_token_ids
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
         || config.vocab_size != VOCAB
         || config.layers != 48
         || config.boundary_dtype != "BF16"
         || config.cache_mode != "sequential_incremental"
-        || fixture.embedding.selected_rows.len() != 2
-        || fixture.embedding_root_hashes.len() != 2
+        || fixture.embedding.selected_rows.len() != expected_token_ids.len()
+        || fixture.embedding_root_hashes.len() != expected_token_ids.len()
         || fixture.layers.len() != 48
         || fixture.layers.iter().enumerate().any(|(layer, record)| {
             record.layer != layer
@@ -375,9 +379,9 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
     }
     let setup_wall_time_ns = setup_started.elapsed().as_nanos();
     let embedding_started = Instant::now();
-    let mut current_outputs = Vec::with_capacity(2);
+    let mut current_outputs = Vec::with_capacity(expected_token_ids.len());
     for (ordinal, row) in fixture.embedding.selected_rows.iter().enumerate() {
-        if row.token_id != TOKEN_IDS[ordinal] {
+        if row.token_id != expected_token_ids[ordinal] {
             return Err("token embedding row order mismatch".to_owned());
         }
         let root = four_stream_root(&read_embedding_row(
@@ -399,15 +403,41 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
     let mut linear_layers = 0_usize;
     let mut full_layers = 0_usize;
     let mut layer_timings = Vec::with_capacity(48);
+    let expected_token_ids_i64 = expected_token_ids
+        .iter()
+        .map(|token| *token as i64)
+        .collect::<Vec<_>>();
+    let token_count_word = match expected_token_ids.len() {
+        2 => "two",
+        3 => "three",
+        _ => return Err("unsupported endpoint token count".to_owned()),
+    };
+    let past_lengths = (0..expected_token_ids.len()).collect::<Vec<_>>();
     for layer in &fixture.layers {
         let layer_started = Instant::now();
         let attention_started = Instant::now();
         let attention_bytes =
             serde_json::to_vec(&layer.attention).map_err(|error| error.to_string())?;
         let modes = if layer.layer_type == "linear_attention" {
-            ["initial_chunk", "cached_recurrent"]
+            (0..expected_token_ids.len())
+                .map(|ordinal| {
+                    if ordinal == 0 {
+                        "initial_chunk"
+                    } else {
+                        "cached_recurrent"
+                    }
+                })
+                .collect::<Vec<_>>()
         } else {
-            ["initial", "cached_incremental"]
+            (0..expected_token_ids.len())
+                .map(|ordinal| {
+                    if ordinal == 0 {
+                        "initial"
+                    } else {
+                        "cached_incremental"
+                    }
+                })
+                .collect::<Vec<_>>()
         };
         let (post_attention, attention_payload_bytes) = if layer.layer == 1 {
             let ple_value = layer.ple.as_ref().ok_or("missing layer-1 PLE")?;
@@ -420,15 +450,15 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
                 .pointer("/case/steps")
                 .and_then(Value::as_array)
                 .ok_or("layer-1 attention token steps missing")?;
-            if ple_steps.len() != 2
-                || attention_steps.len() != 2
-                || (0..2).any(|ordinal| {
+            if ple_steps.len() != expected_token_ids.len()
+                || attention_steps.len() != expected_token_ids.len()
+                || (0..expected_token_ids.len()).any(|ordinal| {
                     ple_steps[ordinal].get("token_id").and_then(Value::as_u64)
-                        != Some(TOKEN_IDS[ordinal] as u64)
+                        != Some(expected_token_ids[ordinal] as u64)
                         || attention_steps[ordinal]
                             .get("token_id")
                             .and_then(Value::as_u64)
-                            != Some(TOKEN_IDS[ordinal] as u64)
+                            != Some(expected_token_ids[ordinal] as u64)
                 })
             {
                 return Err("layer-1 token identity mismatch".to_owned());
@@ -441,7 +471,7 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
                 ngram_row_fixture_path,
                 &ple_bytes,
                 "qwen3_8_flash_next_token_layer1_ple",
-                [TOKEN_IDS[0] as i64, TOKEN_IDS[1] as i64],
+                &expected_token_ids_i64,
                 Some(&current_outputs),
             )?;
             let execution = verify_ple_attention_residual_fixture_bytes_with_outputs(
@@ -452,7 +482,7 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
                 ple_fixture_path,
                 &attention_bytes,
                 "qwen3_8_flash_next_token_layer1_attention",
-                [TOKEN_IDS[0] as i64, TOKEN_IDS[1] as i64],
+                &expected_token_ids_i64,
                 Some(&current_outputs),
                 Some(ple_execution),
             )?;
@@ -466,7 +496,10 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
                 &attention_bytes,
                 layer.layer,
                 &format!("qwen3_8_flash_next_token_layer{}_attention", layer.layer),
-                &format!("layer_{}_two_token_attention_residual", layer.layer),
+                &format!(
+                    "layer_{}_{token_count_word}_token_attention_residual",
+                    layer.layer
+                ),
                 "qwen3_8_flash_next_token_endpoint_linear_attention_verification",
                 Some(&current_outputs),
             )?;
@@ -480,8 +513,8 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
                 &format!("qwen3_8_flash_next_token_layer{}_attention", layer.layer),
                 "qwen3_8_flash_next_token_endpoint_full_attention_verification",
                 layer.layer,
-                [0, 1],
-                modes,
+                &past_lengths,
+                &modes,
                 true,
                 None,
                 Some(&current_outputs),
@@ -501,7 +534,7 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
             &layer.layer_type,
             &format!("qwen3_8_flash_next_token_layer{}_decoder", layer.layer),
             "qwen3_8_flash_next_token_endpoint_decoder_verification",
-            modes,
+            &modes,
             attention_payload_bytes,
             post_attention,
         )?;
@@ -540,18 +573,18 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
     let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
     let final_safety_wall_time_ns = final_safety_started.elapsed().as_nanos();
     let complete_wall_time_ns = total_started.elapsed().as_nanos();
-    let embedding_bytes = TOKEN_IDS.len() * HIDDEN * 2;
+    let embedding_bytes = expected_token_ids.len() * HIDDEN * 2;
     let report = TokenTextEndpointVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_firewing_two_token_cached_text_logits_verification",
+        semantic: expected_verification_semantic,
         model: fixture.model,
         revision: fixture.revision,
         source_text: config.text.clone(),
         token_ids: config.token_ids.clone(),
         tokenizer_raw_cases_verified: tokenizer.raw_cases_verified,
         tokenizer_chat_cases_verified: tokenizer.chat_cases_verified,
-        embedding_rows_verified: 2,
-        embedding_root_hashes_verified: 2,
+        embedding_rows_verified: expected_token_ids.len(),
+        embedding_root_hashes_verified: expected_token_ids.len(),
         decoder_layers_verified: 48,
         linear_layers_verified: linear_layers,
         full_attention_layers_verified: full_layers,
@@ -584,6 +617,30 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<(TokenTextEndpointVerificationReport, Vec<Vec<u16>>), String> {
+    verify_token_text_endpoint_fixture_with_expected_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+        "qwen3_8_flash_next_firewing_two_token_cached_text_logits",
+        "qwen3_8_flash_next_firewing_two_token_cached_text_logits_verification",
+        &TOKEN_IDS,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn verify_token_text_endpoint_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -601,6 +658,31 @@ pub fn verify_token_text_endpoint_fixture(
         ngram_row_fixture_path,
         ple_fixture_path,
         fixture_path,
+    )
+    .map(|(report, _)| report)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_token_text_continuation_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<TokenTextEndpointVerificationReport, String> {
+    verify_token_text_endpoint_fixture_with_expected_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+        "qwen3_8_flash_next_firewing_three_token_cached_text_logits",
+        "qwen3_8_flash_next_firewing_three_token_cached_text_logits_verification",
+        &THREE_TOKEN_IDS,
     )
     .map(|(report, _)| report)
 }
@@ -696,5 +778,25 @@ mod tests {
             1
         );
         assert_eq!(fixture.layers[1].layer, 1);
+    }
+
+    #[test]
+    fn committed_continuation_has_exact_schedule_and_target_posterior() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../fixtures/endpoint/qwen3_8_flash_next_firewing_three_token.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture.configuration.token_ids, THREE_TOKEN_IDS);
+        assert_eq!(fixture.layers.len(), 48);
+        assert_eq!(
+            fixture.output["steps"][2]["top20_token_ids"][0]
+                .as_u64()
+                .unwrap(),
+            264
+        );
+        assert_eq!(
+            fixture.layers[1].ple.as_ref().unwrap()["case"]["steps"][2]["previous_context"],
+            serde_json::json!([16_207, 22_856])
+        );
     }
 }

@@ -94,6 +94,7 @@ def build_fixture(
     *,
     _layer: int = 0,
     _hidden_overrides: list[torch.Tensor] | None = None,
+    _input_specs: list[dict[str, int]] | None = None,
     _semantic: str = SEMANTIC,
     _reference_hashes: dict[str, str] | None = None,
     _return_outputs: bool = False,
@@ -112,15 +113,16 @@ def build_fixture(
         or _layer + 1 in raw_config["ple_layer_ids"]
     ):
         raise ValueError(f"unsupported layer-{_layer} attention composition")
-    if _hidden_overrides is not None and (
-        len(_hidden_overrides) != len(INPUT_SPECS)
+    input_specs = INPUT_SPECS if _input_specs is None else _input_specs
+    if not input_specs or (_hidden_overrides is not None and (
+        len(_hidden_overrides) != len(input_specs)
         or any(
             value.dtype != torch.bfloat16
             or list(value.shape) != [1, 1, HC_HIDDEN]
             or not value.is_contiguous()
             for value in _hidden_overrides
         )
-    ):
+    )):
         raise ValueError("unsupported attention hidden-state overrides")
     config = Qwen4ExpTextConfig(**raw_config)
     hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
@@ -149,7 +151,7 @@ def build_fixture(
     official_cache = DynamicCache(config=config)
     steps = []
     composed_outputs = []
-    for ordinal, spec in enumerate(INPUT_SPECS):
+    for ordinal, spec in enumerate(input_specs):
         hyper_input = (
             make_hyper_input(spec)
             if _hidden_overrides is None
@@ -193,6 +195,9 @@ def build_fixture(
             }
         )
 
+    token_count_word = {2: "two", 3: "three"}.get(len(steps))
+    if token_count_word is None:
+        raise ValueError("attention residual fixture supports only two or three token steps")
     fixture = {
         "schema_version": 1,
         "semantic": _semantic,
@@ -224,7 +229,7 @@ def build_fixture(
             "recurrent_state_dtype": "F32",
         },
         "case": {
-            "name": f"layer_{_layer}_two_token_attention_residual",
+            "name": f"layer_{_layer}_{token_count_word}_token_attention_residual",
             "tensors": tensors,
             "steps": steps,
         },

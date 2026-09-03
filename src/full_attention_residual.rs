@@ -253,8 +253,8 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
         "qwen3_8_flash_next_layer3_full_attention_residual",
         "qwen3_8_flash_next_layer3_full_attention_residual_verification",
         3,
-        [0, 2080],
-        ["initial", "active_qsa_pruning"],
+        &[0, 2080],
+        &["initial", "active_qsa_pruning"],
         false,
         Some(&full_attention_bytes),
         None,
@@ -269,8 +269,8 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
     expected_semantic: &str,
     verification_semantic: &'static str,
     layer: usize,
-    past_lengths: [usize; 2],
-    modes: [&str; 2],
+    past_lengths: &[usize],
+    modes: &[&str],
     sequential_cache: bool,
     full_attention_fixture_bytes: Option<&[u8]>,
     hidden_overrides: Option<&[Vec<u16>]>,
@@ -299,8 +299,8 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
     expected_semantic: &str,
     verification_semantic: &'static str,
     layer: usize,
-    past_lengths: [usize; 2],
-    modes: [&str; 2],
+    past_lengths: &[usize],
+    modes: &[&str],
     sequential_cache: bool,
     full_attention_fixture_bytes: Option<&[u8]>,
     hidden_overrides: Option<&[Vec<u16>]>,
@@ -323,7 +323,9 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
         || config.boundary_dtype != "BF16"
         || config.active_qsa_past_length != past_lengths[1]
         || fixture.tensors.len() != 13
-        || fixture.cases.len() != 2
+        || fixture.cases.is_empty()
+        || fixture.cases.len() != past_lengths.len()
+        || fixture.cases.len() != modes.len()
         || hidden_overrides.is_some_and(|values| {
             values.len() != fixture.cases.len()
                 || values.iter().any(|value| value.len() != HC_HIDDEN)
@@ -385,10 +387,10 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
         }
     }
 
-    let mut attention_hidden_overrides = Vec::with_capacity(2);
-    let mut attention_captures = Vec::with_capacity(2);
-    let mut hyper_inputs = Vec::with_capacity(2);
-    let mut injection_weights = Vec::with_capacity(2);
+    let mut attention_hidden_overrides = Vec::with_capacity(fixture.cases.len());
+    let mut attention_captures = Vec::with_capacity(fixture.cases.len());
+    let mut hyper_inputs = Vec::with_capacity(fixture.cases.len());
+    let mut injection_weights = Vec::with_capacity(fixture.cases.len());
     for (ordinal, case) in fixture.cases.iter().enumerate() {
         let past = past_lengths[ordinal];
         if case.ordinal != ordinal
@@ -401,10 +403,11 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
                 "full-attention residual case {ordinal} metadata mismatch"
             ));
         }
-        let generated_input = make_input(&case.input_spec, ordinal)?;
-        let input = hidden_overrides
-            .map(|values| values[ordinal].clone())
-            .unwrap_or(generated_input);
+        let input = if let Some(values) = hidden_overrides {
+            values[ordinal].clone()
+        } else {
+            make_input(&case.input_spec, ordinal)?
+        };
         require_bf16(case, "hyper_input", &[1, 1, HC_HIDDEN], &input)?;
         let hyper = run_hyper_connection(&input, &hyper_weights)?;
         require_bf16(case, "mixed_input", &[1, 1, HIDDEN], &hyper.mixed)?;
@@ -534,8 +537,8 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
         Some(&attention_hidden_overrides),
         layer_prefix,
     )?;
-    let mut composed_outputs = Vec::with_capacity(2);
-    for ordinal in 0..2 {
+    let mut composed_outputs = Vec::with_capacity(fixture.cases.len());
+    for ordinal in 0..fixture.cases.len() {
         let case = &fixture.cases[ordinal];
         let injection = injection_weights[ordinal]
             .iter()
@@ -566,8 +569,9 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
         model: fixture.model,
         revision: fixture.revision,
         layer,
-        cases_verified: 2,
-        exact_bf16_capture_hashes: attention_report.exact_bf16_capture_hashes + 10,
+        cases_verified: fixture.cases.len(),
+        exact_bf16_capture_hashes: attention_report.exact_bf16_capture_hashes
+            + fixture.cases.len() * 5,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
         exact_i64_capture_hashes: attention_report.exact_i64_capture_hashes,
         exact_bool_capture_hashes: attention_report.exact_bool_capture_hashes,

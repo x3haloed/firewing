@@ -185,7 +185,7 @@ pub(crate) fn verify_accumulated_layer2_fixture_with_outputs(
         "linear_attention",
         "qwen3_8_flash_next_layer2_complete_accumulated_from_layer1",
         "qwen3_8_flash_next_layer2_complete_accumulated_verification",
-        ["initial_chunk", "cached_recurrent"],
+        &["initial_chunk", "cached_recurrent"],
         attention_report.tensor_payload_bytes,
         post_attention.clone(),
     )?;

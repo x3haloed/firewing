@@ -394,8 +394,8 @@ pub(crate) fn verify_full_attention_with_overrides(
         "qwen3_8_flash_next_layer3_full_attention_qsa",
         "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
         3,
-        [0, LONG_PAST],
-        ["initial", "active_qsa_pruning"],
+        &[0, LONG_PAST],
+        &["initial", "active_qsa_pruning"],
         false,
         capture_overrides,
         hidden_overrides,
@@ -410,8 +410,8 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
     expected_semantic: &str,
     verification_semantic: &'static str,
     layer: usize,
-    past_lengths: [usize; 2],
-    modes: [&str; 2],
+    past_lengths: &[usize],
+    modes: &[&str],
     sequential_cache: bool,
     capture_overrides: Option<&[BTreeMap<String, Capture>]>,
     hidden_overrides: Option<&[Vec<u16>]>,
@@ -440,8 +440,8 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_prefix(
     expected_semantic: &str,
     verification_semantic: &'static str,
     layer: usize,
-    past_lengths: [usize; 2],
-    modes: [&str; 2],
+    past_lengths: &[usize],
+    modes: &[&str],
     sequential_cache: bool,
     capture_overrides: Option<&[BTreeMap<String, Capture>]>,
     hidden_overrides: Option<&[Vec<u16>]>,
@@ -472,8 +472,10 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_prefix(
         || config.indexer_compress_ratio != 4
         || config.boundary_dtype != "BF16"
         || fixture.tensors.len() != 9
-        || fixture.cases.len() != 2
-        || (sequential_cache && past_lengths != [0, 1])
+        || fixture.cases.is_empty()
+        || fixture.cases.len() != past_lengths.len()
+        || fixture.cases.len() != modes.len()
+        || (sequential_cache && past_lengths.iter().copied().ne(0..past_lengths.len()))
     {
         return Err("full-attention fixture identity or configuration is unsupported".to_owned());
     }
@@ -1052,11 +1054,11 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_prefix(
         model: fixture.model,
         revision: fixture.revision,
         layer,
-        cases_verified: 2,
-        exact_bf16_capture_hashes: 52,
-        exact_f32_capture_hashes: 2,
-        exact_i64_capture_hashes: 6,
-        exact_bool_capture_hashes: 2,
+        cases_verified: fixture.cases.len(),
+        exact_bf16_capture_hashes: fixture.cases.len() * 26,
+        exact_f32_capture_hashes: fixture.cases.len(),
+        exact_i64_capture_hashes: fixture.cases.len() * 3,
+        exact_bool_capture_hashes: fixture.cases.len(),
         dense_tensors_verified: 9,
         dense_tensor_payload_bytes: dense_bytes,
         synthetic_cache_bytes,

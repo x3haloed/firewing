@@ -290,7 +290,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
     ple_fixture_path: &Path,
     fixture_bytes: &[u8],
     expected_semantic: &str,
-    expected_token_ids: [i64; 2],
+    expected_token_ids: &[i64],
     hidden_overrides: Option<&[Vec<u16>]>,
     ple_execution: Option<(PleVerificationReport, Vec<Vec<u16>>)>,
 ) -> Result<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
@@ -312,9 +312,14 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
         || config.hc_count != HC_COUNT
         || config.boundary_dtype != "BF16"
         || config.recurrent_state_dtype != "F32"
-        || case.name != "layer_1_two_token_ple_attention_residual"
+        || case.name
+            != match expected_token_ids.len() {
+                2 => "layer_1_two_token_ple_attention_residual",
+                3 => "layer_1_three_token_ple_attention_residual",
+                _ => "unsupported",
+            }
         || case.tensors.len() != 13
-        || case.steps.len() != 2
+        || case.steps.len() != expected_token_ids.len()
         || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err("PLE-attention fixture identity or configuration is unsupported".to_owned());
@@ -401,10 +406,11 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
         {
             return Err(format!("PLE-attention step {ordinal} metadata mismatch"));
         }
-        let generated_hidden = make_input(&step.input_spec, ordinal)?;
-        let hidden = hidden_overrides
-            .map(|values| values[ordinal].clone())
-            .unwrap_or(generated_hidden);
+        let hidden = if let Some(values) = hidden_overrides {
+            values[ordinal].clone()
+        } else {
+            make_input(&step.input_spec, ordinal)?
+        };
         if hidden.len() != HC_HIDDEN {
             return Err(format!(
                 "PLE-attention hidden override shape mismatch at step {ordinal}"
@@ -474,11 +480,11 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
             model: fixture.model,
             revision: fixture.revision,
             layer: 1,
-            steps_verified: 2,
+            steps_verified: case.steps.len(),
             ple_rows_verified: ple_report.rows_verified,
             tensors_verified: ple_report.dense_tensors_verified + 13,
-            exact_bf16_capture_hashes: ple_report.exact_bf16_capture_hashes + 18,
-            exact_f32_capture_hashes: 2,
+            exact_bf16_capture_hashes: ple_report.exact_bf16_capture_hashes + case.steps.len() * 9,
+            exact_f32_capture_hashes: case.steps.len(),
             exact_i64_capture_hashes: ple_report.exact_i64_capture_hashes,
             ple_verified_payload_bytes,
             attention_tensor_payload_bytes,
@@ -508,7 +514,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
         ple_fixture_path,
         &bytes,
         "qwen3_8_flash_next_layer1_ple_attention_residual_cached_decode",
-        [42, 43],
+        &[42, 43],
         None,
         None,
     )

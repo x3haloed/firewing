@@ -84,8 +84,9 @@ def build_fixture(
     *,
     _layer: int = LAYER,
     _hidden_overrides: list[torch.Tensor] | None = None,
-    _past_lengths: tuple[int, int] = (0, LONG_PAST),
-    _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
+    _past_lengths: tuple[int, ...] = (0, LONG_PAST),
+    _modes: tuple[str, ...] = ("initial", "active_qsa_pruning"),
+    _input_specs: list[dict[str, int]] | None = None,
     _semantic: str = SEMANTIC,
     _reference_hashes: dict[str, str] | None = None,
     _require_committed_parent: bool = True,
@@ -111,8 +112,9 @@ def build_fixture(
             and parent.get("semantic") != "qwen3_8_flash_next_layer3_full_attention_qsa"
         )
         or (_require_committed_parent and _layer != LAYER)
-        or (_hidden_overrides is not None and len(_hidden_overrides) != 2)
-        or (_sequential_cache and _past_lengths != (0, 1))
+        or len(_past_lengths) != len(_modes)
+        or (_hidden_overrides is not None and len(_hidden_overrides) != len(_past_lengths))
+        or (_sequential_cache and _past_lengths != tuple(range(len(_past_lengths))))
         or (_mtp_config and _layer != 0)
     ):
         raise ValueError(f"layer-{_layer} attention-residual parent authority mismatch")
@@ -177,7 +179,10 @@ def build_fixture(
         if _sequential_cache
         else None
     )
-    for ordinal, (past_length, input_spec) in enumerate(zip(_past_lengths, INPUT_SPECS, strict=True)):
+    input_specs = _input_specs or [INPUT_SPECS[min(index, len(INPUT_SPECS) - 1)] for index in range(len(_past_lengths))]
+    if len(input_specs) != len(_past_lengths):
+        raise ValueError("full-attention input specification count mismatch")
+    for ordinal, (past_length, input_spec) in enumerate(zip(_past_lengths, input_specs, strict=True)):
         hyper_input = (
             _hidden_overrides[ordinal]
             if _hidden_overrides is not None

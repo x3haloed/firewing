@@ -53,7 +53,7 @@ def build_fixture(
     _layer_type: str = "full_attention",
     _semantic: str = SEMANTIC,
     _reference_hashes: dict[str, str] | None = None,
-    _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
+    _modes: tuple[str, ...] = ("initial", "active_qsa_pruning"),
     _require_committed_parent: bool = True,
     _layer_prefix: str | None = None,
     _mtp_config: bool = False,
@@ -84,6 +84,7 @@ def build_fixture(
         or authority.get("revision") != revision
         or authority.get("semantic") != _parent_semantic
         or (_mtp_config and _layer != 0)
+        or len(post_attention) != len(_modes)
     ):
         raise ValueError(f"layer-{_layer} decoder parent authority mismatch")
     config_path = checkpoint_dir / "config.json"

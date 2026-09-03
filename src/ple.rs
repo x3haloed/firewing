@@ -450,7 +450,7 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
     ngram_row_fixture_path: &Path,
     fixture_bytes: &[u8],
     expected_semantic: &str,
-    expected_token_ids: [i64; 2],
+    expected_token_ids: &[i64],
     hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(PleVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(fixture_bytes)
@@ -477,9 +477,14 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
         || config.conv_state_length != CONV_STATE
         || config.boundary_dtype != "BF16"
         || config.token_state_dtype != "I64"
-        || case.name != "layer_1_two_token_ple"
+        || case.name
+            != match expected_token_ids.len() {
+                2 => "layer_1_two_token_ple",
+                3 => "layer_1_three_token_ple",
+                _ => "unsupported",
+            }
         || case.tensors.len() != 6
-        || case.steps.len() != 2
+        || case.steps.len() != expected_token_ids.len()
         || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err("PLE fixture identity or configuration is unsupported".to_owned());
@@ -554,10 +559,11 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
         {
             return Err(format!("PLE step {ordinal} metadata mismatch"));
         }
-        let generated_hidden = make_input(&step.input_spec, ordinal)?;
-        let hidden = hidden_overrides
-            .map(|values| values[ordinal].clone())
-            .unwrap_or(generated_hidden);
+        let hidden = if let Some(values) = hidden_overrides {
+            values[ordinal].clone()
+        } else {
+            make_input(&step.input_spec, ordinal)?
+        };
         if hidden.len() != HC_HIDDEN {
             return Err(format!(
                 "PLE hidden override shape mismatch at step {ordinal}"
@@ -678,10 +684,10 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
             model: fixture.model,
             revision: fixture.revision,
             layer: 1,
-            steps_verified: 2,
+            steps_verified: case.steps.len(),
             rows_verified: unique_rows.len(),
-            exact_bf16_capture_hashes: 30,
-            exact_i64_capture_hashes: 2,
+            exact_bf16_capture_hashes: case.steps.len() * 15,
+            exact_i64_capture_hashes: case.steps.len(),
             dense_tensors_verified: 6,
             dense_tensor_payload_bytes,
             requested_embedding_bytes,
@@ -710,7 +716,7 @@ pub(crate) fn verify_ple_fixture_with_outputs(
         ngram_row_fixture_path,
         &bytes,
         "qwen3_8_flash_next_layer1_ple_cached_decode",
-        [42, 43],
+        &[42, 43],
         None,
     )
 }

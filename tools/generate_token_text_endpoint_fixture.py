@@ -54,6 +54,7 @@ def embedding_roots(
     checkpoint_dir: Path,
     lock: dict[str, Any],
     weight_map: dict[str, str],
+    token_ids: list[int],
 ) -> tuple[dict[str, Any], list[torch.Tensor]]:
     name = "model.language_model.embed_tokens.weight"
     shard = weight_map[name]
@@ -61,7 +62,7 @@ def embedding_roots(
         tensor = source.get_tensor(name)
         if tensor.dtype != torch.bfloat16 or list(tensor.shape) != [VOCAB, HIDDEN]:
             raise ValueError("unsupported token embedding tensor")
-        rows = [tensor[token].clone().contiguous() for token in TOKEN_IDS]
+        rows = [tensor[token].clone().contiguous() for token in token_ids]
     locked = locked_file(lock, shard)
     record = {
         "tensor": name,
@@ -71,7 +72,7 @@ def embedding_roots(
         "shard_sha256": locked["lfs_sha256"],
         "selected_rows": [
             {"token_id": token, "payload_sha256": capture_hash(row)}
-            for token, row in zip(TOKEN_IDS, rows, strict=True)
+            for token, row in zip(token_ids, rows, strict=True)
         ],
     }
     roots = [row.repeat(HC_COUNT).reshape(1, 1, HC_HIDDEN).contiguous() for row in rows]
@@ -161,6 +162,8 @@ def build_fixture(
     model_lock_path: Path,
     *,
     _return_outputs: bool = False,
+    _token_ids: list[int] | None = None,
+    _semantic: str = SEMANTIC,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -182,12 +185,24 @@ def build_fixture(
         or any(kind != ("full_attention" if layer % 4 == 3 else "linear_attention") for layer, kind in enumerate(layer_types))
     ):
         raise ValueError("unsupported token text endpoint configuration")
+    token_ids = TOKEN_IDS if _token_ids is None else _token_ids
     tokenizer = json.loads(fixture_path("tokenizer/qwen3_8_flash_next.json").read_text())
     raw_case = next(case for case in tokenizer["raw_cases"] if case["name"] == "ascii")
-    if raw_case["text"] != TEXT or raw_case["token_ids"] != TOKEN_IDS:
+    if (
+        raw_case["text"] != TEXT
+        or raw_case["token_ids"] != TOKEN_IDS
+        or token_ids[: len(TOKEN_IDS)] != TOKEN_IDS
+        or len(token_ids) not in (2, 3)
+        or (len(token_ids) == 3 and token_ids[2] != 369)
+    ):
         raise ValueError("tokenizer fixture no longer maps Firewing to the endpoint token IDs")
-    embedding, current_outputs = embedding_roots(checkpoint_dir, lock, weight_map)
+    embedding, current_outputs = embedding_roots(checkpoint_dir, lock, weight_map, token_ids)
     embedding_root_hashes = [capture_hash(value) for value in current_outputs]
+    attention_input_specs = [
+        {"multiplier": 43, "add": 17, "modulus": 263, "center": 131, "divisor": 128, "sparse_stride": 1},
+        {"multiplier": 61, "add": 29, "modulus": 277, "center": 138, "divisor": 128, "sparse_stride": 1},
+    ]
+    attention_input_specs.extend(attention_input_specs[-1].copy() for _ in range(len(token_ids) - 2))
 
     base_reference = {
         "hidden_source": "token_embedding_repeated_across_four_streams",
@@ -200,6 +215,7 @@ def build_fixture(
         fixture_path("deltanet/qwen3_8_flash_next_layer0_decode.json"),
         _layer=0,
         _hidden_overrides=current_outputs,
+        _input_specs=attention_input_specs,
         _semantic="qwen3_8_flash_next_token_layer0_attention",
         _reference_hashes=base_reference,
         _return_outputs=True,
@@ -218,7 +234,7 @@ def build_fixture(
         _layer_type="linear_attention",
         _semantic="qwen3_8_flash_next_token_layer0_decoder",
         _reference_hashes=base_reference,
-        _modes=("initial_chunk", "cached_recurrent"),
+        _modes=tuple("initial_chunk" if ordinal == 0 else "cached_recurrent" for ordinal in range(len(token_ids))),
         _require_committed_parent=False,
         _return_outputs=True,
     )
@@ -235,7 +251,7 @@ def build_fixture(
         fixture_path("ple/qwen3_8_flash_next_layer1_decode.json"),
         fixture_path("attention_residual/qwen3_8_flash_next_layer1_ple.json"),
         _hidden_overrides=current_outputs,
-        _token_ids=TOKEN_IDS,
+        _token_ids=token_ids,
         _semantic="qwen3_8_flash_next_token_layer1_decoder",
         _reference_hashes=base_reference,
         _return_chain=True,
@@ -258,11 +274,15 @@ def build_fixture(
                 fixture_path("deltanet/qwen3_8_flash_next_layer0_decode.json"),
                 _layer=layer,
                 _hidden_overrides=current_outputs,
+                _input_specs=attention_input_specs,
                 _semantic=f"qwen3_8_flash_next_token_layer{layer}_attention",
                 _reference_hashes=reference,
                 _return_outputs=True,
             )
-            modes = ("initial_chunk", "cached_recurrent")
+            modes = tuple(
+                "initial_chunk" if ordinal == 0 else "cached_recurrent"
+                for ordinal in range(len(token_ids))
+            )
         else:
             attention_result = build_full_attention(
                 checkpoint_dir,
@@ -270,15 +290,15 @@ def build_fixture(
                 fixture_path("full_attention/qwen3_8_flash_next_layer3.json"),
                 _layer=layer,
                 _hidden_overrides=current_outputs,
-                _past_lengths=(0, 1),
-                _modes=("initial", "cached_incremental"),
+                _past_lengths=tuple(range(len(token_ids))),
+                _modes=tuple("initial" if ordinal == 0 else "cached_incremental" for ordinal in range(len(token_ids))),
                 _semantic=f"qwen3_8_flash_next_token_layer{layer}_attention",
                 _reference_hashes=reference,
                 _require_committed_parent=False,
                 _sequential_cache=True,
                 _return_outputs=True,
             )
-            modes = ("initial", "cached_incremental")
+            modes = tuple("initial" if ordinal == 0 else "cached_incremental" for ordinal in range(len(token_ids)))
         if not isinstance(attention_result, tuple):
             raise AssertionError(f"token layer-{layer} attention outputs were not returned")
         attention, post_attention = attention_result
@@ -306,7 +326,7 @@ def build_fixture(
     output = build_output(checkpoint_dir, lock, raw_config, weight_map, current_outputs)
     fixture = {
         "schema_version": 1,
-        "semantic": SEMANTIC,
+        "semantic": _semantic,
         "model": MODEL,
         "revision": revision,
         "reference": {
@@ -319,7 +339,7 @@ def build_fixture(
         },
         "configuration": {
             "text": TEXT,
-            "token_ids": TOKEN_IDS,
+            "token_ids": token_ids,
             "hidden_size": HIDDEN,
             "hc_count": HC_COUNT,
             "vocab_size": VOCAB,
@@ -342,10 +362,22 @@ def main() -> int:
     parser.add_argument("checkpoint_dir", type=Path)
     parser.add_argument("--model-lock", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--continuation-token", type=int)
     args = parser.parse_args()
-    fixture = build_fixture(args.checkpoint_dir, args.model_lock)
+    token_ids = TOKEN_IDS + [args.continuation_token] if args.continuation_token is not None else None
+    semantic = (
+        "qwen3_8_flash_next_firewing_three_token_cached_text_logits"
+        if args.continuation_token is not None
+        else SEMANTIC
+    )
+    fixture = build_fixture(
+        args.checkpoint_dir,
+        args.model_lock,
+        _token_ids=token_ids,
+        _semantic=semantic,
+    )
     write_json(args.output, fixture)
-    print(json.dumps({"output": os.fspath(args.output), "layers": len(fixture["layers"]), "tokens": TOKEN_IDS}))
+    print(json.dumps({"output": os.fspath(args.output), "layers": len(fixture["layers"]), "tokens": fixture["configuration"]["token_ids"]}))
     return 0
 
 

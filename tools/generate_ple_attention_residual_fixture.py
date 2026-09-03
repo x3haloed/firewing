@@ -204,7 +204,7 @@ def build_fixture(
             "recurrent_state_dtype": "F32",
         },
         "case": {
-            "name": "layer_1_two_token_ple_attention_residual",
+            "name": f"layer_1_{'two' if len(steps) == 2 else 'three'}_token_ple_attention_residual",
             "tensors": tensors,
             "steps": steps,
         },

@@ -88,7 +88,8 @@ pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixtu
 pub use text_output::{TextOutputVerificationReport, verify_text_output_fixture};
 pub use token_text_endpoint::{
     CatalogTokenTextEndpointReport, EndpointLayerTiming, TokenTextEndpointVerificationReport,
-    benchmark_catalog_token_text_endpoint, verify_token_text_endpoint_fixture,
+    benchmark_catalog_token_text_endpoint, verify_token_text_continuation_fixture,
+    verify_token_text_endpoint_fixture,
 };
 
 #[derive(Debug, Deserialize)]

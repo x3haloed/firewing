@@ -257,7 +257,7 @@ pub(crate) fn verify_accumulated_layers01_fixture_with_outputs(
         ngram_row_fixture_path,
         &ple_bytes,
         "qwen3_8_flash_next_layer1_ple_accumulated_from_layer0",
-        [42, 43],
+        &[42, 43],
         Some(&layer0_outputs),
     )?;
     let ple_outputs = ple_execution.1.clone();
@@ -271,7 +271,7 @@ pub(crate) fn verify_accumulated_layers01_fixture_with_outputs(
         ple_fixture_path,
         &attention_bytes,
         "qwen3_8_flash_next_layer1_ple_attention_residual_accumulated_from_layer0",
-        [42, 43],
+        &[42, 43],
         Some(&layer0_outputs),
         Some(ple_execution),
     )?;

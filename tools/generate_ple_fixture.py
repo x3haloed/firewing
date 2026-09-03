@@ -199,7 +199,7 @@ def build_fixture(
     steps = []
     outputs = []
     tokens = TOKENS if _token_ids is None else _token_ids
-    if len(tokens) != 2 or any(token < 0 or token >= raw_config["vocab_size"] for token in tokens):
+    if not tokens or any(token < 0 or token >= raw_config["vocab_size"] for token in tokens):
         raise ValueError("unsupported PLE token IDs")
     if _hidden_overrides is not None and (
         len(_hidden_overrides) != len(tokens)
@@ -212,10 +212,12 @@ def build_fixture(
     ):
         raise ValueError("unsupported PLE hidden-state overrides")
     try:
-        for ordinal, (token, input_spec) in enumerate(zip(tokens, INPUT_SPECS, strict=True)):
+        input_specs = [INPUT_SPECS[min(index, len(INPUT_SPECS) - 1)] for index in range(len(tokens))]
+        for ordinal, (token, input_spec) in enumerate(zip(tokens, input_specs, strict=True)):
+            step_previous_context = previous_context.copy()
             rows = reference_addresses(
                 [token],
-                previous_context,
+                step_previous_context,
                 ngram["eos_token_id"],
                 multipliers,
                 sizes,
@@ -290,7 +292,7 @@ def build_fixture(
                     "ordinal": ordinal,
                     "mode": "initial_chunk" if ordinal == 0 else "cached_recurrent",
                     "token_id": token,
-                    "previous_context": ([ngram["eos_token_id"]] * CONTEXT if ordinal == 0 else [ngram["eos_token_id"], tokens[0]]),
+                    "previous_context": step_previous_context,
                     "input_spec": input_spec,
                     "rows": row_records,
                     "captures": {name: capture(value) for name, value in captures.items()},
@@ -331,7 +333,7 @@ def build_fixture(
             "token_state_dtype": "I64",
         },
         "case": {
-            "name": "layer_1_two_token_ple",
+            "name": f"layer_1_{'two' if len(tokens) == 2 else 'three'}_token_ple",
             "tensors": tensor_records,
             "steps": steps,
         },
