@@ -9,6 +9,7 @@ mod decoder_layer;
 mod deltanet;
 mod expert;
 mod expert_acquisition;
+pub mod full_attention;
 mod hyper_connection;
 mod ngram;
 mod ple;

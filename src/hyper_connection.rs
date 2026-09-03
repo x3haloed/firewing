@@ -201,7 +201,7 @@ fn read_tensor(path: &Path, tensor: &str, expected_shape: &[usize]) -> Result<Ve
 // from Prismwing's independently fixture-tested implementation pinned in
 // docs/SOURCES.md.
 #[allow(clippy::needless_range_loop)]
-fn pytorch_inner_square_sum(values: &[f32]) -> f32 {
+pub(crate) fn pytorch_inner_square_sum(values: &[f32]) -> f32 {
     const LANES: usize = 4;
     const INTERLEAVE: usize = 4;
     const LEVELS: usize = 4;
