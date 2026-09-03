@@ -20,6 +20,9 @@ use std::time::Instant;
 const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
 const REVISION: &str = "de4b8e4d43b917e7706784d8bb445c9af86a3540";
 const ENDPOINT_SHA256: &str = "2eb3712c7959837a24fe6db5b5d7b1f87c9926b4dd80eae524590e43287331ca";
+const Q2_ENDPOINT_SHA256: &str = "e2ccf01a37cc5cb2cf44a30185850b8910b06233bc32d7ddaaeb537204daa899";
+const Q2_TRANSACTION_SHA256: &str =
+    "9954668a28b64944c0830760a799383082e834be22106ec1613df12d748b9757";
 const MODEL_LOCK_SHA256: &str = "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444";
 const LAYERS: usize = 48;
 const TOP_K: usize = 10;
@@ -207,6 +210,77 @@ pub struct ExactOverlapBoundReport {
     pub performance_claim: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct Q2ExactOverlapBoundReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub implementation_commit: String,
+    pub model: &'static str,
+    pub revision: &'static str,
+    pub endpoint_fixture_sha256: &'static str,
+    pub transaction_fixture_sha256: &'static str,
+    pub model_lock_sha256: &'static str,
+    pub device_name: String,
+    pub target_step_ordinals: [usize; 2],
+    pub cache_capacity_experts: usize,
+    pub free_future_aware_initial_experts: usize,
+    pub misses_by_target_row: [usize; 2],
+    pub miss_bytes_by_target_row: [usize; 2],
+    pub unique_miss_extents_verified: usize,
+    pub unique_miss_bytes_verified: usize,
+    pub authority_verification_wall_time_ns: u128,
+    pub metal_warmups: usize,
+    pub metal_executions_per_overlap_trial: usize,
+    pub storage_workers: usize,
+    pub maximum_phase_scoped_staging_bytes: usize,
+    pub cache_state: &'static str,
+    pub trials: Vec<OverlapTrial>,
+    pub summaries: Vec<OverlapSummary>,
+    pub paired_accepted_bound_tps: Vec<String>,
+    pub paired_accepted_bound_tps_p10: String,
+    pub paired_accepted_bound_tps_median: String,
+    pub paired_accepted_bound_tps_p90: String,
+    pub batch_size: usize,
+    pub concurrency: usize,
+    pub sampling: &'static str,
+    pub q: usize,
+    #[serde(rename = "A")]
+    pub accepted_per_verification: usize,
+    #[serde(rename = "U")]
+    pub expert_union: f64,
+    #[serde(rename = "A_over_U")]
+    pub accepted_over_union: f64,
+    pub target_union_expert_rows: usize,
+    pub draft_unique_expert_rows: usize,
+    pub favorable_grants: Vec<&'static str>,
+    pub host_safety_policy: HostSafetyPolicy,
+    pub host_safety_snapshots: Vec<HostSafetySnapshot>,
+    pub performance_claim: Option<String>,
+}
+
+struct AuthoritySpec<'a> {
+    endpoint_sha256: &'a str,
+    endpoint_semantic: &'a str,
+    step_start: usize,
+    total_steps: usize,
+    expected_misses: [usize; 2],
+}
+
+struct OverlapMeasurement {
+    misses: [usize; 2],
+    miss_bytes: [usize; 2],
+    unique_miss_extents_verified: usize,
+    unique_miss_bytes_verified: usize,
+    authority_verification_wall_time_ns: u128,
+    device_name: String,
+    trials: Vec<OverlapTrial>,
+    summaries: Vec<OverlapSummary>,
+    paired_tps: Vec<f64>,
+    ordered_tps: Vec<f64>,
+    host_safety_policy: HostSafetyPolicy,
+    host_safety_snapshots: Vec<HostSafetySnapshot>,
+}
+
 fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file =
         File::open(path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
@@ -230,8 +304,9 @@ fn load_authority(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     endpoint_path: &Path,
+    spec: &AuthoritySpec<'_>,
 ) -> Result<(Endpoint, BTreeMap<String, LockedFile>), String> {
-    if sha256_file(endpoint_path)? != ENDPOINT_SHA256
+    if sha256_file(endpoint_path)? != spec.endpoint_sha256
         || sha256_file(model_lock_path)? != MODEL_LOCK_SHA256
     {
         return Err("overlap-bound authority hash mismatch".to_owned());
@@ -240,7 +315,7 @@ fn load_authority(
         serde_json::from_slice(&fs::read(endpoint_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed endpoint fixture: {error}"))?;
     if endpoint.schema_version != 1
-        || endpoint.semantic != "qwen3_8_flash_next_firewing_two_token_cached_text_logits"
+        || endpoint.semantic != spec.endpoint_semantic
         || endpoint.model != MODEL
         || endpoint.revision != REVISION
         || endpoint.layers.len() != LAYERS
@@ -268,11 +343,15 @@ fn load_authority(
     ))
 }
 
-fn validate_routes(endpoint: &Endpoint) -> Result<Vec<BTreeSet<Identity>>, String> {
+fn validate_routes(
+    endpoint: &Endpoint,
+    step_start: usize,
+    total_steps: usize,
+) -> Result<Vec<BTreeSet<Identity>>, String> {
     let mut events = Vec::with_capacity(LAYERS * 2);
-    for token in 0..2 {
+    for token in step_start..step_start + 2 {
         for (layer_index, layer) in endpoint.layers.iter().enumerate() {
-            if layer.layer != layer_index || layer.decoder.steps.len() != 2 {
+            if layer.layer != layer_index || layer.decoder.steps.len() != total_steps {
                 return Err("overlap-bound layer schedule mismatch".to_owned());
             }
             let step = &layer.decoder.steps[token];
@@ -349,8 +428,9 @@ fn miss_schedule(
     checkpoint_dir: &Path,
     locked: &BTreeMap<String, LockedFile>,
     endpoint: &Endpoint,
+    spec: &AuthoritySpec<'_>,
 ) -> Result<[Vec<ReadExtent>; 2], String> {
-    let events = validate_routes(endpoint)?;
+    let events = validate_routes(endpoint, spec.step_start, spec.total_steps)?;
     let misses_by_event = belady_misses(&events, CACHE_EXPERTS)?;
     let mut result = [Vec::new(), Vec::new()];
     let mut layouts = Vec::with_capacity(LAYERS);
@@ -379,7 +459,7 @@ fn miss_schedule(
     for (position, misses) in misses_by_event.iter().enumerate() {
         let layer_index = position % LAYERS;
         let token = position / LAYERS;
-        let step = &endpoint.layers[layer_index].decoder.steps[token];
+        let step = &endpoint.layers[layer_index].decoder.steps[spec.step_start + token];
         let records = step
             .experts
             .iter()
@@ -409,15 +489,15 @@ fn miss_schedule(
         }
     }
     let misses = [result[0].len() / 2, result[1].len() / 2];
-    if misses != [47, 379]
+    if misses != spec.expected_misses
         || result
             .iter()
             .flatten()
             .map(|extent| extent.logical_bytes)
             .sum::<usize>()
-            != 426 * EXPERT_BYTES
+            != spec.expected_misses.iter().sum::<usize>() * EXPERT_BYTES
     {
-        return Err("overlap-bound miss ledger differs from FW-0034".to_owned());
+        return Err("overlap-bound miss ledger differs from its frozen authority".to_owned());
     }
     Ok(result)
 }
@@ -757,7 +837,7 @@ fn summarize(trials: &[OverlapTrial], token: usize, mode: &'static str) -> Overl
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn benchmark_exact_overlap_bound(
+fn measure_overlap(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     router_fixture_path: &Path,
@@ -765,15 +845,8 @@ pub fn benchmark_exact_overlap_bound(
     mixture_fixture_path: &Path,
     endpoint_fixture_path: &Path,
     kernel_path: &Path,
-    implementation_commit: &str,
-) -> Result<ExactOverlapBoundReport, String> {
-    if implementation_commit.len() != 40
-        || !implementation_commit
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit())
-    {
-        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
-    }
+    spec: &AuthoritySpec<'_>,
+) -> Result<OverlapMeasurement, String> {
     let mut safety = HostSafetyMonitor::start_normative(vec![PersistentResidencyDeclaration {
         object: "exact_layer0_top10_bf16_metal_contention_probe".to_owned(),
         maximum_bytes: 98_398_736,
@@ -789,8 +862,8 @@ pub fn benchmark_exact_overlap_bound(
         mixture_fixture_path,
     )?;
     let (endpoint, locked) =
-        load_authority(checkpoint_dir, model_lock_path, endpoint_fixture_path)?;
-    let miss_extents = miss_schedule(checkpoint_dir, &locked, &endpoint)?;
+        load_authority(checkpoint_dir, model_lock_path, endpoint_fixture_path, spec)?;
+    let miss_extents = miss_schedule(checkpoint_dir, &locked, &endpoint, spec)?;
     let all_extents = miss_extents.iter().flatten().cloned().collect::<Vec<_>>();
     let (unique_miss_extents_verified, unique_miss_bytes_verified) =
         verify_extents(checkpoint_dir, &all_extents)?;
@@ -858,23 +931,12 @@ pub fn benchmark_exact_overlap_bound(
         .collect::<Vec<_>>();
     let mut ordered_tps = paired_tps.clone();
     ordered_tps.sort_by(f64::total_cmp);
-    let format_tps = |value: f64| format!("{value:.6}");
     let device_name = runner.device_name().to_owned();
     drop(runner);
     let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
-    Ok(ExactOverlapBoundReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_exact_bf16_12gib_belady_miss_metal_overlap_favorable_bound",
-        implementation_commit: implementation_commit.to_owned(),
-        model: MODEL,
-        revision: REVISION,
-        endpoint_fixture_sha256: ENDPOINT_SHA256,
-        model_lock_sha256: MODEL_LOCK_SHA256,
-        device_name,
-        cache_capacity_experts: CACHE_EXPERTS,
-        free_future_aware_initial_experts: CACHE_EXPERTS,
-        misses_by_token: [miss_extents[0].len() / 2, miss_extents[1].len() / 2],
-        miss_bytes_by_token: [
+    Ok(OverlapMeasurement {
+        misses: [miss_extents[0].len() / 2, miss_extents[1].len() / 2],
+        miss_bytes: [
             miss_extents[0]
                 .iter()
                 .map(|extent| extent.logical_bytes)
@@ -887,17 +949,78 @@ pub fn benchmark_exact_overlap_bound(
         unique_miss_extents_verified,
         unique_miss_bytes_verified,
         authority_verification_wall_time_ns,
+        device_name,
+        trials,
+        summaries,
+        paired_tps,
+        ordered_tps,
+        host_safety_policy,
+        host_safety_snapshots,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_exact_overlap_bound(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    router_fixture_path: &Path,
+    expert_fixture_path: &Path,
+    mixture_fixture_path: &Path,
+    endpoint_fixture_path: &Path,
+    kernel_path: &Path,
+    implementation_commit: &str,
+) -> Result<ExactOverlapBoundReport, String> {
+    if implementation_commit.len() != 40
+        || !implementation_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
+    }
+    let measurement = measure_overlap(
+        checkpoint_dir,
+        model_lock_path,
+        router_fixture_path,
+        expert_fixture_path,
+        mixture_fixture_path,
+        endpoint_fixture_path,
+        kernel_path,
+        &AuthoritySpec {
+            endpoint_sha256: ENDPOINT_SHA256,
+            endpoint_semantic: "qwen3_8_flash_next_firewing_two_token_cached_text_logits",
+            step_start: 0,
+            total_steps: 2,
+            expected_misses: [47, 379],
+        },
+    )?;
+    let format_tps = |value: f64| format!("{value:.6}");
+    Ok(ExactOverlapBoundReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_exact_bf16_12gib_belady_miss_metal_overlap_favorable_bound",
+        implementation_commit: implementation_commit.to_owned(),
+        model: MODEL,
+        revision: REVISION,
+        endpoint_fixture_sha256: ENDPOINT_SHA256,
+        model_lock_sha256: MODEL_LOCK_SHA256,
+        device_name: measurement.device_name,
+        cache_capacity_experts: CACHE_EXPERTS,
+        free_future_aware_initial_experts: CACHE_EXPERTS,
+        misses_by_token: measurement.misses,
+        miss_bytes_by_token: measurement.miss_bytes,
+        unique_miss_extents_verified: measurement.unique_miss_extents_verified,
+        unique_miss_bytes_verified: measurement.unique_miss_bytes_verified,
+        authority_verification_wall_time_ns: measurement.authority_verification_wall_time_ns,
         metal_warmups: 3,
         metal_executions_per_overlap_trial: LAYERS,
         storage_workers: WORKERS,
         maximum_phase_scoped_staging_bytes: WORKERS * 2 * 6_569_984,
         cache_state: "range_invalidated_page_aligned_f_nocache_f_rdahead_zero_into_preallocated_page_aligned_install_staging",
-        trials,
-        summaries,
-        paired_overlap_tps: paired_tps.into_iter().map(format_tps).collect(),
-        paired_overlap_tps_p10: format_tps(ordered_tps[0]),
-        paired_overlap_tps_median: format_tps(ordered_tps[1]),
-        paired_overlap_tps_p90: format_tps(ordered_tps[2]),
+        trials: measurement.trials,
+        summaries: measurement.summaries,
+        paired_overlap_tps: measurement.paired_tps.into_iter().map(format_tps).collect(),
+        paired_overlap_tps_p10: format_tps(measurement.ordered_tps[0]),
+        paired_overlap_tps_median: format_tps(measurement.ordered_tps[1]),
+        paired_overlap_tps_p90: format_tps(measurement.ordered_tps[2]),
         batch_size: 1,
         concurrency: 1,
         accepted_tokens: 0,
@@ -912,8 +1035,139 @@ pub fn benchmark_exact_overlap_bound(
             "staging install copies are charged but cache-slot binding and eviction are free",
             "attention shared experts routing ngram final projection and sampling are free",
         ],
-        host_safety_policy,
-        host_safety_snapshots,
+        host_safety_policy: measurement.host_safety_policy,
+        host_safety_snapshots: measurement.host_safety_snapshots,
+        performance_claim: None,
+    })
+}
+
+fn validate_q2_transaction(path: &Path) -> Result<(), String> {
+    if sha256_file(path)? != Q2_TRANSACTION_SHA256 {
+        return Err("q2 overlap-bound transaction hash mismatch".to_owned());
+    }
+    let fixture: serde_json::Value =
+        serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed q2 transaction fixture: {error}"))?;
+    let number = |pointer: &str| fixture.pointer(pointer).and_then(serde_json::Value::as_u64);
+    let text = |pointer: &str| fixture.pointer(pointer).and_then(serde_json::Value::as_str);
+    let float = |pointer: &str| fixture.pointer(pointer).and_then(serde_json::Value::as_f64);
+    if number("/schema_version") != Some(1)
+        || text("/semantic") != Some("qwen3_8_flash_next_first_greedy_mtp_transaction")
+        || text("/model") != Some(MODEL)
+        || text("/revision") != Some(REVISION)
+        || text("/reference/target_fixture_sha256") != Some(Q2_ENDPOINT_SHA256)
+        || text("/configuration/sampling") != Some("greedy")
+        || number("/configuration/batch_size") != Some(1)
+        || number("/configuration/concurrency") != Some(1)
+        || number("/configuration/q") != Some(2)
+        || number("/configuration/target_layers") != Some(LAYERS as u64)
+        || number("/configuration/top_k_experts") != Some(TOP_K as u64)
+        || number("/configuration/expert_payload_bytes") != Some(EXPERT_BYTES as u64)
+        || number("/decision/accepted_tokens") != Some(2)
+        || number("/decision/rolled_back_proposal_rows") != Some(0)
+        || number("/expert_union/target_union_expert_rows") != Some(687)
+        || number("/expert_union/draft_unique_expert_rows") != Some(10)
+        || number("/expert_union/combined_union_expert_rows") != Some(697)
+        || number("/expert_union/one_token_expert_rows") != Some(480)
+        || float("/expert_union/U") != Some(697.0 / 480.0)
+        || float("/expert_union/A_over_U") != Some(2.0 / (697.0 / 480.0))
+        || number("/claims/accepted_tokens") != Some(2)
+        || !fixture
+            .pointer("/claims/performance_claim")
+            .is_some_and(serde_json::Value::is_null)
+    {
+        return Err("q2 overlap-bound transaction identity mismatch".to_owned());
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_q2_exact_overlap_bound(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    router_fixture_path: &Path,
+    expert_fixture_path: &Path,
+    mixture_fixture_path: &Path,
+    endpoint_fixture_path: &Path,
+    transaction_fixture_path: &Path,
+    kernel_path: &Path,
+    implementation_commit: &str,
+) -> Result<Q2ExactOverlapBoundReport, String> {
+    if implementation_commit.len() != 40
+        || !implementation_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
+    }
+    validate_q2_transaction(transaction_fixture_path)?;
+    let measurement = measure_overlap(
+        checkpoint_dir,
+        model_lock_path,
+        router_fixture_path,
+        expert_fixture_path,
+        mixture_fixture_path,
+        endpoint_fixture_path,
+        kernel_path,
+        &AuthoritySpec {
+            endpoint_sha256: Q2_ENDPOINT_SHA256,
+            endpoint_semantic: "qwen3_8_flash_next_firewing_four_token_cached_text_logits",
+            step_start: 2,
+            total_steps: 4,
+            expected_misses: [47, 207],
+        },
+    )?;
+    let format_tps = |value: f64| format!("{value:.6}");
+    Ok(Q2ExactOverlapBoundReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_q2_exact_bf16_12gib_belady_miss_metal_overlap_favorable_bound",
+        implementation_commit: implementation_commit.to_owned(),
+        model: MODEL,
+        revision: REVISION,
+        endpoint_fixture_sha256: Q2_ENDPOINT_SHA256,
+        transaction_fixture_sha256: Q2_TRANSACTION_SHA256,
+        model_lock_sha256: MODEL_LOCK_SHA256,
+        device_name: measurement.device_name,
+        target_step_ordinals: [2, 3],
+        cache_capacity_experts: CACHE_EXPERTS,
+        free_future_aware_initial_experts: CACHE_EXPERTS,
+        misses_by_target_row: measurement.misses,
+        miss_bytes_by_target_row: measurement.miss_bytes,
+        unique_miss_extents_verified: measurement.unique_miss_extents_verified,
+        unique_miss_bytes_verified: measurement.unique_miss_bytes_verified,
+        authority_verification_wall_time_ns: measurement.authority_verification_wall_time_ns,
+        metal_warmups: 3,
+        metal_executions_per_overlap_trial: LAYERS,
+        storage_workers: WORKERS,
+        maximum_phase_scoped_staging_bytes: WORKERS * 2 * 6_569_984,
+        cache_state: "range_invalidated_page_aligned_f_nocache_f_rdahead_zero_into_preallocated_page_aligned_install_staging",
+        trials: measurement.trials,
+        summaries: measurement.summaries,
+        paired_accepted_bound_tps: measurement.paired_tps.into_iter().map(format_tps).collect(),
+        paired_accepted_bound_tps_p10: format_tps(measurement.ordered_tps[0]),
+        paired_accepted_bound_tps_median: format_tps(measurement.ordered_tps[1]),
+        paired_accepted_bound_tps_p90: format_tps(measurement.ordered_tps[2]),
+        batch_size: 1,
+        concurrency: 1,
+        sampling: "greedy",
+        q: 2,
+        accepted_per_verification: 2,
+        expert_union: 697.0 / 480.0,
+        accepted_over_union: 2.0 / (697.0 / 480.0),
+        target_union_expert_rows: 687,
+        draft_unique_expert_rows: 10,
+        favorable_grants: vec![
+            "all MTP drafter work and its ten expert rows are free",
+            "all fixed matrices and cache hits are free and consume no measured memory",
+            "the initial 433-expert cache is free and future-aware",
+            "Belady eviction metadata and victim handling are free",
+            "miss reads may start for each exact target row before layer dependencies reveal routes",
+            "the exact layer-0 top10 Metal workload stands in for all 48 routed layers per target row",
+            "staging install copies are charged but cache-slot binding and eviction are free",
+            "attention shared experts routing ngram final projection sampling rollback and synchronization are free",
+        ],
+        host_safety_policy: measurement.host_safety_policy,
+        host_safety_snapshots: measurement.host_safety_snapshots,
         performance_claim: None,
     })
 }
@@ -941,5 +1195,29 @@ mod tests {
         assert_eq!(misses[0], BTreeSet::new());
         assert_eq!(misses[1], BTreeSet::from([identity(2)]));
         assert_eq!(misses[2], BTreeSet::from([identity(0)]));
+    }
+
+    #[test]
+    fn first_q2_target_rows_have_frozen_belady_miss_counts() {
+        let endpoint: Endpoint = serde_json::from_str(include_str!(
+            "../fixtures/endpoint/qwen3_8_flash_next_firewing_four_token.json"
+        ))
+        .unwrap();
+        let events = validate_routes(&endpoint, 2, 4).unwrap();
+        let misses = belady_misses(&events, CACHE_EXPERTS).unwrap();
+        assert_eq!(
+            [
+                misses[..LAYERS].iter().map(BTreeSet::len).sum::<usize>(),
+                misses[LAYERS..].iter().map(BTreeSet::len).sum::<usize>(),
+            ],
+            [47, 207]
+        );
+    }
+
+    #[test]
+    fn first_q2_transaction_is_bound_to_the_accepted_authority() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/mtp/qwen3_8_flash_next_first_transaction.json");
+        validate_q2_transaction(&path).unwrap();
     }
 }

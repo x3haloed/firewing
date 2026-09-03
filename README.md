@@ -276,6 +276,19 @@ target/release/firewing bench-exact-overlap-bound \
   kernels/bf16_gemv.metal \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Favorable exact q2 accepted-throughput bound (not endpoint TPS)
+target/release/firewing bench-q2-exact-overlap-bound \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  fixtures/router/qwen3_8_flash_next_real.json \
+  fixtures/expert/qwen3_8_flash_next_real.json \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  fixtures/endpoint/qwen3_8_flash_next_firewing_four_token.json \
+  fixtures/mtp/qwen3_8_flash_next_first_transaction.json \
+  kernels/bf16_gemv.metal \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

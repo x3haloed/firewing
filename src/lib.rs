@@ -84,7 +84,8 @@ pub use ngram::{
     verify_ngram_rows,
 };
 pub use overlap_bound::{
-    ExactOverlapBoundReport, OverlapSummary, OverlapTrial, benchmark_exact_overlap_bound,
+    ExactOverlapBoundReport, OverlapSummary, OverlapTrial, Q2ExactOverlapBoundReport,
+    benchmark_exact_overlap_bound, benchmark_q2_exact_overlap_bound,
 };
 pub use ple::{PleVerificationReport, verify_ple_fixture};
 pub use ple_attention_residual::{
