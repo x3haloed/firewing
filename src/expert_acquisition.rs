@@ -193,9 +193,9 @@ pub struct ExpertAcquisitionBenchmarkReport {
 }
 
 #[derive(Clone, Copy)]
-struct TensorLayout {
-    absolute_offset: u64,
-    payload_bytes: u64,
+pub(crate) struct TensorLayout {
+    pub(crate) absolute_offset: u64,
+    pub(crate) payload_bytes: u64,
 }
 
 struct WorkerResult {
@@ -216,7 +216,7 @@ fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
-fn read_tensor_layout(
+pub(crate) fn read_tensor_layout(
     path: &Path,
     tensor: &str,
     expected_shape: &[usize],

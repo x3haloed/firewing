@@ -300,6 +300,56 @@ struct MixtureCaptures {
     mixture: Vec<u16>,
 }
 
+pub(crate) struct ExactResidentTop10Runner {
+    runtime: Runtime,
+    mixture_hash: String,
+}
+
+impl ExactResidentTop10Runner {
+    pub(crate) fn install(
+        checkpoint_dir: &Path,
+        mixture_fixture_path: &Path,
+        kernel_path: &Path,
+    ) -> Result<Self, String> {
+        let fixture: Fixture = serde_json::from_slice(
+            &fs::read(mixture_fixture_path).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| format!("malformed mixture fixture: {error}"))?;
+        let case = fixture.case;
+        if case.layer != 0
+            || case.experts.len() != TOP_K
+            || case.expert_execution_order.len() != TOP_K
+            || case
+                .experts
+                .iter()
+                .map(|entry| entry.expert)
+                .collect::<Vec<_>>()
+                != case.expert_execution_order
+        {
+            return Err("Metal MoE fixture route or layer is unsupported".to_owned());
+        }
+        let hidden = make_hidden(HIDDEN, &case.input_spec)?;
+        if bf16_hash(&hidden) != case.input_bf16_sha256 {
+            return Err("Metal MoE input authority mismatch".to_owned());
+        }
+        let mixture_hash = case.mixture_bf16_sha256.clone();
+        let runtime = Runtime::compile_and_install(kernel_path, checkpoint_dir, &case, &hidden)?;
+        Ok(Self {
+            runtime,
+            mixture_hash,
+        })
+    }
+
+    pub(crate) fn execute_exact(&self) -> Result<(), String> {
+        let captures = self.runtime.execute()?;
+        require_exact(&self.runtime, &captures, &self.mixture_hash)
+    }
+
+    pub(crate) fn device_name(&self) -> &str {
+        &self.runtime.device_name
+    }
+}
+
 fn execute_control(runtime: &Runtime) -> MixtureCaptures {
     let hidden =
         unsafe { std::slice::from_raw_parts(runtime.hidden.contents().cast::<u16>(), HIDDEN) };

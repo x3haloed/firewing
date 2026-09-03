@@ -23,6 +23,7 @@ mod hyper_connection;
 mod metal_bf16;
 mod metal_moe;
 mod ngram;
+mod overlap_bound;
 mod ple;
 mod ple_attention_residual;
 mod router;
@@ -69,6 +70,9 @@ pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
     verify_ngram_rows,
+};
+pub use overlap_bound::{
+    ExactOverlapBoundReport, OverlapSummary, OverlapTrial, benchmark_exact_overlap_bound,
 };
 pub use ple::{PleVerificationReport, verify_ple_fixture};
 pub use ple_attention_residual::{
