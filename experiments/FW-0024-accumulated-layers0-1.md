@@ -1,7 +1,7 @@
 # FW-0024 - Accumulated layers 0 through 1
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0017, FW-0023
 - Exactness: L0 bit-identical component semantics
@@ -59,7 +59,13 @@ cargo run --release -- verify-accumulated-layers01 \
   spec/model.lock.json \
   fixtures/ngram/qwen3_8_flash_next.json \
   fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
   fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
   fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
   fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
   /Users/chad/Models/firewing/evidence/FW-0024/accumulated-layers01.json
@@ -104,9 +110,36 @@ discriminate the accumulated input from FW-0023's layer-local authority.
 The fixture embeds hash-only authorities for the accumulated PLE, attention,
 and complete layer-1 stages. Each PLE hidden-state hash exactly equals the
 corresponding layer-0 output hash. Its SHA-256 is
-`d1b204354dddf606ad1156f558bb9656f57a81a79f9ae35733127947dc4d2e0b`.
+`fbee68bfc3433bb1cc7bd20d09df32f6fd6171d7adc3f8f641ceed896887a68d`.
 All 48 Python tests pass. Native verification is pending.
+
+The first native attempt matched the cached layer-1 router-logit hash but
+rejected its ordered route: experts 202 and 468 have the same BF16 logit and
+PyTorch's unstable `topk` returned them in the opposite order from the native
+sort. This permutation is semantically neutral because the selected set and
+equal route weights are unchanged and experts execute in ascending source
+order. The verifier now accepts only permutations within equal-logit groups;
+it still fails closed on a tie across the top-10 selection boundary or any
+different selected set.
+
+At commit `7cffe52`, the release-mode native verifier independently executed
+both complete layers and matched eight explicit cross-stage links. Layer 0
+matched 32 BF16 captures and twenty weighted-expert hashes. Accumulated layer
+1 matched 48 PLE/attention BF16 captures, two PLE int64 state captures, two F32
+DeltaNet state captures, 32 decoder captures, and twenty weighted-expert
+hashes. It authenticated 351,401,408 layer-0 bytes and 417,091,008 layer-1
+bytes, or 768,492,416 logical payload bytes in total. The external receipt is
+`/Users/chad/Models/firewing/evidence/FW-0024/accumulated-layers01.json`,
+SHA-256
+`f193004e650291731e70902f86d6a5afd110b1e48f4896a0e950742ad9e86bbf`.
+The final suite has 48 Python and 36 Rust tests; Clippy passes with warnings
+denied.
 
 ## Decision
 
-Pending.
+Pass as a correctness repair. This is the first exact accumulated multi-layer
+execution: layer 1 consumes the actual layer-0 output and changes both dynamic
+routes relative to its layer-local fixture while retaining exact PLE,
+attention, cache, MoE, and residual semantics. Proceed to layer 2 and then the
+first accumulated full-attention/QSA boundary at layer 3. No endpoint or TPS
+claim follows from this two-layer correctness result.

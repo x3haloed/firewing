@@ -178,6 +178,18 @@ runtime passing every target gate, including reproducible batch-one decode at
   decoder wrapper variant, not accumulated layers, logits, endpoint behavior,
   or TPS. See
   [`experiments/FW-0023-layer1-complete-decoder.md`](experiments/FW-0023-layer1-complete-decoder.md).
+- FW-0024 is the first exact accumulated multi-layer execution. Across an
+  initial and cached token, native layer 1 consumes the actual complete
+  layer-0 output; both layer-1 routes change from their layer-local FW-0023
+  authorities. All PLE, independent DeltaNet state, attention, dynamic MoE,
+  and final residual hashes match while 768,492,416 logical payload bytes are
+  authenticated. The cached route also establishes that PyTorch `topk` may
+  permute experts with equal BF16 logits: such within-tie permutations are
+  semantically neutral because weights are equal and source execution is
+  expert-sorted, while selection-boundary ties still fail closed. This proves
+  accumulated layers 0 through 1, not later layers, logits, an endpoint, or
+  TPS. See
+  [`experiments/FW-0024-accumulated-layers0-1.md`](experiments/FW-0024-accumulated-layers0-1.md).
 
 ## Prediction errors
 
