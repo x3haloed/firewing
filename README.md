@@ -399,7 +399,8 @@ target/release/firewing bench-executable-cache-overlap \
   REPORT_JSON \
   --weight-format block_int8 \
   --block-rows ROWS \
-  --block-columns COLUMNS
+  --block-columns COLUMNS \
+  --clip-factor CLIP_FACTOR
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

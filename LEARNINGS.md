@@ -579,6 +579,11 @@ runtime passing every target gate, including reproducible batch-one decode at
   rectangular topology that earned deeper screening. The next compact branch
   must change the error mechanism, not merely scale orientation. See
   [`experiments/FW-0065-modified-block8x2-int8-real-layers.md`](experiments/FW-0065-modified-block8x2-int8-real-layers.md).
+- FW-0066 rejects fixed global clipping for 1x16 INT8. Every factor from 0.80
+  through 0.999 is worse than the unclipped control; 0.995 already raises
+  mixture error to 1.2250%, and 0.999 gives 0.9579% versus the control's
+  0.9364%. Do not pay for a deeper replay of this dominated mechanism. See
+  [`experiments/FW-0066-modified-int8-global-clipping.md`](experiments/FW-0066-modified-int8-global-clipping.md).
 
 ## Prediction errors
 
@@ -623,6 +628,8 @@ These unresolved distinctions can still change the next decision:
   layer 0 at identical bytes. FW-0064 rejects selected 1x16 on deeper
   source-accumulated inputs, and FW-0065 rejects 8x2. Uncalibrated symmetric
   INT8 is closed at this rung.
+  Fixed global clipping is also closed by FW-0066; activation-aware or
+  error-propagating calibration remains distinct.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
