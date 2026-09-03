@@ -19,6 +19,7 @@ pub mod full_attention;
 mod full_attention_residual;
 mod host_safety;
 mod hyper_connection;
+mod metal_bf16;
 mod ngram;
 mod ple;
 mod ple_attention_residual;
@@ -57,8 +58,9 @@ pub use full_attention::{FullAttentionVerificationReport, verify_full_attention_
 pub use full_attention_residual::{
     FullAttentionResidualVerificationReport, verify_full_attention_residual_fixture,
 };
-pub use host_safety::{HostSafetyPolicy, HostSafetySnapshot};
+pub use host_safety::{HostSafetyPolicy, HostSafetySnapshot, PersistentResidencyDeclaration};
 pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
+pub use metal_bf16::{MetalBf16GemvReport, benchmark_metal_bf16_gemv};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,

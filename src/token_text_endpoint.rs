@@ -2,7 +2,9 @@ use crate::attention_residual::verify_attention_residual_fixture_bytes_with_outp
 use crate::decoder_layer3::verify_decoder_mlp_fixture_bytes_with_outputs;
 use crate::expert::{bf16_hash, from_bf16};
 use crate::full_attention_residual::verify_full_attention_residual_fixture_bytes_with_outputs;
-use crate::host_safety::{HostSafetyMonitor, HostSafetyPolicy, HostSafetySnapshot};
+use crate::host_safety::{
+    HostSafetyMonitor, HostSafetyPolicy, HostSafetySnapshot, PersistentResidencyDeclaration,
+};
 use crate::ple::verify_ple_fixture_bytes_with_outputs;
 use crate::ple_attention_residual::verify_ple_attention_residual_fixture_bytes_with_outputs;
 use crate::text_output::verify_embedded_text_output_fixture;
@@ -258,7 +260,20 @@ pub fn verify_token_text_endpoint_fixture(
 ) -> Result<TokenTextEndpointVerificationReport, String> {
     let total_started = Instant::now();
     let setup_started = Instant::now();
-    let mut safety = HostSafetyMonitor::start_normative()?;
+    let mut safety = HostSafetyMonitor::start_normative(vec![
+        PersistentResidencyDeclaration {
+            object: "endpoint_fixture_metadata_and_hash_authority".to_owned(),
+            maximum_bytes: 3 * 1024 * 1024,
+            lifetime: "complete_verification".to_owned(),
+            eviction_order: 2,
+        },
+        PersistentResidencyDeclaration {
+            object: "two_current_four_stream_hidden_roots".to_owned(),
+            maximum_bytes: (2 * 4 * 2560 * 2) as u64,
+            lifetime: "replaced_at_each_layer_and_released_after_output".to_owned(),
+            eviction_order: 1,
+        },
+    ])?;
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path)
             .map_err(|error| format!("cannot read endpoint fixture: {error}"))?,

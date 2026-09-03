@@ -243,8 +243,11 @@ fn require_services(
 }
 
 impl HostSafetyMonitor {
-    pub(crate) fn start_normative() -> Result<Self, String> {
-        let policy = normative_policy();
+    pub(crate) fn start_normative(
+        declared_persistent_residency: Vec<PersistentResidencyDeclaration>,
+    ) -> Result<Self, String> {
+        let mut policy = normative_policy();
+        policy.declared_persistent_residency = declared_persistent_residency;
         let baseline_swap_bytes = swap_used_bytes()?;
         let baseline_throttled_pages = throttled_pages()?;
         let baseline_usage = process_usage()?;
@@ -370,20 +373,7 @@ fn normative_policy() -> HostSafetyPolicy {
             "bird".to_owned(),
             "cloudd".to_owned(),
         ],
-        declared_persistent_residency: vec![
-            PersistentResidencyDeclaration {
-                object: "endpoint_fixture_metadata_and_hash_authority".to_owned(),
-                maximum_bytes: 3 * 1024 * 1024,
-                lifetime: "complete_verification".to_owned(),
-                eviction_order: 2,
-            },
-            PersistentResidencyDeclaration {
-                object: "two_current_four_stream_hidden_roots".to_owned(),
-                maximum_bytes: (2 * 4 * 2560 * 2) as u64,
-                lifetime: "replaced_at_each_layer_and_released_after_output".to_owned(),
-                eviction_order: 1,
-            },
-        ],
+        declared_persistent_residency: Vec::new(),
     }
 }
 
@@ -404,7 +394,7 @@ mod tests {
         assert_eq!(policy.minimum_system_memory_free_percent, 10);
         assert_eq!(policy.maximum_swap_growth_bytes, 0);
         assert_eq!(policy.maximum_new_throttled_pages, 0);
-        assert_eq!(policy.declared_persistent_residency.len(), 2);
+        assert!(policy.declared_persistent_residency.is_empty());
         assert!(
             policy.maximum_process_physical_footprint_bytes
                 <= policy.pressure_event_monitor_required_above_bytes

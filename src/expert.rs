@@ -74,13 +74,13 @@ struct ExpectedHashes {
 }
 
 #[derive(Deserialize)]
-struct InputSpec {
-    multiplier: i64,
-    add: i64,
-    modulus: i64,
-    center: i64,
-    divisor: i64,
-    sparse_stride: usize,
+pub(crate) struct InputSpec {
+    pub(crate) multiplier: i64,
+    pub(crate) add: i64,
+    pub(crate) modulus: i64,
+    pub(crate) center: i64,
+    pub(crate) divisor: i64,
+    pub(crate) sparse_stride: usize,
 }
 
 #[derive(Deserialize)]
@@ -332,7 +332,7 @@ pub(crate) fn bf16_hash(values: &[u16]) -> String {
     format!("{:x}", Sha256::digest(bf16_bytes(values)))
 }
 
-fn make_hidden(size: usize, spec: &InputSpec) -> Result<Vec<u16>, String> {
+pub(crate) fn make_hidden(size: usize, spec: &InputSpec) -> Result<Vec<u16>, String> {
     if spec.modulus <= 0 || spec.divisor <= 0 || spec.sparse_stride == 0 {
         return Err("invalid expert input specification".to_owned());
     }
