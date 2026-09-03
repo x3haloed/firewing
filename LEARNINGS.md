@@ -557,6 +557,13 @@ runtime passing every target gate, including reproducible batch-one decode at
   needs early/middle/late real-layer and accumulated validation before bank or
   kernel work. See
   [`experiments/FW-0061-modified-block4-int8-weight-fidelity.md`](experiments/FW-0061-modified-block4-int8-weight-fidelity.md).
+- FW-0062 supersedes FW-0061 and closes naïve square-block symmetric INT8.
+  Exact regeneration of the two-token 48-layer source fixture passes, but five
+  of six fixed-route mixtures at layers 4, 24, and 46 miss 1%; the worst is
+  1.1313%. Every expert remains below 2%, locating the failure in routed
+  accumulation. Coarser grids already failed and 2x2 loses all byte advantage.
+  Do not build a bank or kernel for this form. See
+  [`experiments/FW-0062-modified-block4-int8-real-layers.md`](experiments/FW-0062-modified-block4-int8-real-layers.md).
 
 ## Prediction errors
 
@@ -595,9 +602,9 @@ These unresolved distinctions can still change the next decision:
   block-128 E4M3 and symmetric INT8 weights as modified escape hatches on the
   first real-mixture fidelity rung. FW-0059 further rejects a 32x32 INT8 scale
   grid at 1.528% mixture error, and FW-0060 rejects 16x16 and 8x8 at 1.348%
-  and 1.168%. FW-0061's 4x4 grid is the first local survivor at 0.978%, but its
-  deeper and accumulated fidelity remains unresolved alongside more capable
-  calibrated, outlier-aware, or recovered formats.
+  and 1.168%. FW-0061's 4x4 grid initially survives at 0.978%, but FW-0062
+  rejects it across real early/middle/late inputs. Plain square-block symmetric
+  INT8 is closed; calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;

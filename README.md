@@ -380,6 +380,13 @@ target/release/firewing bench-executable-cache-overlap \
   REPORT_JSON \
   --weight-format block_int8 \
   --block-size BLOCK
+
+# Modified block-4 INT8 early/middle/late real-layer screen (not TPS)
+.venv/bin/python tools/analyze_block4_int8_real_layers.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

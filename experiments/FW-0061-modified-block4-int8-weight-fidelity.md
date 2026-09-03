@@ -2,6 +2,7 @@
 
 - Status: completed
 - Disposition: conditional
+- Superseded by: FW-0062 rejection on six real early/middle/late layer cases
 - Date: 2026-09-03
 - Parent experiment: FW-0060
 - Mode: `modified_block4_int8_weight_only`
@@ -71,3 +72,6 @@ The next gate must exercise authenticated real inputs at early, middle, and
 late layers, then an accumulated path. It must preserve source routes for the
 layer-local comparison, charge the 62.5% representation exactly, and reject
 the branch before kernel work if any frozen slice fails.
+
+FW-0062 executed that gate and rejected this form. Five of six routed mixtures
+miss the 1% threshold, so the conditional survivor is no longer active.
