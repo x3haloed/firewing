@@ -28,6 +28,7 @@ pub use expert_acquisition::{
     ExpertAcquisitionBenchmarkReport, ExpertAcquisitionSummary, ExpertAcquisitionTrial,
     benchmark_expert_acquisition,
 };
+pub use full_attention::{FullAttentionProjectionReport, verify_full_attention_projections};
 pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
