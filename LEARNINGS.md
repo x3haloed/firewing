@@ -131,6 +131,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   resolves the model's only PLE primitive, not complete layer 1, accumulated
   layers, full attention, endpoint behavior, or physical-I/O performance. See
   [`experiments/FW-0018-layer1-ple-cached-decode.md`](experiments/FW-0018-layer1-ple-cached-decode.md).
+- FW-0019 exactly reproduces layer 3's full-attention path for an empty cache
+  and for one token over a 2,080-position synthetic cache that forces QSA to
+  select 512 of 520 blocks. The native path matches all 62 BF16, F32, integer,
+  and boolean captures while authenticating 102,893,056 tensor bytes. Exact
+  parity requires finite BF16-min masking (`0xff7f`) and F32 softmax centering;
+  a generic `f32::MIN` conversion becomes negative infinity, and a reused
+  BF16-centered softmax is wrong for Qwen's explicit F32-softmax call. This
+  resolves the remaining text attention variant, not a complete layer 3,
+  accumulated multi-layer parity, endpoint behavior, or TPS. See
+  [`experiments/FW-0019-layer3-full-attention-qsa.md`](experiments/FW-0019-layer3-full-attention-qsa.md).
 
 ## Prediction errors
 

@@ -1,7 +1,7 @@
 # FW-0019 - Real layer-3 full attention and QSA
 
-- Status: in progress
-- Disposition: reference fixture passed; native integration pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0014, FW-0017, FW-0018
 - Exactness: L0 bit-identical component semantics
@@ -104,21 +104,44 @@ The first 2,052-position draft falsified the assumption that a one-block
 exclusion would be unambiguous: three blocks had exact zero scores after the
 indexer's ReLU aggregation, tying across the top-k boundary. The retained
 2,080-position case excludes eight blocks and has an untied boundary. Native
-work has begun with independently tested 128/256-wide RMSNorm, BF16-staged
-partial RoPE, and fail-closed top-k selection primitives; full fixture parity
-is pending.
+work began with independently tested 128/256-wide RMSNorm, BF16-staged partial
+RoPE, and fail-closed top-k selection primitives.
 
 At commit `7f21b79`, the release-mode native projection verifier authenticated
 all nine real layer-3 tensors (102,893,056 payload bytes) and exactly matched
-12 BF16 captures across the two cases: deterministic hidden state, index-QK
+the deterministic hidden state, index-QK
 projection, raw-indexer cache append, Q projection, per-head gate extraction,
 K projection, and V projection. The long case regenerated 532,480 bytes of
 synthetic raw-indexer history rather than storing it. Its report is
 `/Users/chad/Models/firewing/evidence/FW-0019/projections.json`, SHA-256
 `08e50d070c080648a6dee80c5bb4075bcf53f8176c0c7530becb54cf2bf030bd`.
-This remains a projection diagnostic, not complete attention parity.
+That intermediate receipt remains a projection diagnostic rather than the
+final authority.
+
+At commit `cec45d2`, the release-mode `verify-full-attention` command exactly
+matched every declared capture: 52 BF16, two F32, six int64, and two boolean
+hashes across the initial and active-pruning cases. This covers projection and
+gate splitting, per-head normalization, full position-table generation,
+partial RoPE, raw-indexer/K/V cache append, four-token pooling, QSA scoring and
+untied top-k selection, grouped-query attention scores, F32 softmax converted
+to BF16, attention-value accumulation, sigmoid gating, and output projection.
+The verifier authenticated nine tensors totaling 102,893,056 bytes and
+regenerated 4,796,928 synthetic cache bytes. The final report is
+`/Users/chad/Models/firewing/evidence/FW-0019/full-attention.json`, SHA-256
+`8c4b03567f6b479aa69b0a6bae05f547ad3ffd0920e6d82132e3f25958017ac6`.
+
+Two operation-staging distinctions were localized and repaired. The selected
+attention scores already matched, while excluded positions differed because
+converting `f32::MIN` to BF16 produces negative infinity rather than Qwen's
+finite BF16 minimum (`0xff7f`). Softmax required F32 centering because this
+call explicitly supplies `dtype=torch.float32`; Prismwing's otherwise reusable
+BF16-centered path was not the semantic authority here. All 39 Python tests,
+29 Rust tests, and Clippy with warnings denied pass.
 
 ## Decision
 
-Continue to native checkpoint integration. No performance default follows
-from reference parity or isolated semantic primitives.
+Pass as a correctness repair. The model's full-attention/QSA variant now has
+an exact bounded native primitive, including genuinely active pruning rather
+than only a tiny-cache no-op case. This unlocks layer-3 residual and complete
+decoder composition. No performance default or endpoint claim follows from
+component parity.
