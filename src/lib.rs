@@ -74,7 +74,10 @@ pub use mtp::{
     verify_mtp_causal_prefill_fixture, verify_mtp_input_fusion_fixture,
     verify_mtp_proposal_fixture, verify_mtp_recursive_fixture,
 };
-pub use mtp_transaction::{MtpTransactionVerificationReport, verify_mtp_transaction_fixture};
+pub use mtp_transaction::{
+    MtpTransactionVerificationReport, verify_mtp_recursive_transaction_fixture,
+    verify_mtp_transaction_fixture,
+};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,

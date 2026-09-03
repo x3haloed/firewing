@@ -34,12 +34,12 @@
     ]
   },
   "expert_union": {
-    "A_over_U": 0.27546628407460544,
-    "U": 7.260416666666667,
+    "A_over_U": 1.3773314203730271,
+    "U": 1.4520833333333334,
     "combined_union_expert_rows": 697,
     "draft_unique_expert_rows": 10,
     "logical_expert_payload_bytes": 6851788800,
-    "normalization_layer_positions": 96,
+    "one_token_expert_rows": 480,
     "target_union_expert_rows": 687,
     "target_unique_experts_by_layer": [
       20,

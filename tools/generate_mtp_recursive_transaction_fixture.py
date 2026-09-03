@@ -1,37 +1,18 @@
 #!/usr/bin/env python3
-"""Bind exact target and MTP authorities into one greedy width-two transaction."""
+"""Bind the recursive MTP and exact target authorities into a width-four transaction."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+
+from generate_mtp_transaction_fixture import EXPERT_BYTES, MODEL, REVISION, SGLANG_COMMIT, load, sha256_file, top1s
 
 
-MODEL = "Qwen/Qwen3.8-Flash-Next"
-REVISION = "de4b8e4d43b917e7706784d8bb445c9af86a3540"
-SGLANG_COMMIT = "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385"
-EXPERT_BYTES = 9_830_400
 TARGET_LAYERS = 48
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def load(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def top1s(value: dict[str, Any]) -> list[int]:
-    return [step["top20_token_ids"][0] for step in value["output"]["steps"]]
+Q = 4
 
 
 def main() -> int:
@@ -41,6 +22,7 @@ def main() -> int:
     parser.add_argument("--mtp-decoder", required=True, type=Path)
     parser.add_argument("--mtp-output", required=True, type=Path)
     parser.add_argument("--acceptance-lock", required=True, type=Path)
+    parser.add_argument("--recursive-lock", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -51,26 +33,27 @@ def main() -> int:
     if (
         target.get("model") != MODEL
         or target.get("revision") != REVISION
-        or target.get("semantic") != "qwen3_8_flash_next_firewing_four_token_cached_text_logits"
-        or target["configuration"]["token_ids"] != [16_207, 22_856, 369, 264]
-        or seed.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_fusion"
-        or draft_decoder.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_decoder"
-        or draft_output.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_logits"
+        or target.get("semantic") != "qwen3_8_flash_next_firewing_six_token_cached_text_logits"
+        or target["configuration"]["token_ids"][:4] != [16_207, 22_856, 369, 264]
+        or seed.get("semantic") != "qwen3_8_flash_next_recursive_mtp_fusion"
+        or draft_decoder.get("semantic") != "qwen3_8_flash_next_recursive_mtp_decoder"
+        or draft_output.get("semantic") != "qwen3_8_flash_next_recursive_mtp_logits"
     ):
-        raise ValueError("transaction input authority mismatch")
+        raise ValueError("recursive transaction input authority mismatch")
 
-    target_top1s = top1s(target)
     draft_top1s = [step["top20_token_ids"][0] for step in draft_output["steps"]]
-    proposal = [seed["configuration"]["target_next_token_id"], draft_top1s[-1]]
-    posterior = target_top1s[2:4]
+    proposal = [seed["configuration"]["target_next_token_id"]] + draft_top1s[1:]
+    if target["configuration"]["token_ids"] != [16_207, 22_856] + proposal:
+        raise ValueError("target branch does not follow the recursive proposal vector")
+    posterior = top1s(target)[-Q:]
     mismatch = next(
-        (index for index in range(len(proposal) - 1) if posterior[index] != proposal[index + 1]),
+        (index for index in range(Q - 1) if posterior[index] != proposal[index + 1]),
         None,
     )
     if mismatch is None:
-        correct_drafts = len(proposal) - 1
-        accepted = len(proposal)
-        retained = len(proposal)
+        correct_drafts = Q - 1
+        accepted = Q
+        retained = Q
         emitted = proposal[1:] + [posterior[-1]]
         next_anchor = posterior[-1]
         converged = True
@@ -84,10 +67,10 @@ def main() -> int:
 
     target_unions = []
     for layer in target["layers"]:
-        routes = layer["decoder"]["steps"][2:4]
-        target_unions.append(len(set(routes[0]["selected_experts"]) | set(routes[1]["selected_experts"])))
-    draft_route = draft_decoder["steps"][-1]["selected_experts"]
-    draft_unique = len(set(draft_route))
+        routes = layer["decoder"]["steps"][-Q:]
+        target_unions.append(len(set().union(*(set(step["selected_experts"]) for step in routes))))
+    draft_routes = draft_decoder["steps"][1:]
+    draft_unique = len(set().union(*(set(step["selected_experts"]) for step in draft_routes)))
     target_union_rows = sum(target_unions)
     combined_union_rows = target_union_rows + draft_unique
     one_token_expert_rows = TARGET_LAYERS * 10
@@ -95,13 +78,14 @@ def main() -> int:
 
     fixture = {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_first_greedy_mtp_transaction",
+        "semantic": "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction",
         "model": MODEL,
         "revision": REVISION,
         "reference": {
-            "implementation": "source_derived_sglang_greedy_eagle_and_firewing_exact_native_authorities",
+            "implementation": "source_derived_sglang_recursive_greedy_eagle_and_firewing_exact_native_authorities",
             "source_commit": SGLANG_COMMIT,
             "acceptance_source_lock_sha256": sha256_file(args.acceptance_lock),
+            "recursive_source_lock_sha256": sha256_file(args.recursive_lock),
             "target_fixture_sha256": sha256_file(args.target),
             "mtp_seed_fixture_sha256": sha256_file(args.mtp_seed),
             "mtp_decoder_fixture_sha256": sha256_file(args.mtp_decoder),
@@ -111,7 +95,7 @@ def main() -> int:
             "sampling": "greedy",
             "batch_size": 1,
             "concurrency": 1,
-            "q": len(posterior),
+            "q": Q,
             "target_layers": TARGET_LAYERS,
             "top_k_experts": 10,
             "expert_payload_bytes": EXPERT_BYTES,
@@ -122,7 +106,7 @@ def main() -> int:
             "correct_draft_tokens": correct_drafts,
             "accepted_tokens": accepted,
             "retained_proposal_rows": retained,
-            "rolled_back_proposal_rows": len(proposal) - retained,
+            "rolled_back_proposal_rows": Q - retained,
             "emitted_token_ids": emitted,
             "next_anchor_token_id": next_anchor,
             "proposal_converged": converged,
@@ -140,7 +124,7 @@ def main() -> int:
         "claims": {
             "accepted_tokens": accepted,
             "performance_claim": None,
-            "scope": "one exact greedy width-two transaction; no timing, sustained TPS, or endpoint promotion claim",
+            "scope": "one exact recursive greedy width-four transaction; no timing, sustained TPS, or endpoint promotion claim",
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

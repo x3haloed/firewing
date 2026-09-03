@@ -1,0 +1,113 @@
+{
+  "claims": {
+    "accepted_tokens": 2,
+    "performance_claim": null,
+    "scope": "one exact recursive greedy width-four transaction; no timing, sustained TPS, or endpoint promotion claim"
+  },
+  "configuration": {
+    "batch_size": 1,
+    "concurrency": 1,
+    "expert_payload_bytes": 9830400,
+    "q": 4,
+    "sampling": "greedy",
+    "target_layers": 48,
+    "top_k_experts": 10
+  },
+  "decision": {
+    "accepted_tokens": 2,
+    "correct_draft_tokens": 1,
+    "emitted_token_ids": [
+      264,
+      2526
+    ],
+    "next_anchor_token_id": 2526,
+    "proposal_converged": false,
+    "proposal_token_ids": [
+      369,
+      264,
+      220,
+      17
+    ],
+    "retained_proposal_rows": 2,
+    "rolled_back_proposal_rows": 2,
+    "target_posterior_token_ids": [
+      264,
+      2526,
+      16,
+      15
+    ]
+  },
+  "expert_union": {
+    "A_over_U": 0.7914262159934048,
+    "U": 2.527083333333333,
+    "combined_union_expert_rows": 1213,
+    "draft_unique_expert_rows": 30,
+    "logical_expert_payload_bytes": 11924275200,
+    "one_token_expert_rows": 480,
+    "target_union_expert_rows": 1183,
+    "target_unique_experts_by_layer": [
+      39,
+      28,
+      30,
+      20,
+      25,
+      28,
+      25,
+      25,
+      20,
+      21,
+      17,
+      18,
+      24,
+      16,
+      23,
+      19,
+      23,
+      22,
+      30,
+      22,
+      23,
+      27,
+      30,
+      21,
+      25,
+      24,
+      24,
+      22,
+      25,
+      21,
+      24,
+      19,
+      20,
+      27,
+      28,
+      24,
+      23,
+      26,
+      33,
+      21,
+      23,
+      27,
+      35,
+      28,
+      28,
+      28,
+      26,
+      26
+    ]
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "acceptance_source_lock_sha256": "fb542f23be3114aaace7da5bcd2202229c411687f19e469ec12c4d41e5c75976",
+    "implementation": "source_derived_sglang_recursive_greedy_eagle_and_firewing_exact_native_authorities",
+    "mtp_decoder_fixture_sha256": "00348e303bc9308ee26c43fb590372456d25208985d13a66fb78e70d6a377820",
+    "mtp_output_fixture_sha256": "228ee1d53fb3c1f474e4ccc5ef24048ff4060ad551d89ed9496c39f79c1d8104",
+    "mtp_seed_fixture_sha256": "3e3e86e494ccc673d46e03f7309781cc75db7a9985197b636056403545723ef1",
+    "recursive_source_lock_sha256": "f13565f96a9334c7a69b551465538b8c83870af889fb5fbd4f2ea886835eb12f",
+    "source_commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+    "target_fixture_sha256": "9d74bff8f1ef829f20dd9300702d2f2c9e9937e00b1f93b26dd99645855c14a4"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction"
+}

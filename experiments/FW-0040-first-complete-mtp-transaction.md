@@ -54,7 +54,8 @@ decision and route union.
 the 48 target layers, Firewing unions its exact top-10 routes across both target
 verification rows. It adds the live MTP row's ten distinct experts as a
 separate weight namespace, then divides the 697 equally sized expert payload
-rows by `48 * q = 96`. Dense, attention, PLE, LM-head, synchronization, and
+rows by the one-token target baseline `48 * top_k = 480`. Dense, attention,
+PLE, LM-head, synchronization, and
 physical SSD costs are not hidden in `U`; they remain additional endpoint work.
 
 ```shell
@@ -105,8 +106,8 @@ zero rows, and records one correct draft plus the bonus:
 - target expert-union rows: 687;
 - distinct live MTP expert rows: 10;
 - combined expert-union rows: 697;
-- `U=697/96=7.260416666666667`;
-- `A/U=0.27546628407460544`;
+- `U=697/480=1.4520833333333334`;
+- `A/U=1.3773314203730271`;
 - logical routed-expert payload: 6,851,788,800 bytes; and
 - total logically verified target-plus-draft payload: 39,973,590,016 bytes.
 
@@ -137,17 +138,12 @@ Promote the exact greedy transaction semantics, target bonus, zero-rollback
 decision, and route-union calculation as correctness authorities. Retire
 FW-0039's `A=0`, `U=0` limitation only for this one transaction.
 
-Do not claim that `A/U=0.275466` predicts endpoint TPS. It omits all fixed work,
+Do not claim that `A/U=1.377331` predicts endpoint TPS. It omits all fixed work,
 uses one favorable prompt location, and includes no physical SSD measurement.
 
-Width two is also analytically too narrow to provide `A/U > 1` under this
-ledger. Even impossible-perfect target route reuse still requires ten expert
-rows at each of 48 target layers plus ten rows from the distinct live MTP bank:
-`U >= 490/(48*2) = 5.1041667`. Since `A <= 2`, the impossible-best width-two
-bound is only `A/U <= 0.3918367`. Do not optimize or time this width as a
-candidate endpoint.
-
-The next cheap falsification step is recursive MTP at width four or wider,
-starting from exact anchor 2526 and preserving mismatches and rollback. Measure
-whether acceptance and target-route reuse grow fast enough before building a
-timed full-path loop.
+This corrected one-token-equivalent normalization shows routed-expert leverage
+above one for the favorable width-two transaction. It does not establish net
+leverage once MTP dense/attention, target dense/attention, PLE, head, physical
+reads, and cache pollution are included. The next falsification step is
+recursive width four, preserving mismatches and rollback rather than projecting
+the favorable first match.

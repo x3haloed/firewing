@@ -346,11 +346,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   `[369,264]` matches target posterior token `264`; exact target bonus `2526`
   yields emitted `[264,2526]`, `A=2`, both proposal rows retained, and zero
   rollback. Exact target route unions contribute 687 expert rows and the
-  distinct live MTP bank contributes ten, giving `U=697/(48*2)=7.260417` and
-  `A/U=0.275466`. Width two cannot reach `A/U>1` even with perfect target-route
-  reuse: its mandatory 490 expert rows give `U>=5.104167` and
-  impossible-best `A/U<=0.391837`. This is one favorable correctness
-  observation, not endpoint TPS; recursive width four or wider and physical
+  distinct live MTP bank contributes ten. Correct one-token-equivalent
+  normalization divides by the target baseline `48*top_k=480`, giving
+  `U=1.452083` and `A/U=1.377331`. The earlier position-normalized values were
+  invalid because Prismwing's original `q=8` happened to equal its top-k 8,
+  hiding the denominator distinction; Qwen's top-k is 10. This is one favorable
+  correctness observation, not endpoint TPS; recursive acceptance and physical
   SSD behavior remain next.
   See
   [`experiments/FW-0040-first-complete-mtp-transaction.md`](experiments/FW-0040-first-complete-mtp-transaction.md).
