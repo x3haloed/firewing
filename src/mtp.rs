@@ -143,6 +143,7 @@ pub struct MtpProposalVerificationReport {
     pub revision: String,
     pub source_commit: String,
     pub steps_verified: usize,
+    pub exact_input_fusion_capture_hashes: usize,
     pub exact_bf16_capture_hashes: usize,
     pub exact_f32_capture_hashes: usize,
     pub exact_i64_capture_hashes: usize,
@@ -685,7 +686,9 @@ pub fn verify_mtp_proposal_fixture(
         revision: fusion_report.revision,
         source_commit: fusion_report.source_commit,
         steps_verified: decoder_report.steps_verified,
+        exact_input_fusion_capture_hashes: fusion_report.exact_capture_hashes + 7,
         exact_bf16_capture_hashes: fusion_report.exact_capture_hashes
+            + 7
             + attention_report.exact_bf16_capture_hashes
             + decoder_report.exact_bf16_capture_hashes,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
