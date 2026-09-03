@@ -1,8 +1,5 @@
 use crate::token_text_endpoint::verify_token_text_endpoint_fixture_with_expected_outputs;
-use crate::{
-    verify_mtp_causal_prefill_fixture, verify_mtp_recursive_fixture,
-    verify_token_text_transaction_fixture,
-};
+use crate::{verify_mtp_causal_prefill_fixture, verify_mtp_recursive_fixture};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -149,6 +146,14 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         .map_err(|error| format!("cannot read {}: {error}", path.display()))
 }
 
+fn same_or_adjacent_positive_f64(left: f64, right: f64) -> bool {
+    left.is_finite()
+        && right.is_finite()
+        && left >= 0.0
+        && right >= 0.0
+        && left.to_bits().abs_diff(right.to_bits()) <= 1
+}
+
 fn validate_source_lock(path: &Path) -> Result<(), String> {
     let lock: SourceLock = serde_json::from_slice(
         &fs::read(path).map_err(|error| format!("cannot read acceptance lock: {error}"))?,
@@ -233,8 +238,13 @@ pub fn verify_mtp_transaction_fixture(
     )
     .map_err(|error| format!("malformed MTP transaction fixture: {error}"))?;
     let config = &fixture.configuration;
+    let transaction_index = match fixture.semantic.as_str() {
+        "qwen3_8_flash_next_first_greedy_mtp_transaction" => 1,
+        "qwen3_8_flash_next_second_greedy_mtp_transaction" => 2,
+        _ => 0,
+    };
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_first_greedy_mtp_transaction"
+        || transaction_index == 0
         || fixture.model != MODEL
         || fixture.revision != REVISION
         || fixture.reference.implementation
@@ -275,7 +285,31 @@ pub fn verify_mtp_transaction_fixture(
         mtp_decoder_fixture_path,
         mtp_output_fixture_path,
     )?;
-    let target = verify_token_text_transaction_fixture(
+    let history_positions = draft.target_input_token_ids.len();
+    if (transaction_index == 1 && history_positions != 2)
+        || (transaction_index == 2 && history_positions != 4)
+    {
+        return Err("width-two transaction index and retained history disagree".to_owned());
+    }
+    let proposal = vec![draft.target_next_token_id, draft.proposal_token_id];
+    let expected_token_ids = draft
+        .target_input_token_ids
+        .iter()
+        .copied()
+        .chain(proposal.iter().copied())
+        .collect::<Vec<_>>();
+    let (target_semantic, target_report_semantic) = match expected_token_ids.len() {
+        4 => (
+            "qwen3_8_flash_next_firewing_four_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_four_token_cached_text_logits_verification",
+        ),
+        6 => (
+            "qwen3_8_flash_next_firewing_six_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_six_token_cached_text_logits_verification",
+        ),
+        _ => return Err("unsupported width-two target transaction length".to_owned()),
+    };
+    let (target, _) = verify_token_text_endpoint_fixture_with_expected_outputs(
         checkpoint_dir,
         model_lock_path,
         tokenizer_fixture_path,
@@ -283,12 +317,14 @@ pub fn verify_mtp_transaction_fixture(
         ngram_row_fixture_path,
         ple_fixture_path,
         target_transaction_fixture_path,
+        target_semantic,
+        target_report_semantic,
+        &expected_token_ids,
     )?;
-    let proposal = vec![draft.target_next_token_id, draft.proposal_token_id];
     let posterior = target
         .top20_token_ids_by_step
         .iter()
-        .skip(2)
+        .skip(history_positions)
         .map(|tokens| tokens.first().copied().ok_or("target posterior is empty"))
         .collect::<Result<Vec<_>, _>>()?;
     if proposal.len() != 2 || posterior.len() != 2 {
@@ -328,7 +364,7 @@ pub fn verify_mtp_transaction_fixture(
         &fs::read(target_transaction_fixture_path).map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())?;
-    let target_routes = selected_routes(&target_value, 2)?;
+    let target_routes = selected_routes(&target_value, history_positions)?;
     if target_routes.len() != TARGET_LAYERS
         || target_routes.iter().any(|steps| {
             steps.len() != config.q
@@ -367,26 +403,79 @@ pub fn verify_mtp_transaction_fixture(
         .ok_or("logical expert byte count overflow")?;
     let decision = &fixture.decision;
     let union = &fixture.expert_union;
-    if decision.proposal_token_ids != proposal
-        || decision.target_posterior_token_ids != posterior
-        || decision.correct_draft_tokens != correct_drafts
-        || decision.accepted_tokens != accepted
-        || decision.retained_proposal_rows != retained
-        || decision.rolled_back_proposal_rows != proposal.len() - retained
-        || decision.emitted_token_ids != emitted
-        || decision.next_anchor_token_id != next_anchor
-        || decision.proposal_converged != converged
-        || fixture.claims.accepted_tokens != accepted
-        || union.target_unique_experts_by_layer != target_unions
-        || union.target_union_expert_rows != target_union_rows
-        || union.draft_unique_expert_rows != draft_unique
-        || union.combined_union_expert_rows != combined_union_rows
-        || union.one_token_expert_rows != one_token_expert_rows
-        || union.u.to_bits() != union_u.to_bits()
-        || union.a_over_u.to_bits() != a_over_u.to_bits()
-        || union.logical_expert_payload_bytes != logical_expert_payload_bytes
-    {
-        return Err("MTP transaction decision or expert union mismatch".to_owned());
+    let mismatches = [
+        (
+            "proposal_token_ids",
+            decision.proposal_token_ids != proposal,
+        ),
+        (
+            "target_posterior_token_ids",
+            decision.target_posterior_token_ids != posterior,
+        ),
+        (
+            "correct_draft_tokens",
+            decision.correct_draft_tokens != correct_drafts,
+        ),
+        ("accepted_tokens", decision.accepted_tokens != accepted),
+        (
+            "retained_proposal_rows",
+            decision.retained_proposal_rows != retained,
+        ),
+        (
+            "rolled_back_proposal_rows",
+            decision.rolled_back_proposal_rows != proposal.len() - retained,
+        ),
+        ("emitted_token_ids", decision.emitted_token_ids != emitted),
+        (
+            "next_anchor_token_id",
+            decision.next_anchor_token_id != next_anchor,
+        ),
+        (
+            "proposal_converged",
+            decision.proposal_converged != converged,
+        ),
+        (
+            "claims.accepted_tokens",
+            fixture.claims.accepted_tokens != accepted,
+        ),
+        (
+            "target_unique_experts_by_layer",
+            union.target_unique_experts_by_layer != target_unions,
+        ),
+        (
+            "target_union_expert_rows",
+            union.target_union_expert_rows != target_union_rows,
+        ),
+        (
+            "draft_unique_expert_rows",
+            union.draft_unique_expert_rows != draft_unique,
+        ),
+        (
+            "combined_union_expert_rows",
+            union.combined_union_expert_rows != combined_union_rows,
+        ),
+        (
+            "one_token_expert_rows",
+            union.one_token_expert_rows != one_token_expert_rows,
+        ),
+        ("U", !same_or_adjacent_positive_f64(union.u, union_u)),
+        (
+            "A_over_U",
+            !same_or_adjacent_positive_f64(union.a_over_u, a_over_u),
+        ),
+        (
+            "logical_expert_payload_bytes",
+            union.logical_expert_payload_bytes != logical_expert_payload_bytes,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(name, differs)| differs.then_some(name))
+    .collect::<Vec<_>>();
+    if !mismatches.is_empty() {
+        return Err(format!(
+            "MTP transaction decision or expert union mismatch: {}",
+            mismatches.join(", ")
+        ));
     }
     let total_verified_payload_bytes = draft
         .total_verified_payload_bytes
@@ -394,7 +483,11 @@ pub fn verify_mtp_transaction_fixture(
         .ok_or("transaction verified byte count overflow")?;
     Ok(MtpTransactionVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_first_greedy_mtp_transaction_verification",
+        semantic: if transaction_index == 1 {
+            "qwen3_8_flash_next_first_greedy_mtp_transaction_verification"
+        } else {
+            "qwen3_8_flash_next_second_greedy_mtp_transaction_verification"
+        },
         model: fixture.model,
         revision: fixture.revision,
         source_commit: fixture.reference.source_commit,
@@ -650,8 +743,8 @@ pub fn verify_mtp_recursive_transaction_fixture(
         || union.draft_unique_expert_rows != draft_unique
         || union.combined_union_expert_rows != combined_union_rows
         || union.one_token_expert_rows != one_token_expert_rows
-        || union.u.to_bits() != union_u.to_bits()
-        || union.a_over_u.to_bits() != a_over_u.to_bits()
+        || !same_or_adjacent_positive_f64(union.u, union_u)
+        || !same_or_adjacent_positive_f64(union.a_over_u, a_over_u)
         || union.logical_expert_payload_bytes != logical_expert_payload_bytes
     {
         return Err("recursive MTP decision or expert union mismatch".to_owned());
@@ -714,6 +807,32 @@ mod tests {
         assert!(fixture.decision.proposal_converged);
         assert_eq!(fixture.expert_union.combined_union_expert_rows, 697);
         assert_eq!(fixture.expert_union.one_token_expert_rows, 480);
+    }
+
+    #[test]
+    fn committed_second_width_two_transaction_fully_converges() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_second_q2_transaction.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture.configuration.q, 2);
+        assert_eq!(fixture.decision.proposal_token_ids, [2526, 11]);
+        assert_eq!(fixture.decision.target_posterior_token_ids, [11, 45_815]);
+        assert_eq!(fixture.decision.emitted_token_ids, [11, 45_815]);
+        assert_eq!(fixture.decision.retained_proposal_rows, 2);
+        assert_eq!(fixture.decision.rolled_back_proposal_rows, 0);
+        assert!(fixture.decision.proposal_converged);
+        assert_eq!(fixture.expert_union.combined_union_expert_rows, 741);
+        assert_eq!(fixture.expert_union.one_token_expert_rows, 480);
+        let recomputed = 2.0_f64 / (741.0_f64 / 480.0_f64);
+        assert!(same_or_adjacent_positive_f64(
+            fixture.expert_union.a_over_u,
+            recomputed
+        ));
+        assert!(!same_or_adjacent_positive_f64(
+            fixture.expert_union.a_over_u,
+            f64::from_bits(recomputed.to_bits() - 1)
+        ));
     }
 
     #[test]

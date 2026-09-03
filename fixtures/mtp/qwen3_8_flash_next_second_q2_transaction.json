@@ -1,0 +1,108 @@
+{
+  "claims": {
+    "accepted_tokens": 2,
+    "performance_claim": null,
+    "scope": "one exact greedy width-two transaction; no timing, sustained TPS, or endpoint promotion claim"
+  },
+  "configuration": {
+    "batch_size": 1,
+    "concurrency": 1,
+    "expert_payload_bytes": 9830400,
+    "q": 2,
+    "sampling": "greedy",
+    "target_layers": 48,
+    "top_k_experts": 10
+  },
+  "decision": {
+    "accepted_tokens": 2,
+    "correct_draft_tokens": 1,
+    "emitted_token_ids": [
+      11,
+      45815
+    ],
+    "next_anchor_token_id": 45815,
+    "proposal_converged": true,
+    "proposal_token_ids": [
+      2526,
+      11
+    ],
+    "retained_proposal_rows": 2,
+    "rolled_back_proposal_rows": 0,
+    "target_posterior_token_ids": [
+      11,
+      45815
+    ]
+  },
+  "expert_union": {
+    "A_over_U": 1.2955465587044535,
+    "U": 1.54375,
+    "combined_union_expert_rows": 741,
+    "draft_unique_expert_rows": 10,
+    "logical_expert_payload_bytes": 7284326400,
+    "one_token_expert_rows": 480,
+    "target_union_expert_rows": 731,
+    "target_unique_experts_by_layer": [
+      19,
+      18,
+      17,
+      13,
+      18,
+      19,
+      14,
+      14,
+      13,
+      14,
+      15,
+      15,
+      17,
+      12,
+      14,
+      13,
+      16,
+      19,
+      15,
+      15,
+      14,
+      16,
+      18,
+      15,
+      14,
+      15,
+      14,
+      14,
+      14,
+      11,
+      15,
+      14,
+      15,
+      16,
+      16,
+      14,
+      14,
+      15,
+      20,
+      15,
+      16,
+      16,
+      17,
+      16,
+      16,
+      13,
+      12,
+      16
+    ]
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "acceptance_source_lock_sha256": "fb542f23be3114aaace7da5bcd2202229c411687f19e469ec12c4d41e5c75976",
+    "implementation": "source_derived_sglang_greedy_eagle_and_firewing_exact_native_authorities",
+    "mtp_decoder_fixture_sha256": "55ba02db60ace317326f8b6249540ad8babdafd89a8de332835e80c050a5d0ab",
+    "mtp_output_fixture_sha256": "db85689b5162932b0ca348cccebf8144c5171e1e1544e4afaa6c28896897805a",
+    "mtp_seed_fixture_sha256": "3cfcb1c05942bac5c43d8db1f72ea7f20a2dfbc6c8129080ca5c60ba953e4ce1",
+    "source_commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+    "target_fixture_sha256": "114dae658be2edf772d3f8b3e4ef7c9ac669387d42c35a26cf739323733ee130"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_second_greedy_mtp_transaction"
+}

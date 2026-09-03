@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--mtp-decoder", required=True, type=Path)
     parser.add_argument("--mtp-output", required=True, type=Path)
     parser.add_argument("--acceptance-lock", required=True, type=Path)
+    parser.add_argument("--transaction-index", type=int, choices=(1, 2), default=1)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -51,8 +52,11 @@ def main() -> int:
     if (
         target.get("model") != MODEL
         or target.get("revision") != REVISION
-        or target.get("semantic") != "qwen3_8_flash_next_firewing_four_token_cached_text_logits"
-        or target["configuration"]["token_ids"] != [16_207, 22_856, 369, 264]
+        or target.get("semantic")
+        not in {
+            "qwen3_8_flash_next_firewing_four_token_cached_text_logits",
+            "qwen3_8_flash_next_firewing_six_token_cached_text_logits",
+        }
         or seed.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_fusion"
         or draft_decoder.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_decoder"
         or draft_output.get("semantic") != "qwen3_8_flash_next_target_derived_mtp_prefill_logits"
@@ -62,7 +66,14 @@ def main() -> int:
     target_top1s = top1s(target)
     draft_top1s = [step["top20_token_ids"][0] for step in draft_output["steps"]]
     proposal = [seed["configuration"]["target_next_token_id"], draft_top1s[-1]]
-    posterior = target_top1s[2:4]
+    target_history = seed["configuration"]["target_input_token_ids"]
+    if (
+        len(target_history) not in (2, 4)
+        or target["configuration"]["token_ids"] != target_history + proposal
+        or args.transaction_index != len(target_history) // 2
+    ):
+        raise ValueError("transaction target history or index mismatch")
+    posterior = target_top1s[-2:]
     mismatch = next(
         (index for index in range(len(proposal) - 1) if posterior[index] != proposal[index + 1]),
         None,
@@ -84,7 +95,7 @@ def main() -> int:
 
     target_unions = []
     for layer in target["layers"]:
-        routes = layer["decoder"]["steps"][2:4]
+        routes = layer["decoder"]["steps"][-2:]
         target_unions.append(len(set(routes[0]["selected_experts"]) | set(routes[1]["selected_experts"])))
     draft_route = draft_decoder["steps"][-1]["selected_experts"]
     draft_unique = len(set(draft_route))
@@ -95,7 +106,7 @@ def main() -> int:
 
     fixture = {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_first_greedy_mtp_transaction",
+        "semantic": f"qwen3_8_flash_next_{'first' if args.transaction_index == 1 else 'second'}_greedy_mtp_transaction",
         "model": MODEL,
         "revision": REVISION,
         "reference": {
