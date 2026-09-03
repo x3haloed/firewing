@@ -123,6 +123,14 @@ runtime passing every target gate, including reproducible batch-one decode at
   accumulated multi-layer parity, PLE, full attention, logits, an endpoint, or
   TPS. See
   [`experiments/FW-0017-layer0-complete-decoder.md`](experiments/FW-0017-layer0-complete-decoder.md).
+- FW-0018 exactly reproduces layer 1's PLE injection for an initial and cached
+  token across 30 BF16 and two int64 captures. The native path reads and
+  authenticates only 32 selected 320-byte n-gram rows, while six ordinary PLE
+  tensors contribute 65,679,360 bytes. It independently retains the two-token
+  n-gram context and 184,320-byte nine-position dilated-convolution state. This
+  resolves the model's only PLE primitive, not complete layer 1, accumulated
+  layers, full attention, endpoint behavior, or physical-I/O performance. See
+  [`experiments/FW-0018-layer1-ple-cached-decode.md`](experiments/FW-0018-layer1-ple-cached-decode.md).
 
 ## Prediction errors
 
