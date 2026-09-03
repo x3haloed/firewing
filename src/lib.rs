@@ -5,6 +5,7 @@ use std::path::Path;
 use tokenizers::Tokenizer;
 
 mod attention_residual;
+mod decoder_layer;
 mod deltanet;
 mod expert;
 mod expert_acquisition;
@@ -15,6 +16,7 @@ mod router;
 pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,
 };
+pub use decoder_layer::{DecoderLayerVerificationReport, verify_decoder_layer_fixture};
 pub use deltanet::{DeltaNetVerificationReport, verify_deltanet_fixture};
 pub use expert::{
     ExpertVerificationReport, MixtureVerificationReport, SparseMoeVerificationReport,

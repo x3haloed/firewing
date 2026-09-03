@@ -277,13 +277,13 @@ fn expected_tensors() -> Vec<(String, Vec<usize>, String, String)> {
         .collect()
 }
 
-pub fn verify_attention_residual_fixture(
+pub(crate) fn verify_attention_residual_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     hyper_fixture_path: &Path,
     deltanet_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<AttentionResidualVerificationReport, String> {
+) -> Result<(AttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture =
         serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed attention-residual fixture: {error}"))?;
@@ -372,6 +372,7 @@ pub fn verify_attention_residual_fixture(
     }
 
     let mut state = zero_deltanet_state();
+    let mut composed_outputs = Vec::with_capacity(case.steps.len());
     for (ordinal, step) in case.steps.iter().enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -433,22 +434,43 @@ pub fn verify_attention_residual_fixture(
             .map(|(residual, injection)| to_bf16(from_bf16(*residual) + from_bf16(*injection)))
             .collect();
         require_bf16(step, "composed_output", &[1, 1, HC_HIDDEN], &composed)?;
+        composed_outputs.push(composed);
     }
 
-    Ok(AttentionResidualVerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer0_attention_residual_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: 0,
-        steps_verified: 2,
-        tensors_verified: 13,
-        exact_bf16_capture_hashes: 14,
-        exact_f32_capture_hashes: 2,
-        tensor_payload_bytes,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        AttentionResidualVerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_layer0_attention_residual_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layer: 0,
+            steps_verified: 2,
+            tensors_verified: 13,
+            exact_bf16_capture_hashes: 14,
+            exact_f32_capture_hashes: 2,
+            tensor_payload_bytes,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        composed_outputs,
+    ))
+}
+
+pub fn verify_attention_residual_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    hyper_fixture_path: &Path,
+    deltanet_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<AttentionResidualVerificationReport, String> {
+    verify_attention_residual_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        hyper_fixture_path,
+        deltanet_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]

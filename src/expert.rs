@@ -353,7 +353,7 @@ fn make_hidden(size: usize, spec: &InputSpec) -> Result<Vec<u16>, String> {
         .collect()
 }
 
-fn read_expert_slice(
+pub(crate) fn read_expert_slice(
     path: &Path,
     tensor: &str,
     expert: usize,
@@ -543,7 +543,7 @@ pub(crate) fn linear_bf16(weight: &[u16], input: &[u16], rows: usize, columns: u
         .collect()
 }
 
-fn swiglu_bf16(gate: &[u16], up: &[u16]) -> Vec<u16> {
+pub(crate) fn swiglu_bf16(gate: &[u16], up: &[u16]) -> Vec<u16> {
     gate.iter()
         .zip(up)
         .map(|(gate, up)| {
@@ -559,7 +559,7 @@ pub(crate) fn sigmoid_bf16(value: u16) -> u16 {
     to_bf16(1.0 / (1.0 + (-value).exp()))
 }
 
-fn add_bf16(left: u16, right: u16) -> u16 {
+pub(crate) fn add_bf16(left: u16, right: u16) -> u16 {
     to_bf16(from_bf16(left) + from_bf16(right))
 }
 

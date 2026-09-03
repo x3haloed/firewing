@@ -67,6 +67,8 @@ fixture.
 cargo run --release -- verify-decoder-layer \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
+  fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
   fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
   fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
   fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
