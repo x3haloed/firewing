@@ -27,6 +27,7 @@ const CONTAINER_SHA256: &str = "bcc410a162445937641f4b5c894eccab9547c23e2cf4e9a3
 const BUILDER_COMMIT: &str = "a782e771f3ec4067ad4430865938defcc591108b";
 const EXPERT_BYTES: usize = 9_830_400;
 const PAGE_BYTES: usize = 16 * 1024;
+const DISK_ACCOUNTING_BYTES: u64 = 4 * 1024;
 const LAYERS: usize = 48;
 const TOP_K: usize = 10;
 const RECORDS: usize = 687;
@@ -996,7 +997,7 @@ fn unshuffle_bf16(shuffled: &[u8], source: &mut [u8]) -> Result<(), String> {
 
 fn physical_read_amplification(requested: usize, actual: u64) -> Result<u64, String> {
     let requested = requested as u64;
-    if actual < requested || !actual.is_multiple_of(PAGE_BYTES as u64) {
+    if actual < requested || !actual.is_multiple_of(DISK_ACCOUNTING_BYTES) {
         return Err(format!(
             "compressed-overlap invalid physical read ledger: actual={actual} requested={requested}"
         ));
@@ -1666,6 +1667,10 @@ mod tests {
             Ok((PAGE_BYTES * 2) as u64)
         );
         assert!(physical_read_amplification(PAGE_BYTES * 2, PAGE_BYTES as u64).is_err());
+        assert_eq!(
+            physical_read_amplification(PAGE_BYTES, PAGE_BYTES as u64 + DISK_ACCOUNTING_BYTES),
+            Ok(DISK_ACCOUNTING_BYTES)
+        );
         assert!(physical_read_amplification(PAGE_BYTES, PAGE_BYTES as u64 + 1).is_err());
     }
 
