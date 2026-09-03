@@ -524,6 +524,13 @@ runtime passing every target gate, including reproducible batch-one decode at
   Exact compressed-weight execution or a stronger representation remains a
   distinct branch. See
   [`experiments/FW-0056-materialized-cache-unified-memory-floor.md`](experiments/FW-0056-materialized-cache-unified-memory-floor.md).
+- FW-0057 rejects a direct Prismwing-style block-128 E4M3 weight port before
+  kernel work. It halves ten real layer-0 routed experts to 0.500122 of source
+  bytes, but the favorable weight-only BF16-activation screen reaches 3.6827%
+  mixture relative L2 and 4.6847% worst-expert relative L2, missing the frozen
+  1%/2% gates. Keep this mode explicitly modified. Calibrated, outlier-aware,
+  smaller-block, INT8, or recovered forms remain distinct experiments. See
+  [`experiments/FW-0057-modified-block-fp8-weight-fidelity.md`](experiments/FW-0057-modified-block-fp8-weight-fidelity.md).
 
 ## Prediction errors
 
@@ -558,7 +565,9 @@ These unresolved distinctions can still change the next decision:
   impossible-favorable bandwidth and on-chip reuse grants. Causal policy is no
   longer the next question for that representation. Exact compressed-weight
   execution, stronger exact coding, production route distribution, and full
-  endpoint work remain unresolved.
+  endpoint work remain unresolved. FW-0057 separately rejects naive block-128
+  E4M3 weights as a modified escape hatch on the first real-mixture fidelity
+  rung; other calibrated or recovered compact formats remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
