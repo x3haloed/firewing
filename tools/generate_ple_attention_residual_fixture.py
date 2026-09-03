@@ -54,7 +54,12 @@ def build_fixture(
     *,
     _return_outputs: bool = False,
     _hidden_overrides: list[torch.Tensor] | None = None,
-) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
+    _return_chain: bool = False,
+) -> (
+    dict[str, Any]
+    | tuple[dict[str, Any], list[torch.Tensor]]
+    | tuple[dict[str, Any], list[torch.Tensor], dict[str, Any]]
+):
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -202,6 +207,8 @@ def build_fixture(
             "steps": steps,
         },
     }
+    if _return_chain:
+        return fixture, composed_outputs, regenerated_ple
     if _return_outputs:
         return fixture, composed_outputs
     return fixture

@@ -103,3 +103,9 @@ attention and QSA indexer weights to an empty-cache token and a deterministic
 2,080-token synthetic cache. The long case forces an unambiguous 512-of-520
 block selection while retaining the current tail token, and freezes exact
 projection, partial-RoPE, cache, selection, attention, gate, and output hashes.
+
+`accumulated/qwen3_8_flash_next_layers0_1.json` feeds FW-0017's exact layer-0
+outputs into layer 1 for the same initial and cached tokens. It embeds compact
+hash-only PLE, attention, and complete-decoder authorities for the changed
+layer-1 activations and routes, proving that the second layer does not reuse a
+layer-local input or route. No activation or checkpoint payload is committed.

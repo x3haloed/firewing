@@ -54,7 +54,9 @@ def build_fixture(
     _semantic: str = SEMANTIC,
     _reference_hashes: dict[str, str] | None = None,
     _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
-) -> dict[str, Any]:
+    _require_committed_parent: bool = True,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -68,11 +70,12 @@ def build_fixture(
         )
     else:
         generated, post_attention = _parent_execution
+    authority = parent if _require_committed_parent else generated
     if (
         revision != lock["revision"]
-        or parent != generated
-        or parent.get("revision") != revision
-        or parent.get("semantic") != _parent_semantic
+        or (_require_committed_parent and parent != generated)
+        or authority.get("revision") != revision
+        or authority.get("semantic") != _parent_semantic
     ):
         raise ValueError(f"layer-{_layer} decoder parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
@@ -142,6 +145,7 @@ def build_fixture(
         }
 
     steps = []
+    layer_outputs = []
     with safe_open(checkpoint_dir / weight_map[gate_up_name], framework="pt", device="cpu") as gate_up_file:
         with safe_open(checkpoint_dir / weight_map[down_name], framework="pt", device="cpu") as down_file:
             for ordinal, post in enumerate(post_attention):
@@ -173,6 +177,7 @@ def build_fixture(
                     moe_output.unsqueeze(-2) * injection_weights.unsqueeze(-1)
                 ).contiguous()
                 layer_output = (preserved + injection_products.flatten(-2)).contiguous()
+                layer_outputs.append(layer_output)
                 captures = {
                     "post_attention": post,
                     "mlp_input": mlp_input,
@@ -202,7 +207,7 @@ def build_fixture(
                     }
                 )
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": _semantic,
         "model": MODEL,
@@ -239,6 +244,9 @@ def build_fixture(
         "expert_banks": expert_banks,
         "steps": steps,
     }
+    if _return_outputs:
+        return fixture, layer_outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:

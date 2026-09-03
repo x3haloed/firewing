@@ -46,7 +46,11 @@ selected expert hashes, and final two-layer output.
   --model-lock spec/model.lock.json \
   --ngram-fixture fixtures/ngram/qwen3_8_flash_next.json \
   --ngram-row-fixture fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  --layer0-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  --layer0-sparse-moe-fixture fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
   --layer0-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  --ple-fixture fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  --layer1-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
   --layer1-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
   --output fixtures/accumulated/qwen3_8_flash_next_layers0_1.json
 
@@ -89,7 +93,19 @@ an endpoint, real prefill, modality processing, latency, and TPS.
 
 ## Result
 
-Pending.
+The source-derived accumulated fixture passes and regenerates byte-identically.
+Layer 0 retains the FW-0017 routes. Its outputs change layer 1's initial route
+from `[495, 40, 7, 110, 113, 450, 241, 252, 236, 503]` to
+`[40, 495, 7, 110, 450, 113, 503, 370, 241, 236]` and the cached route from
+`[469, 60, 456, 259, 80, 202, 453, 245, 176, 186]` to
+`[60, 469, 259, 80, 456, 453, 468, 202, 176, 186]`. Thus both calls
+discriminate the accumulated input from FW-0023's layer-local authority.
+
+The fixture embeds hash-only authorities for the accumulated PLE, attention,
+and complete layer-1 stages. Each PLE hidden-state hash exactly equals the
+corresponding layer-0 output hash. Its SHA-256 is
+`d1b204354dddf606ad1156f558bb9656f57a81a79f9ae35733127947dc4d2e0b`.
+All 48 Python tests pass. Native verification is pending.
 
 ## Decision
 

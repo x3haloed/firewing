@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 
+import torch
+
 if __package__:
     from tools.generate_full_decoder_layer3_fixture import (
         build_fixture as build_decoder_fixture,
@@ -35,21 +37,36 @@ def build_fixture(
     ngram_row_fixture_path: Path,
     ple_fixture_path: Path,
     attention_residual_fixture_path: Path,
-) -> dict:
+    *,
+    _hidden_overrides: list[torch.Tensor] | None = None,
+    _semantic: str = SEMANTIC,
+    _reference_hashes: dict[str, str] | None = None,
+    _return_chain: bool = False,
+) -> dict | tuple[dict, list[torch.Tensor], dict, dict]:
     parent_result = build_attention_fixture(
         checkpoint_dir,
         model_lock_path,
         ngram_fixture_path,
         ngram_row_fixture_path,
         ple_fixture_path,
-        _return_outputs=True,
+        _hidden_overrides=_hidden_overrides,
+        _return_chain=True,
     )
-    if not isinstance(parent_result, tuple):
+    if not isinstance(parent_result, tuple) or len(parent_result) != 3:
         raise AssertionError("layer-1 attention outputs were not returned")
-    generated, post_attention = parent_result
-    if generated != json.loads(attention_residual_fixture_path.read_text(encoding="utf-8")):
+    generated, post_attention, generated_ple = parent_result
+    if (
+        _hidden_overrides is None
+        and generated != json.loads(attention_residual_fixture_path.read_text(encoding="utf-8"))
+    ):
         raise ValueError("layer-1 attention parent fixture mismatch")
-    return build_decoder_fixture(
+    reference_hashes = _reference_hashes or {
+        "ngram_fixture_sha256": sha256_file(ngram_fixture_path),
+        "ngram_row_fixture_sha256": sha256_file(ngram_row_fixture_path),
+        "ple_fixture_sha256": sha256_file(ple_fixture_path),
+        "attention_residual_fixture_sha256": sha256_file(attention_residual_fixture_path),
+    }
+    decoder_result = build_decoder_fixture(
         checkpoint_dir,
         model_lock_path,
         ple_fixture_path,
@@ -58,15 +75,18 @@ def build_fixture(
         _parent_semantic=PARENT_SEMANTIC,
         _layer=1,
         _layer_type="linear_attention",
-        _semantic=SEMANTIC,
-        _reference_hashes={
-            "ngram_fixture_sha256": sha256_file(ngram_fixture_path),
-            "ngram_row_fixture_sha256": sha256_file(ngram_row_fixture_path),
-            "ple_fixture_sha256": sha256_file(ple_fixture_path),
-            "attention_residual_fixture_sha256": sha256_file(attention_residual_fixture_path),
-        },
+        _semantic=_semantic,
+        _reference_hashes=reference_hashes,
         _modes=("initial_chunk", "cached_recurrent"),
+        _require_committed_parent=_hidden_overrides is None,
+        _return_outputs=True,
     )
+    if not isinstance(decoder_result, tuple):
+        raise AssertionError("layer-1 decoder outputs were not returned")
+    fixture, outputs = decoder_result
+    if _return_chain:
+        return fixture, outputs, generated, generated_ple
+    return fixture
 
 
 def main() -> int:
