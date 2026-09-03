@@ -63,6 +63,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   IDs, selected BF16 logits, and normalized BF16 scores for deterministic real
   checkpoint cases at layers 0, 1, and 47. This validates the primitive and
   BF16/F32 precision path, but not real-activation route distributions or `U`.
+- FW-0010 independently reproduces all six BF16 identities for one real
+  layer-0 routed expert: gate/up, split gate and up, SwiGLU, down, and weighted
+  down. The selected payload is exactly 9,830,400 bytes. Forward scalar F32
+  accumulation failed the down hash; PyTorch's aarch64 BF16 GEMV reduction
+  topology (eight four-lane accumulators and a fixed tree) passes exactly. This
+  validates one expert/input pair, not a ten-expert mixture or endpoint.
 
 ## Prediction errors
 

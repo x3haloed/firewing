@@ -73,9 +73,22 @@
       "maximum_normalized_score_absolute_error": 0.0,
       "accepted_tokens": 0,
       "performance_claim": null
+    },
+    "expert_correctness": {
+      "status": "fw_0010_real_checkpoint_single_expert_exact_parity",
+      "layer": 0,
+      "expert": 376,
+      "gate_up_payload_bytes": 6553600,
+      "down_payload_bytes": 3276800,
+      "total_expert_payload_bytes": 9830400,
+      "exact_bf16_capture_hashes": 6,
+      "fixture_sha256": "10315f99986464e85e186cc32d55488d9c68f7db0979f5cef1411c6b7e8a4752",
+      "verification_receipt_sha256": "23d8a3b01c18695a4d3d2245427cb56ffa260d87cbb35d18dbd8f13b137f62c6",
+      "accepted_tokens": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0009_router_primitive_verified_no_endpoint_measurement",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
+  "status": "fw_0010_single_real_expert_verified_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
 }

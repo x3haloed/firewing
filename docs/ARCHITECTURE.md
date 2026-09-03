@@ -104,6 +104,15 @@ rounds logits to BF16, evaluates F32 softmax, selects ten experts, renormalizes,
 and rounds scores to BF16. This does not yet establish routes produced by real
 layer activations, cross-token expert union, or expert execution.
 
+FW-0010 establishes one complete real routed expert from the same layer-0
+input. Native code reads only expert 376's 6,553,600-byte gate/up slice and
+3,276,800-byte down slice, then exactly matches six Transformers BF16 capture
+hashes through route weighting. A forward scalar F32 sum is not source-exact:
+the down projection requires PyTorch's aarch64 BF16 GEMV reduction topology of
+eight four-lane accumulators and a fixed reduction tree. This confirms the
+9,830,400-byte per-expert ledger constant and one numerical path, not the full
+ten-expert mixture, real activation routes, or storage behavior.
+
 ## Current implementation boundary
 
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
@@ -111,6 +120,8 @@ and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
 checkpoint can execute within 16 GiB. The native tokenizer, n-gram address
 verifier, and bounded sparse row reader are the first target-specific Rust
-slices; the real-weight scalar router is the first MoE primitive. The runtime reuses
-Prismwing's reference/oracle/independent-fixture discipline, while Qwen4-Exp
-semantics and checkpoint layouts remain independently derived and fail closed.
+slices; the real-weight router and single-expert verifier are the first MoE
+primitives. The runtime reuses Prismwing's
+reference/oracle/independent-fixture discipline and its source-derived ARM
+reduction insight, while Qwen4-Exp semantics and checkpoint layouts remain
+independently derived and fail closed.

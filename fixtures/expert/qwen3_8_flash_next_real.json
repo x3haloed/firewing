@@ -1,0 +1,62 @@
+{
+  "case": {
+    "down": {
+      "expert_payload_sha256": "68662cb48d8d4fab7f017959173581c8d43b331826478eb260e59429d88d48f3",
+      "shard": "model-00003-of-00131.safetensors",
+      "shard_bytes": 1832518264,
+      "shard_sha256": "b783fbb3bdf185b4576ffee9ba786dbd9a218ec3cac9d92706d99216567b37a6",
+      "tensor": "model.language_model.layers.0.mlp.experts.down_proj"
+    },
+    "expected_bf16_sha256": {
+      "down": "e4977de49cca592bb33a6eb2e5c3ce6cb9a6cf291c426efd04513838c7fb274d",
+      "gate": "486dffa52580347857e7fe941be6d3ba65fa05cec443e26a5d0a0c9c5beed4c3",
+      "gate_up": "630db1aa17261c7e99402e59fa10320fd198b9dfc133efeffe4803b1f644b63e",
+      "swiglu": "99cc47ddc0075f4e396cf2ce47e44dff67474f312137ffd77f79de4b598850a4",
+      "up": "ed0608c719b50d073e6fb589ec30b701b49c6497287053a9d9fcdc115008cb7c",
+      "weighted_down": "ffd37f62b3dba99a97b44adbaceca430bd50ed2967e28dca3d05972c2ca37004"
+    },
+    "expert": 376,
+    "gate_up": {
+      "expert_payload_sha256": "f9d79ddd2ff2129bfd0a19fd87ba2932af0d9c8fae18bde498dabe7a31e3a109",
+      "shard": "model-00002-of-00131.safetensors",
+      "shard_bytes": 3355443368,
+      "shard_sha256": "1da92de7cf72dcca86faf05007925389ceb24427609e8d3b478d53d97fd97a63",
+      "tensor": "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    },
+    "input_bf16_sha256": "fd49d326938089ac718c04ad9ac207759b98dabef7db86a8c2646cec11ad37a1",
+    "input_spec": {
+      "add": 11,
+      "center": 128,
+      "divisor": 128,
+      "modulus": 257,
+      "multiplier": 37,
+      "sparse_stride": 1
+    },
+    "layer": 0,
+    "name": "layer_0_top_1_expert",
+    "route_weight_bf16": 0.11962890625
+  },
+  "configuration": {
+    "activation": "silu",
+    "boundary_dtype": "BF16",
+    "hidden_size": 2560,
+    "input_dtype": "BF16",
+    "intermediate_size": 640,
+    "num_experts": 512,
+    "top_k": 10,
+    "weight_dtype": "BF16"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "router_fixture_sha256": "bbf73e4361d81b60e8ab49898422ba5fd0d2a90f312433ac43a013e48c89d39b",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextExperts.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_routed_expert"
+}

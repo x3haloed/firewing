@@ -4,9 +4,11 @@ use std::fs;
 use std::path::Path;
 use tokenizers::Tokenizer;
 
+mod expert;
 mod ngram;
 mod router;
 
+pub use expert::{ExpertVerificationReport, verify_expert_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,

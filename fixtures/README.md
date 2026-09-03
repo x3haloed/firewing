@@ -26,3 +26,10 @@ states to real checkpoint router matrices at layers 0, 1, and 47. It commits
 only input/weight hashes, selected expert IDs, and small numerical outputs—not
 checkpoint weights. `tools/generate_router_fixture.py` generates the reference;
 the Rust scalar verifier independently performs the BF16/F32 router path.
+
+`expert/qwen3_8_flash_next_real.json` binds FW-0009's deterministic layer-0
+input, first selected expert, and route weight to hashes for the exact real
+expert slices and six BF16 captures. It contains no weight or output payloads.
+`tools/generate_expert_fixture.py` runs the Transformers expert equation; the
+native verifier independently reads the bounded slices and reproduces
+PyTorch's source-derived aarch64 BF16 reduction order.

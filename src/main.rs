@@ -1,6 +1,6 @@
 use firewing::{
-    benchmark_ngram_transport, verify_ngram_fixture, verify_ngram_rows, verify_router_fixture,
-    verify_tokenizer_fixture,
+    benchmark_ngram_transport, verify_expert_fixture, verify_ngram_fixture, verify_ngram_rows,
+    verify_router_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -8,7 +8,7 @@ use std::path::Path;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]\n  firewing verify-router CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]"
+        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]\n  firewing verify-router CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-expert CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -59,6 +59,16 @@ fn main() {
             )
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(5),
+        ),
+        Some("verify-expert") if (6..=7).contains(&args.len()) => (
+            verify_expert_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(6),
         ),
         _ => usage(),
     };
