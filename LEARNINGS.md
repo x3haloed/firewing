@@ -465,6 +465,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   reloads. Capacity is no longer the immediate contradiction, but future-known
   initial contents and retention remain noncausal. See
   [`experiments/FW-0050-capacity-respecting-sequential-cache-oracle.md`](experiments/FW-0050-capacity-respecting-sequential-cache-oracle.md).
+- FW-0051 physically replays FW-0050's exact capacity-respecting schedule and
+  retains 4.168663/4.285932/4.352106 accepted TPS at p10/median/p90. All 464
+  misses, 3.125 GB requested physical bytes, 4.561 GB reconstructed source
+  bytes, and 192 Metal executions are charged; exact frame authentication and
+  host safety pass. macOS process I/O accounting can exceed 16-KiB requested
+  extents in 4-KiB quanta for less sequential schedules, so over-read is now
+  charged explicitly while under-read still fails closed. Physical feasibility
+  is established only for an offline future-known cache. Causal initial state
+  and eviction from prior route history are now the decisive cache questions.
+  See
+  [`experiments/FW-0051-capacity-cache-physical-overlap.md`](experiments/FW-0051-capacity-cache-physical-overlap.md).
 
 ## Prediction errors
 
@@ -488,8 +499,8 @@ These unresolved distinctions can still change the next decision:
   and FW-0049 establishes that physical transformed decoding plus inverse
   shuffle can overlap four rows of routed Metal above 4 TPS. FW-0050 supplies
   a capacity-respecting offline schedule at the same compulsory-miss count.
-  Its physical replay, causality, actual resident capacity, and full endpoint
-  work remain unresolved.
+  FW-0051 physically replays that schedule above 4 TPS. Causality, actual
+  resident cache installation, and full endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
