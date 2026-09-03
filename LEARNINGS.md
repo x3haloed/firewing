@@ -59,6 +59,14 @@ runtime passing every target gate, including reproducible batch-one decode at
 
 These unresolved distinctions can still change the next decision:
 
+- Expected: `F_NOCACHE` plus disabled read-ahead would make FW-0007's aligned
+  reads observable as physical SSD traffic after correctness preflight.
+  Observed: all 30 nominally uncached trials reported zero physical disk bytes
+  and a 0.685 ms median for 224 reads. Uncertain: whether explicit mapped-range
+  invalidation can reliably make these checkpoint pages nonresident before
+  measurement. Evidence: FW-0007 raw report
+  `9b9b313b2a4b731a09d865035bbc8416a09fa288de7fce1fc33662eaf8277fb7`.
+
 - Whether hosted Qwen3.8-Flash is distributionally and semantically equivalent
   enough to the open Qwen3.8-Flash-Next checkpoint to serve as its behavioral
   reference.

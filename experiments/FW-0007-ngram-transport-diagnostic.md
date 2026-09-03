@@ -1,7 +1,7 @@
 # FW-0007 - N-gram sparse transport diagnostic
 
-- Status: planned and frozen
-- Disposition: unexecuted
+- Status: complete
+- Disposition: rejected — physical-I/O isolation gate failed
 - Date: 2026-09-03
 - Parent experiment: FW-0006
 - Exactness: L0 row bytes
@@ -30,7 +30,8 @@ bytes. It cannot establish endpoint TPS.
   `8896518e313ff0cb9d847fe5f6170b8f56ec168196c50d18a527ef89e3e2ffce`
 - Model lock SHA-256:
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
-- Baseline implementation commit: to be filled by the protocol-freeze commit
+- Baseline implementation commit:
+  `e39f59c33cbfe5f19498a786ed5f6246c13f8348`
 - Rust 1.96.0; macOS 26.6.2 build 25G83
 
 Generic Darwin transport mechanics were adapted from Prismwing commit
@@ -80,10 +81,28 @@ The run is not a complete inference request and does not exercise PLE math.
 
 ## Result
 
-Unexecuted. Preserve raw output and fill this section only after running the
-committed protocol from a clean worktree.
+All 60 measured trials and 13,440 timed row hashes completed exactly. Warm
+cacheable exact reads had 0.750 ms median and 0.832 ms p90 per 14-position
+trace. The nominal uncached transport had 0.685 ms median and 0.714 ms p90,
+with 3,719,168 declared widened bytes per trace.
+
+However, every one of the 60 measurements—including all 30 `F_NOCACHE`
+measurements—reported zero process physical disk bytes. The uncached physical
+I/O gate therefore failed. The latency is cache-influenced and cannot be used
+as cold SSD evidence. `F_NOCACHE` prevented new cache population but did not
+evict the rows touched by preflight verification.
+
+- Raw report SHA-256:
+  `9b9b313b2a4b731a09d865035bbc8416a09fa288de7fce1fc33662eaf8277fb7`
+- Stream SHA-256 in every trial:
+  `95129dd9c62501a44f1c987c8ac5d871011c59b3cea2d5579a99a3789ba07c31`
+- Accepted tokens: 0; performance claim: none
 
 ## Decision
 
-Unexecuted. The sparse row reader remains the correctness baseline; no
-transport is promoted yet.
+Reject FW-0007 as a physical-storage measurement and promote no transport.
+Retain its favorable warm-cache timing only as a diagnostic. The smallest
+doubted assumption is that setting `F_NOCACHE` after correctness preflight is
+sufficient to force storage reads; it is not. A successor must invalidate each
+aligned source range before timing, verify nonresident state when practical,
+and rerun under a new experiment ID.

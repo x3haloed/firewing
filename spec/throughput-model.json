@@ -48,6 +48,6 @@
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0006_complete_no_endpoint_measurement",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No performance claim."
+  "status": "fw_0007_physical_io_inconclusive_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007's nominal uncached run observed zero physical disk bytes after preflight and was rejected as a cold-storage measurement. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No performance claim."
 }
