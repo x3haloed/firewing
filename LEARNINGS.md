@@ -434,6 +434,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   roughly 72.0% of source bytes; causal cache construction remains premature.
   See
   [`experiments/FW-0047-sequential-q2-zstd-storage-oracle.md`](experiments/FW-0047-sequential-q2-zstd-storage-oracle.md).
+- FW-0048 supplies the exact transform FW-0047 required. Separating even and
+  odd bytes within each independent BF16 expert frame reduces the 1,097-expert
+  sequential union from 77.7675% to 68.4471% of source while all 10.784 GB
+  round-trip exactly. One favorable fractional cache leaves 3.120 GB of
+  misses, producing a 4.488514-TPS storage-only ceiling for aggregate `A=4`.
+  This is a conditional storage survivor with only 12% headroom, not a runtime
+  result. Physical page amplification, parallel decompression, inverse shuffle,
+  four-row Metal contention, and causal cache state remain mandatory. See
+  [`experiments/FW-0048-bf16-byte-shuffle-zstd-oracle.md`](experiments/FW-0048-bf16-byte-shuffle-zstd-oracle.md).
 
 ## Prediction errors
 
@@ -453,7 +462,8 @@ These unresolved distinctions can still change the next decision:
   reduction on that union, and FW-0046 resolves parallel physical decoding as
   fast enough under a future-known cache. FW-0047 then rejects that exact
   representation across two sequential transactions even under a fractional
-  cache oracle. Better exact transforms, causal cache behavior, actual resident
+  cache oracle. FW-0048's exact BF16 byte shuffle reopens the storage ceiling,
+  but physical transformed decoding, causal cache behavior, actual resident
   capacity, and full endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
