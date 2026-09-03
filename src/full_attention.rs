@@ -19,6 +19,8 @@ const LONG_PAST: usize = 2080;
 unsafe extern "C" {
     fn firewing_sleef_cosf_u10(output: *mut f32, input: *const f32, count: usize);
     fn firewing_sleef_sinf_u10(output: *mut f32, input: *const f32, count: usize);
+    fn firewing_sleef_expf_u10(output: *mut f32, input: *const f32, count: usize);
+    fn firewing_sleef_sigmoidf(output: *mut f32, input: *const f32, count: usize);
     fn firewing_sleef_powf_u10(output: *mut f32, left: *const f32, right: *const f32, count: usize);
     fn firewing_neon_reciprocalf(output: *mut f32, input: *const f32, count: usize);
     fn firewing_accelerate_sgemm_right_transposed(
@@ -67,6 +69,55 @@ fn rope_embeddings(positions: usize) -> (Vec<u16>, Vec<u16>) {
         cosine.into_iter().map(to_bf16).collect(),
         sine.into_iter().map(to_bf16).collect(),
     )
+}
+
+fn softmax_bf16(scores: &[u16]) -> Result<Vec<u16>, String> {
+    if scores.is_empty() {
+        return Err("attention softmax received an empty row".to_owned());
+    }
+    let float = scores
+        .iter()
+        .map(|value| from_bf16(*value))
+        .collect::<Vec<_>>();
+    let maximum = float.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let centered = float
+        .iter()
+        .map(|value| *value - maximum)
+        .collect::<Vec<_>>();
+    let mut exponentials = vec![0.0_f32; centered.len()];
+    unsafe {
+        firewing_sleef_expf_u10(exponentials.as_mut_ptr(), centered.as_ptr(), centered.len());
+    }
+    let denominator = if exponentials.len() < 4 {
+        exponentials[1..]
+            .iter()
+            .fold(exponentials[0], |sum, value| sum + value)
+    } else {
+        let full = exponentials.len() - exponentials.len() % 4;
+        let mut lanes = [
+            exponentials[0],
+            exponentials[1],
+            exponentials[2],
+            exponentials[3],
+        ];
+        for chunk in exponentials[4..full].chunks_exact(4) {
+            for lane in 0..4 {
+                lanes[lane] += chunk[lane];
+            }
+        }
+        for (lane, value) in exponentials[full..].iter().enumerate() {
+            lanes[lane] += value;
+        }
+        (lanes[0] + lanes[2]) + (lanes[1] + lanes[3])
+    };
+    if !denominator.is_finite() || denominator <= 0.0 {
+        return Err("attention softmax denominator is invalid".to_owned());
+    }
+    let inverse = 1.0 / denominator;
+    Ok(exponentials
+        .into_iter()
+        .map(|value| to_bf16(value * inverse))
+        .collect())
 }
 
 #[derive(Deserialize)]
@@ -162,7 +213,7 @@ struct LockedFile {
 }
 
 #[derive(Debug, Serialize)]
-pub struct FullAttentionProjectionReport {
+pub struct FullAttentionVerificationReport {
     pub schema_version: u32,
     pub semantic: &'static str,
     pub model: String,
@@ -312,11 +363,11 @@ fn expected_tensors() -> Vec<(&'static str, String, Vec<usize>)> {
     .collect()
 }
 
-pub fn verify_full_attention_projections(
+pub fn verify_full_attention_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     fixture_path: &Path,
-) -> Result<FullAttentionProjectionReport, String> {
+) -> Result<FullAttentionVerificationReport, String> {
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
     )
@@ -768,15 +819,119 @@ pub fn verify_full_attention_projections(
             &[1, KV_HEADS, past + 1, HEAD_DIM],
             &value_cache,
         )?;
+
+        let positions = past + 1;
+        let mut attention_scores = Vec::with_capacity(HEADS * positions);
+        for head in 0..HEADS {
+            let kv_head = head / (HEADS / KV_HEADS);
+            let query_head = &query_rotated[head * HEAD_DIM..(head + 1) * HEAD_DIM];
+            let query_float = query_head
+                .iter()
+                .map(|value| from_bf16(*value))
+                .collect::<Vec<_>>();
+            let key_start = kv_head * positions * HEAD_DIM;
+            let key_float = key_cache[key_start..key_start + positions * HEAD_DIM]
+                .iter()
+                .map(|value| from_bf16(*value))
+                .collect::<Vec<_>>();
+            let mut head_scores = vec![0.0_f32; positions];
+            unsafe {
+                firewing_accelerate_sgemm_right_transposed(
+                    head_scores.as_mut_ptr(),
+                    query_float.as_ptr(),
+                    key_float.as_ptr(),
+                    1,
+                    positions,
+                    HEAD_DIM,
+                );
+            }
+            for (position, selected) in selected_mask.iter().enumerate() {
+                if *selected == 0 {
+                    attention_scores.push(0xff7f);
+                } else {
+                    attention_scores.push(to_bf16(head_scores[position] / 16.0));
+                }
+            }
+        }
+        require_bf16(
+            case,
+            "attention_scores",
+            &[1, HEADS, 1, positions],
+            &attention_scores,
+        )?;
+        let mut probabilities = Vec::with_capacity(attention_scores.len());
+        for row in attention_scores.chunks_exact(positions) {
+            probabilities.extend(softmax_bf16(row)?);
+        }
+        require_bf16(
+            case,
+            "attention_probabilities",
+            &[1, HEADS, 1, positions],
+            &probabilities,
+        )?;
+        let mut attention_value = Vec::with_capacity(HEADS * HEAD_DIM);
+        let mut value_column = vec![0_u16; positions];
+        for head in 0..HEADS {
+            let kv_head = head / (HEADS / KV_HEADS);
+            let probability = &probabilities[head * positions..(head + 1) * positions];
+            for column in 0..HEAD_DIM {
+                for position in 0..positions {
+                    value_column[position] =
+                        value_cache[(kv_head * positions + position) * HEAD_DIM + column];
+                }
+                attention_value.push(to_bf16(crate::expert::pytorch_bf16_vector_dot(
+                    probability,
+                    &value_column,
+                )));
+            }
+        }
+        require_bf16(
+            case,
+            "attention_value",
+            &[1, 1, HEADS * HEAD_DIM],
+            &attention_value,
+        )?;
+        let gate_float = gate
+            .iter()
+            .map(|value| from_bf16(*value))
+            .collect::<Vec<_>>();
+        let mut sigmoid_float = vec![0.0_f32; gate.len()];
+        unsafe {
+            firewing_sleef_sigmoidf(
+                sigmoid_float.as_mut_ptr(),
+                gate_float.as_ptr(),
+                gate_float.len(),
+            );
+        }
+        let gate_sigmoid = sigmoid_float.into_iter().map(to_bf16).collect::<Vec<_>>();
+        require_bf16(
+            case,
+            "gate_sigmoid",
+            &[1, 1, HEADS * HEAD_DIM],
+            &gate_sigmoid,
+        )?;
+        let gated_value = attention_value
+            .iter()
+            .zip(&gate_sigmoid)
+            .map(|(value, gate)| to_bf16(from_bf16(*value) * from_bf16(*gate)))
+            .collect::<Vec<_>>();
+        require_bf16(case, "gated_value", &[1, 1, HEADS * HEAD_DIM], &gated_value)?;
+        let output = linear_bf16(
+            &tensors["o_proj.weight"],
+            &gated_value,
+            HIDDEN,
+            HEADS * HEAD_DIM,
+        );
+        require_bf16(case, "output", &[1, 1, HIDDEN], &output)?;
     }
-    Ok(FullAttentionProjectionReport {
+    Ok(FullAttentionVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer3_full_attention_projection_verification",
+        semantic: "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
         model: fixture.model,
         revision: fixture.revision,
         layer: 3,
         cases_verified: 2,
-        exact_bf16_capture_hashes: 38,
+        exact_bf16_capture_hashes: 52,
         exact_f32_capture_hashes: 2,
         exact_i64_capture_hashes: 6,
         exact_bool_capture_hashes: 2,
