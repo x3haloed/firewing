@@ -75,6 +75,11 @@ runtime passing every target gate, including reproducible batch-one decode at
   accumulates into BF16 after each contribution. The selected logical source
   payload is 98,304,000 bytes for one layer/token; physical I/O remains
   unmeasured.
+- FW-0012 exactly matches the complete layer-0 sparse-MoE block for the same
+  input: seven shared-expert/gate captures, the routed mixture, and the final
+  BF16 combination. Shared weights add 9,835,520 logical bytes, making the
+  tested full MoE block 108,139,520 bytes. Norm, hyper-connection, residual,
+  real activation, and physical-I/O behavior remain unresolved.
 
 ## Prediction errors
 

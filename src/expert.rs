@@ -200,6 +200,100 @@ pub struct MixtureVerificationReport {
     pub performance_claim: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct SparseMoeFixture {
+    schema_version: u32,
+    semantic: String,
+    model: String,
+    revision: String,
+    reference: SparseMoeReference,
+    configuration: SparseMoeConfiguration,
+    case: SparseMoeCase,
+}
+
+#[derive(Deserialize)]
+struct SparseMoeReference {
+    implementation: String,
+    transformers_version: String,
+    source: String,
+    config_sha256: String,
+    tensor_index_sha256: String,
+    model_lock_sha256: String,
+    router_fixture_sha256: String,
+    expert_fixture_sha256: String,
+    mixture_fixture_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct SparseMoeConfiguration {
+    hidden_size: usize,
+    intermediate_size: usize,
+    shared_intermediate_size: usize,
+    num_experts: usize,
+    top_k: usize,
+    activation: String,
+    boundary_dtype: String,
+}
+
+#[derive(Deserialize)]
+struct SparseMoeCase {
+    name: String,
+    layer: usize,
+    input_spec: InputSpec,
+    input_bf16_sha256: String,
+    common_shard: String,
+    common_shard_bytes: u64,
+    common_shard_sha256: String,
+    tensors: SharedTensors,
+    expected_bf16_sha256: SparseMoeHashes,
+}
+
+#[derive(Deserialize)]
+struct SharedTensors {
+    shared_gate_weight: NamedTensor,
+    shared_up_weight: NamedTensor,
+    shared_down_weight: NamedTensor,
+    shared_expert_gate_weight: NamedTensor,
+}
+
+#[derive(Deserialize)]
+struct NamedTensor {
+    tensor: String,
+    shape: Vec<usize>,
+    payload_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct SparseMoeHashes {
+    shared_gate: String,
+    shared_up: String,
+    shared_swiglu: String,
+    shared_down: String,
+    shared_gate_logit: String,
+    shared_gate_sigmoid: String,
+    gated_shared: String,
+    routed_mixture: String,
+    combined: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SparseMoeVerificationReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub layer: usize,
+    pub exact_shared_capture_hashes: usize,
+    pub exact_routed_mixture_hashes: usize,
+    pub exact_combined_hashes: usize,
+    pub routed_expert_payload_bytes: usize,
+    pub shared_expert_payload_bytes: usize,
+    pub shared_gate_payload_bytes: usize,
+    pub total_moe_payload_bytes: usize,
+    pub accepted_tokens: usize,
+    pub performance_claim: Option<String>,
+}
+
 fn is_hash(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -336,6 +430,71 @@ fn read_expert_slice(
         .collect())
 }
 
+fn read_tensor_2d(
+    path: &Path,
+    tensor: &str,
+    rows: usize,
+    columns: usize,
+) -> Result<Vec<u16>, String> {
+    let mut file = File::open(path).map_err(|error| error.to_string())?;
+    let mut raw = [0_u8; 8];
+    file.read_exact(&mut raw)
+        .map_err(|error| error.to_string())?;
+    let header_len = u64::from_le_bytes(raw);
+    if header_len == 0 || header_len > 16 * 1024 * 1024 {
+        return Err("invalid safetensors header length".to_owned());
+    }
+    let mut header = vec![0; header_len as usize];
+    file.read_exact(&mut header)
+        .map_err(|error| error.to_string())?;
+    let header: Value = serde_json::from_slice(&header).map_err(|error| error.to_string())?;
+    let item = header
+        .get(tensor)
+        .ok_or("shared expert tensor is missing")?;
+    let shape = item
+        .get("shape")
+        .and_then(Value::as_array)
+        .ok_or("shared expert shape is missing")?;
+    if item.get("dtype").and_then(Value::as_str) != Some("BF16")
+        || shape.len() != 2
+        || shape[0].as_u64() != Some(rows as u64)
+        || shape[1].as_u64() != Some(columns as u64)
+    {
+        return Err("unsupported shared expert tensor dtype or shape".to_owned());
+    }
+    let offsets = item
+        .get("data_offsets")
+        .and_then(Value::as_array)
+        .ok_or("shared expert offsets are missing")?;
+    let start = offsets
+        .first()
+        .and_then(Value::as_u64)
+        .ok_or("invalid shared expert offset")?;
+    let end = offsets
+        .get(1)
+        .and_then(Value::as_u64)
+        .ok_or("invalid shared expert offset")?;
+    let count = rows
+        .checked_mul(columns)
+        .ok_or("shared expert size overflow")?;
+    if end.checked_sub(start) != Some((count * 2) as u64) {
+        return Err("shared expert tensor byte count mismatch".to_owned());
+    }
+    let absolute = 8_u64
+        .checked_add(header_len)
+        .and_then(|value| value.checked_add(start))
+        .ok_or("shared expert absolute offset overflow")?;
+    file.seek(SeekFrom::Start(absolute))
+        .map_err(|error| error.to_string())?;
+    let mut payload = vec![0; count * 2];
+    file.read_exact(&mut payload)
+        .map_err(|error| error.to_string())?;
+    Ok(payload
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect())
+}
+
 // PyTorch's aarch64 BF16 GEMV fast path uses eight four-lane F32 vector
 // accumulators over 32-value blocks, followed by a fixed reduction tree. This
 // is deliberately not a conventional forward scalar sum.
@@ -393,6 +552,15 @@ fn swiglu_bf16(gate: &[u16], up: &[u16]) -> Vec<u16> {
             to_bf16(silu * from_bf16(*up))
         })
         .collect()
+}
+
+fn sigmoid_bf16(value: u16) -> u16 {
+    let value = from_bf16(value);
+    to_bf16(1.0 / (1.0 + (-value).exp()))
+}
+
+fn add_bf16(left: u16, right: u16) -> u16 {
+    to_bf16(from_bf16(left) + from_bf16(right))
 }
 
 fn require_locked_tensor(
@@ -612,13 +780,13 @@ pub fn verify_expert_fixture(
     })
 }
 
-pub fn verify_mixture_fixture(
+fn verify_mixture_fixture_with_output(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     router_fixture_path: &Path,
     expert_fixture_path: &Path,
     mixture_fixture_path: &Path,
-) -> Result<MixtureVerificationReport, String> {
+) -> Result<(MixtureVerificationReport, Vec<u16>), String> {
     let fixture: MixtureFixture =
         serde_json::from_slice(&fs::read(mixture_fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed mixture fixture: {error}"))?;
@@ -777,7 +945,7 @@ pub fn verify_mixture_fixture(
     let gate_up_payload_bytes =
         config.top_k * config.intermediate_size * 2 * config.hidden_size * 2;
     let down_payload_bytes = config.top_k * config.hidden_size * config.intermediate_size * 2;
-    Ok(MixtureVerificationReport {
+    let report = MixtureVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_real_top10_expert_mixture_verification",
         model: fixture.model,
@@ -791,6 +959,245 @@ pub fn verify_mixture_fixture(
         gate_up_payload_bytes,
         down_payload_bytes,
         total_expert_payload_bytes: gate_up_payload_bytes + down_payload_bytes,
+        accepted_tokens: 0,
+        performance_claim: None,
+    };
+    Ok((report, mixture))
+}
+
+pub fn verify_mixture_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    router_fixture_path: &Path,
+    expert_fixture_path: &Path,
+    mixture_fixture_path: &Path,
+) -> Result<MixtureVerificationReport, String> {
+    verify_mixture_fixture_with_output(
+        checkpoint_dir,
+        model_lock_path,
+        router_fixture_path,
+        expert_fixture_path,
+        mixture_fixture_path,
+    )
+    .map(|(report, _)| report)
+}
+
+pub fn verify_sparse_moe_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    router_fixture_path: &Path,
+    expert_fixture_path: &Path,
+    mixture_fixture_path: &Path,
+    sparse_moe_fixture_path: &Path,
+) -> Result<SparseMoeVerificationReport, String> {
+    let fixture: SparseMoeFixture = serde_json::from_slice(
+        &fs::read(sparse_moe_fixture_path).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("malformed sparse-MoE fixture: {error}"))?;
+    let config = &fixture.configuration;
+    let case = &fixture.case;
+    let expected_names = [
+        "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight",
+        "model.language_model.layers.0.mlp.shared_expert.up_proj.weight",
+        "model.language_model.layers.0.mlp.shared_expert.down_proj.weight",
+        "model.language_model.layers.0.mlp.shared_expert_gate.weight",
+    ];
+    let tensors = [
+        &case.tensors.shared_gate_weight,
+        &case.tensors.shared_up_weight,
+        &case.tensors.shared_down_weight,
+        &case.tensors.shared_expert_gate_weight,
+    ];
+    if fixture.schema_version != 1
+        || fixture.semantic != "qwen3_8_flash_next_real_sparse_moe_block"
+        || fixture.model != MODEL
+        || fixture.reference.implementation != "huggingface_transformers_qwen4_exp"
+        || fixture.reference.transformers_version != "5.16.1"
+        || fixture.reference.source
+            != "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextSparseMoeBlock.forward"
+        || config.hidden_size != 2560
+        || config.intermediate_size != 640
+        || config.shared_intermediate_size != 640
+        || config.num_experts != 512
+        || config.top_k != 10
+        || config.activation != "silu"
+        || config.boundary_dtype != "BF16"
+        || case.name != "layer_0_affine_mod_sparse_moe_block"
+        || case.layer != 0
+        || case.common_shard != "model-00003-of-00131.safetensors"
+        || tensors
+            .iter()
+            .map(|tensor| tensor.tensor.as_str())
+            .collect::<Vec<_>>()
+            != expected_names
+        || case.tensors.shared_gate_weight.shape != [640, 2560]
+        || case.tensors.shared_up_weight.shape != [640, 2560]
+        || case.tensors.shared_down_weight.shape != [2560, 640]
+        || case.tensors.shared_expert_gate_weight.shape != [1, 2560]
+    {
+        return Err("sparse-MoE fixture identity or configuration is unsupported".to_owned());
+    }
+    let hashes = [
+        &fixture.reference.config_sha256,
+        &fixture.reference.tensor_index_sha256,
+        &fixture.reference.model_lock_sha256,
+        &fixture.reference.router_fixture_sha256,
+        &fixture.reference.expert_fixture_sha256,
+        &fixture.reference.mixture_fixture_sha256,
+        &case.input_bf16_sha256,
+        &case.common_shard_sha256,
+        &case.expected_bf16_sha256.shared_gate,
+        &case.expected_bf16_sha256.shared_up,
+        &case.expected_bf16_sha256.shared_swiglu,
+        &case.expected_bf16_sha256.shared_down,
+        &case.expected_bf16_sha256.shared_gate_logit,
+        &case.expected_bf16_sha256.shared_gate_sigmoid,
+        &case.expected_bf16_sha256.gated_shared,
+        &case.expected_bf16_sha256.routed_mixture,
+        &case.expected_bf16_sha256.combined,
+    ];
+    if !hashes.iter().all(|value| is_hash(value))
+        || tensors
+            .iter()
+            .any(|tensor| !is_hash(&tensor.payload_sha256))
+        || sha256_file(model_lock_path)? != fixture.reference.model_lock_sha256
+        || sha256_file(router_fixture_path)? != fixture.reference.router_fixture_sha256
+        || sha256_file(expert_fixture_path)? != fixture.reference.expert_fixture_sha256
+        || sha256_file(mixture_fixture_path)? != fixture.reference.mixture_fixture_sha256
+        || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
+        || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
+            != fixture.reference.tensor_index_sha256
+    {
+        return Err("sparse-MoE reference identity mismatch".to_owned());
+    }
+    let lock: ModelLock =
+        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    let records: Vec<_> = lock
+        .files
+        .iter()
+        .filter(|file| file.path == case.common_shard)
+        .collect();
+    if lock.model != fixture.model
+        || lock.revision != fixture.revision
+        || records.len() != 1
+        || records[0].size != case.common_shard_bytes
+        || records[0].lfs_sha256.as_deref() != Some(case.common_shard_sha256.as_str())
+        || fs::metadata(checkpoint_dir.join(&case.common_shard))
+            .map_err(|error| error.to_string())?
+            .len()
+            != case.common_shard_bytes
+    {
+        return Err("sparse-MoE model lock or shard mismatch".to_owned());
+    }
+    let hidden = make_hidden(config.hidden_size, &case.input_spec)?;
+    if bf16_hash(&hidden) != case.input_bf16_sha256 {
+        return Err("sparse-MoE input hash mismatch".to_owned());
+    }
+    let (mixture_report, routed) = verify_mixture_fixture_with_output(
+        checkpoint_dir,
+        model_lock_path,
+        router_fixture_path,
+        expert_fixture_path,
+        mixture_fixture_path,
+    )?;
+    if bf16_hash(&routed) != case.expected_bf16_sha256.routed_mixture {
+        return Err("sparse-MoE routed mixture hash mismatch".to_owned());
+    }
+    let shard = checkpoint_dir.join(&case.common_shard);
+    let shared_gate_weight = read_tensor_2d(&shard, &tensors[0].tensor, 640, 2560)?;
+    let shared_up_weight = read_tensor_2d(&shard, &tensors[1].tensor, 640, 2560)?;
+    let shared_down_weight = read_tensor_2d(&shard, &tensors[2].tensor, 2560, 640)?;
+    let shared_expert_gate_weight = read_tensor_2d(&shard, &tensors[3].tensor, 1, 2560)?;
+    for (value, tensor) in [
+        (shared_gate_weight.as_slice(), tensors[0]),
+        (shared_up_weight.as_slice(), tensors[1]),
+        (shared_down_weight.as_slice(), tensors[2]),
+        (shared_expert_gate_weight.as_slice(), tensors[3]),
+    ] {
+        if bf16_hash(value) != tensor.payload_sha256 {
+            return Err(format!("shared tensor {} payload mismatch", tensor.tensor));
+        }
+    }
+    let shared_gate = linear_bf16(&shared_gate_weight, &hidden, 640, 2560);
+    let shared_up = linear_bf16(&shared_up_weight, &hidden, 640, 2560);
+    let shared_swiglu = swiglu_bf16(&shared_gate, &shared_up);
+    let shared_down = linear_bf16(&shared_down_weight, &shared_swiglu, 2560, 640);
+    let shared_gate_logit = linear_bf16(&shared_expert_gate_weight, &hidden, 1, 2560);
+    let shared_gate_sigmoid = [sigmoid_bf16(shared_gate_logit[0])];
+    let sigmoid = from_bf16(shared_gate_sigmoid[0]);
+    let gated_shared: Vec<_> = shared_down
+        .iter()
+        .map(|value| to_bf16(sigmoid * from_bf16(*value)))
+        .collect();
+    let combined: Vec<_> = routed
+        .iter()
+        .zip(&gated_shared)
+        .map(|(routed, shared)| add_bf16(*routed, *shared))
+        .collect();
+    for (name, actual, expected) in [
+        (
+            "shared_gate",
+            shared_gate.as_slice(),
+            &case.expected_bf16_sha256.shared_gate,
+        ),
+        (
+            "shared_up",
+            shared_up.as_slice(),
+            &case.expected_bf16_sha256.shared_up,
+        ),
+        (
+            "shared_swiglu",
+            shared_swiglu.as_slice(),
+            &case.expected_bf16_sha256.shared_swiglu,
+        ),
+        (
+            "shared_down",
+            shared_down.as_slice(),
+            &case.expected_bf16_sha256.shared_down,
+        ),
+        (
+            "shared_gate_logit",
+            shared_gate_logit.as_slice(),
+            &case.expected_bf16_sha256.shared_gate_logit,
+        ),
+        (
+            "shared_gate_sigmoid",
+            shared_gate_sigmoid.as_slice(),
+            &case.expected_bf16_sha256.shared_gate_sigmoid,
+        ),
+        (
+            "gated_shared",
+            gated_shared.as_slice(),
+            &case.expected_bf16_sha256.gated_shared,
+        ),
+        (
+            "combined",
+            combined.as_slice(),
+            &case.expected_bf16_sha256.combined,
+        ),
+    ] {
+        if bf16_hash(actual) != *expected {
+            return Err(format!("sparse-MoE {name} hash mismatch"));
+        }
+    }
+    let shared_expert_payload_bytes = (640 * 2560 + 640 * 2560 + 2560 * 640) * 2;
+    let shared_gate_payload_bytes = 2560 * 2;
+    Ok(SparseMoeVerificationReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_real_sparse_moe_block_verification",
+        model: fixture.model,
+        revision: fixture.revision,
+        layer: case.layer,
+        exact_shared_capture_hashes: 7,
+        exact_routed_mixture_hashes: 1,
+        exact_combined_hashes: 1,
+        routed_expert_payload_bytes: mixture_report.total_expert_payload_bytes,
+        shared_expert_payload_bytes,
+        shared_gate_payload_bytes,
+        total_moe_payload_bytes: mixture_report.total_expert_payload_bytes
+            + shared_expert_payload_bytes
+            + shared_gate_payload_bytes,
         accepted_tokens: 0,
         performance_claim: None,
     })
@@ -861,5 +1268,11 @@ mod tests {
         }
         assert_eq!(from_bf16(first), 1.0);
         assert_eq!(from_bf16(second), 0.0);
+    }
+
+    #[test]
+    fn shared_gate_and_combination_round_at_bf16_boundaries() {
+        assert_eq!(from_bf16(sigmoid_bf16(to_bf16(0.0))), 0.5);
+        assert_eq!(from_bf16(add_bf16(to_bf16(256.0), to_bf16(1.0))), 256.0);
     }
 }

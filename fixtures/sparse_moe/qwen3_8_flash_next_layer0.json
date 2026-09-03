@@ -1,0 +1,87 @@
+{
+  "case": {
+    "common_shard": "model-00003-of-00131.safetensors",
+    "common_shard_bytes": 1832518264,
+    "common_shard_sha256": "b783fbb3bdf185b4576ffee9ba786dbd9a218ec3cac9d92706d99216567b37a6",
+    "expected_bf16_sha256": {
+      "combined": "e353ac1c29d5dd5860e146bbdfb4157e7ac3508a4b49c328e9d7adbd6eab3c89",
+      "gated_shared": "37e9799afc5e6260fd8dcef23a3fe9f1aa4fd75dde32818e4b026ed7737fd385",
+      "routed_mixture": "2796b0267238a75c07aad4b240d12365e14e3911f9e4acb5522248a1aa248514",
+      "shared_down": "d0b631e46f469c52a771e30cf7d36072cf96c787ec3d3667f71e8e4816199051",
+      "shared_gate": "6196b3bfa15816e6bcbae3351979e267445a90394f42f3ee11bbae4218f7ec0e",
+      "shared_gate_logit": "8456063f9f23c1e4d40625f3627c5ccf3f7fe998395b0d3ed3d411adb8026150",
+      "shared_gate_sigmoid": "a58374b6666285dd940a6404b2c16863c5ae4348044f55d86b132bc50eaa4f89",
+      "shared_swiglu": "27968c52a46d43355d203f664b667d5fdcff702b6934608136cdc2cbbe852ce0",
+      "shared_up": "04d7a12f4ea6dd348b04b22ca77158e42017dcc43a520210edc9f1e97341b805"
+    },
+    "input_bf16_sha256": "fd49d326938089ac718c04ad9ac207759b98dabef7db86a8c2646cec11ad37a1",
+    "input_spec": {
+      "add": 11,
+      "center": 128,
+      "divisor": 128,
+      "modulus": 257,
+      "multiplier": 37,
+      "sparse_stride": 1
+    },
+    "layer": 0,
+    "name": "layer_0_affine_mod_sparse_moe_block",
+    "tensors": {
+      "shared_down_weight": {
+        "payload_sha256": "a4b8db7b1ad3776e5955e5a1c15fda214352e1760983bee439aed7a1a96dcb90",
+        "shape": [
+          2560,
+          640
+        ],
+        "tensor": "model.language_model.layers.0.mlp.shared_expert.down_proj.weight"
+      },
+      "shared_expert_gate_weight": {
+        "payload_sha256": "a43a13457ded04d02a6ff9904c177b383e2d52ea34e3637c84e63dbb59d7dd45",
+        "shape": [
+          1,
+          2560
+        ],
+        "tensor": "model.language_model.layers.0.mlp.shared_expert_gate.weight"
+      },
+      "shared_gate_weight": {
+        "payload_sha256": "7c0b7291a94990e1d0e86aa6e462b39beaad8609c27829100d88390e3117b66b",
+        "shape": [
+          640,
+          2560
+        ],
+        "tensor": "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight"
+      },
+      "shared_up_weight": {
+        "payload_sha256": "8f1389b28dfa06ecb4020fb57e2d77767193277c4c22065e7bc6504072bbd53b",
+        "shape": [
+          640,
+          2560
+        ],
+        "tensor": "model.language_model.layers.0.mlp.shared_expert.up_proj.weight"
+      }
+    }
+  },
+  "configuration": {
+    "activation": "silu",
+    "boundary_dtype": "BF16",
+    "hidden_size": 2560,
+    "intermediate_size": 640,
+    "num_experts": 512,
+    "shared_intermediate_size": 640,
+    "top_k": 10
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "expert_fixture_sha256": "10315f99986464e85e186cc32d55488d9c68f7db0979f5cef1411c6b7e8a4752",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "mixture_fixture_sha256": "975a9982919297d37dd077f774693c782295cba496542c6adf278182e27b4d89",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "router_fixture_sha256": "bbf73e4361d81b60e8ab49898422ba5fd0d2a90f312433ac43a013e48c89d39b",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextSparseMoeBlock.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_sparse_moe_block"
+}

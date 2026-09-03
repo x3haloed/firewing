@@ -100,9 +100,24 @@
       "verification_receipt_sha256": "6a6053c922f706663d240de93577ab35822a1689b42a7d2970f694b2af64eb59",
       "accepted_tokens": 0,
       "performance_claim": null
+    },
+    "sparse_moe_correctness": {
+      "status": "fw_0012_real_checkpoint_complete_sparse_moe_exact_parity",
+      "layer": 0,
+      "routed_expert_payload_bytes": 98304000,
+      "shared_expert_payload_bytes": 9830400,
+      "shared_gate_payload_bytes": 5120,
+      "total_moe_payload_bytes": 108139520,
+      "exact_shared_capture_hashes": 7,
+      "exact_routed_mixture_hashes": 1,
+      "exact_combined_hashes": 1,
+      "fixture_sha256": "a6a706f93b8e97603574594ec7a100b9d44090de06db7e72d41092d49d447990",
+      "verification_receipt_sha256": "7455004941385b9476f058f1e363f3e2695f70f739861f31903b7928e018f891",
+      "accepted_tokens": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0011_real_top10_mixture_verified_no_endpoint_measurement",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
+  "status": "fw_0012_real_sparse_moe_block_verified_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
 }

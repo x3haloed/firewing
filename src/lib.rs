@@ -9,8 +9,8 @@ mod ngram;
 mod router;
 
 pub use expert::{
-    ExpertVerificationReport, MixtureVerificationReport, verify_expert_fixture,
-    verify_mixture_fixture,
+    ExpertVerificationReport, MixtureVerificationReport, SparseMoeVerificationReport,
+    verify_expert_fixture, verify_mixture_fixture, verify_sparse_moe_fixture,
 };
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,

@@ -48,6 +48,42 @@ def accumulate_bf16_in_expert_order(weighted: list[torch.Tensor]) -> torch.Tenso
     return output[0].contiguous()
 
 
+def execute_mixture(
+    hidden: torch.Tensor,
+    selection: list[int],
+    scores: list[float],
+    gate_up_file: Any,
+    down_file: Any,
+    gate_up_name: str,
+    down_name: str,
+) -> tuple[list[dict[str, Any]], torch.Tensor]:
+    score_by_expert = dict(zip(selection, scores, strict=True))
+    entries = []
+    contributions = []
+    for expert in sorted(selection):
+        gate_up = gate_up_file.get_slice(gate_up_name)[expert].contiguous()
+        down = down_file.get_slice(down_name)[expert].contiguous()
+        route_weight = torch.tensor(score_by_expert[expert], dtype=torch.bfloat16)
+        outputs = expert_forward(hidden, gate_up, down, route_weight)
+        contributions.append(outputs["weighted_down"])
+        entries.append(
+            {
+                "expert": expert,
+                "route_weight_bf16": route_weight.item(),
+                "gate_up_payload_sha256": hashlib.sha256(tensor_bytes(gate_up)).hexdigest(),
+                "down_payload_sha256": hashlib.sha256(tensor_bytes(down)).hexdigest(),
+                "weighted_down_bf16_sha256": capture_hash(outputs["weighted_down"]),
+            }
+        )
+    mixture = accumulate_bf16_in_expert_order(contributions)
+    manual = torch.zeros_like(mixture)
+    for contribution in contributions:
+        manual = (manual + contribution).to(torch.bfloat16)
+    if not torch.equal(mixture, manual):
+        raise ValueError("index_add and explicit BF16 accumulation disagree")
+    return entries, mixture
+
+
 def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]:
     root = Path(__file__).parents[1]
     checkpoint_dir = checkpoint_dir.resolve()
@@ -76,7 +112,6 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]
     scores = router_case["normalized_scores_bf16"]
     if len(selection) != 10 or len(set(selection)) != 10 or len(scores) != 10:
         raise ValueError("router fixture top-10 shape mismatch")
-    score_by_expert = dict(zip(selection, scores, strict=True))
     execution_order = sorted(selection)
     hidden = make_hidden(2560, router_case["input_spec"])
 
@@ -90,31 +125,11 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]
     gate_up_lock = locked_file(lock, gate_up_shard)
     down_lock = locked_file(lock, down_shard)
 
-    entries = []
-    contributions = []
     with safe_open(checkpoint_dir / gate_up_shard, framework="pt", device="cpu") as gate_up_file:
         with safe_open(checkpoint_dir / down_shard, framework="pt", device="cpu") as down_file:
-            for expert in execution_order:
-                gate_up = gate_up_file.get_slice(gate_up_name)[expert].contiguous()
-                down = down_file.get_slice(down_name)[expert].contiguous()
-                route_weight = torch.tensor(score_by_expert[expert], dtype=torch.bfloat16)
-                outputs = expert_forward(hidden, gate_up, down, route_weight)
-                contributions.append(outputs["weighted_down"])
-                entries.append(
-                    {
-                        "expert": expert,
-                        "route_weight_bf16": route_weight.item(),
-                        "gate_up_payload_sha256": hashlib.sha256(tensor_bytes(gate_up)).hexdigest(),
-                        "down_payload_sha256": hashlib.sha256(tensor_bytes(down)).hexdigest(),
-                        "weighted_down_bf16_sha256": capture_hash(outputs["weighted_down"]),
-                    }
-                )
-    mixture = accumulate_bf16_in_expert_order(contributions)
-    manual = torch.zeros_like(mixture)
-    for contribution in contributions:
-        manual = (manual + contribution).to(torch.bfloat16)
-    if not torch.equal(mixture, manual):
-        raise ValueError("index_add and explicit BF16 accumulation disagree")
+            entries, mixture = execute_mixture(
+                hidden, selection, scores, gate_up_file, down_file, gate_up_name, down_name
+            )
 
     return {
         "schema_version": 1,

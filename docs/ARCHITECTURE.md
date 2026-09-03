@@ -121,6 +121,13 @@ all ten weighted outputs and the final mixture while reading 98,304,000 logical
 expert bytes. This is not measured physical SSD traffic and excludes the
 shared expert, residual, and real layer activation.
 
+FW-0012 adds the real shared expert and its scalar sigmoid gate. Its three
+matrices contribute 9,830,400 logical bytes and the gate contributes 5,120,
+bringing the complete tested sparse-MoE block to 108,139,520 logical bytes.
+Native execution exactly matches seven shared-path hashes, the routed mixture,
+and their final BF16 sum. Norm, hyper-connection, residual, real activation,
+and physical storage behavior remain outside this result.
+
 ## Current implementation boundary
 
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
@@ -128,8 +135,8 @@ and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
 checkpoint can execute within 16 GiB. The native tokenizer, n-gram address
 verifier, and bounded sparse row reader are the first target-specific Rust
-slices; the real-weight router, expert, and top-10 mixture verifiers are the
-first MoE primitives. The runtime reuses Prismwing's
+slices; the real-weight router, expert, mixture, and complete sparse-MoE block
+verifiers are the first MoE primitives. The runtime reuses Prismwing's
 reference/oracle/independent-fixture discipline and its source-derived ARM
 reduction insight, while Qwen4-Exp semantics and checkpoint layouts remain
 independently derived and fail closed.

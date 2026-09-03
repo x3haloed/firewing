@@ -38,3 +38,8 @@ PyTorch's source-derived aarch64 BF16 reduction order.
 experts. It freezes router-rank order, ascending source execution order, route
 weights, twenty selected payload hashes, ten weighted-output hashes, and the
 final BF16 mixture hash without embedding checkpoint-derived payloads.
+
+`sparse_moe/qwen3_8_flash_next_layer0.json` adds the real shared expert and
+scalar sigmoid gate to that routed mixture. It stores four shared tensor hashes
+and nine exact capture hashes through the final combined BF16 block output;
+all checkpoint-derived payloads remain external.
