@@ -6,3 +6,5 @@ torch==2.14.0
 torchvision==0.29.0
 pillow==12.2.0
 zstandard==0.25.0
+# FW-0050 offline whole-frame interval-cache MILP and certificate.
+scipy==1.16.2
