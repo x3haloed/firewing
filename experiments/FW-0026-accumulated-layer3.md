@@ -1,7 +1,7 @@
 # FW-0026 - Accumulated full-attention layer 3
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: pass
 - Date: 2026-09-03
 - Parent experiments: FW-0021, FW-0025
 - Exactness: L0 bit-identical component semantics
@@ -73,15 +73,24 @@ Planned commands:
 cargo run --release -- verify-accumulated-layer3 \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
+  fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
   fixtures/accumulated/qwen3_8_flash_next_layer2.json \
   fixtures/accumulated/qwen3_8_flash_next_layer3.json \
   /Users/chad/Models/firewing/evidence/FW-0026/accumulated-layer3.json
 ```
 
-The final commands may list the committed FW-0025 component authorities
-explicitly rather than resolving them transitively. Batch size and concurrency
-are one. Accepted tokens, `A`, `U`, and measured TPS are zero because this is an
-accumulated correctness fixture.
+Batch size and concurrency are one. Accepted tokens, `A`, `U`, and measured
+TPS are zero because this is an accumulated correctness fixture.
 
 ## Gates
 
@@ -120,8 +129,22 @@ The fixture SHA-256 is
 `5b457ee60daafb8a69093e3177e2e56896cea0348bdf9b8c5d876860ae28794f`.
 All 55 Python tests pass. The generalized generators also reproduce FW-0019's
 full-attention and FW-0020's residual fixtures byte-for-byte. Independent
-native verification is pending.
+native verification at commit `62f747d` matches all six explicit cross-stage
+links, 62 BF16, two F32, six int64, and two boolean full-attention/residual
+captures, 32 complete-decoder BF16 captures, and twenty weighted-expert
+hashes. Layer 3 authenticates 338,377,216 logical payload bytes in addition to
+FW-0025's 1,119,893,824 parent bytes, or 1,458,271,040 bytes in total. The
+external receipt is
+`/Users/chad/Models/firewing/evidence/FW-0026/accumulated-layer3.json`, SHA-256
+`cee9e04ac4df144ed89d670b185678c7aae6c839ea358f499923ce0fbd170f98`.
+The final suite has 55 Python and 38 Rust tests; Clippy passes with warnings
+denied. The pre-existing FW-0020 and FW-0021 native commands also pass after
+the verifier generalization.
 
 ## Decision
 
-Pending.
+Pass. Exact accumulated execution now crosses the first linear-to-full
+attention transition and retains a genuine incremental layer-3 cache. Proceed
+to a data-driven accumulated walk across the remaining layer schedule, then
+embedding/final normalization/logits and a slow text endpoint. No endpoint or
+TPS claim follows from this four-layer correctness result.

@@ -200,6 +200,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   additional accumulated layer, not the layer-3 full-attention transition,
   later layers, logits, an endpoint, or TPS. See
   [`experiments/FW-0025-accumulated-layer2.md`](experiments/FW-0025-accumulated-layer2.md).
+- FW-0026 extends exact accumulated execution through layer 3 and crosses the
+  model's first linear-to-full-attention transition. Its cached step consumes
+  the indexer, key, and value state produced by its initial step rather than a
+  synthetic history; the separate 2,080-position active-QSA authority remains
+  intact. Native execution matches all attention, cache-selection, MoE, and
+  residual authorities while the layers-0-through-3 replay authenticates
+  1,458,271,040 logical payload bytes. This closes the distinct accumulated
+  decoder transition, not layers 4 through 47, logits, an endpoint, or TPS.
+  See
+  [`experiments/FW-0026-accumulated-layer3.md`](experiments/FW-0026-accumulated-layer3.md).
 
 ## Prediction errors
 
