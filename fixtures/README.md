@@ -65,6 +65,13 @@ hyper-connection and Gated DeltaNet across two consecutive layer-0 calls. It
 stores only exact tensor and capture hashes for the four-stream input, mixed
 attention input, cache states, injection products, and composed residual.
 
+`attention_residual/qwen3_8_flash_next_layer1_ple.json` first regenerates the
+two sparse PLE calls frozen by FW-0018, stages their BF16 additions into the
+four-stream hidden states, and then composes layer 1's real attention
+hyper-connection and Gated DeltaNet. It freezes both attention states and every
+wrapper boundary through the composed residual without storing weight or
+activation payloads.
+
 `attention_residual/qwen3_8_flash_next_layer3.json` composes layer 3's real
 four-stream attention hyper-connection with full attention and QSA. Its long
 case begins over a regenerated 2,080-token cache, selects 512 of 520 complete

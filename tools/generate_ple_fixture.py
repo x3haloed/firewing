@@ -130,7 +130,9 @@ def build_fixture(
     model_lock_path: Path,
     ngram_fixture_path: Path,
     ngram_row_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -193,6 +195,7 @@ def build_fixture(
     handles: dict[str, BinaryIO] = {}
     payload_starts: dict[str, int] = {}
     steps = []
+    outputs = []
     try:
         for ordinal, (token, input_spec) in enumerate(zip(TOKENS, INPUT_SPECS, strict=True)):
             rows = reference_addresses(
@@ -241,6 +244,7 @@ def build_fixture(
                 )
             ).transpose(1, 2).contiguous()
             output = (gated_value + convolution).contiguous()
+            outputs.append(output)
 
             previous_context = (previous_context + [token])[-CONTEXT:]
             context_state = torch.tensor([previous_context], dtype=torch.int64)
@@ -277,7 +281,7 @@ def build_fixture(
         for handle in handles.values():
             handle.close()
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -313,6 +317,9 @@ def build_fixture(
             "steps": steps,
         },
     }
+    if _return_outputs:
+        return fixture, outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:

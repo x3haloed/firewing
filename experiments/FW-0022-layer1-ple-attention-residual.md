@@ -85,7 +85,15 @@ TPS.
 
 ## Result
 
-Pending.
+The reference fixture passes and regenerates byte-identically. It binds layer
+1's four hyper-connection tensors and nine Gated DeltaNet tensors, exactly
+regenerates the FW-0018 parent, and freezes ten captures for each of the two
+steps. The source-derived DeltaNet path exactly matches the official module
+after receiving the real PLE-modified, hyper-mixed input. The fixture SHA-256
+is `b75aeba72b2e32897f576ab01372e1fa410d066ce15f177f1ea85830ff8a968c`.
+All 43 Python tests pass.
+
+Native verification is pending.
 
 ## Decision
 
