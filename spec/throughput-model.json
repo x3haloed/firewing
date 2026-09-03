@@ -510,9 +510,33 @@
       "A": 4,
       "sum_equivalent_U": 2.995833333333333,
       "performance_claim": null
+    },
+    "sequential_q2_bf16_shuffle_capacity_cache_oracle": {
+      "status": "fw_0050_capacity_respecting_offline_schedule_survivor",
+      "implementation_commit": "4fa77fd3ed24171b862914f826c958279110acb7",
+      "manifest_sha256": "6759e772d2c9a4560ab39ae80a3b4f4e1a24552adafbf30a396e84166b9c71ca",
+      "raw_report_sha256": "ed4ae0d2137bde9393b9aad1556910360bf1e5689de56df5c1f32a82a691159e",
+      "events": 192,
+      "accesses": 1920,
+      "unique_experts": 1097,
+      "selected_retention_intervals": 1456,
+      "misses": 464,
+      "compressed_cache_bytes": 4260902888,
+      "maximum_boundary_resident_compressed_bytes": 4258752496,
+      "miss_compressed_bytes": 3122618255,
+      "miss_physical_bytes": 3124527104,
+      "solver_relative_gap": 0.00023391070291845376,
+      "incumbent_storage_seconds": 0.8923439938695034,
+      "incumbent_storage_only_accepted_tps": 4.482576257004495,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 4,
+      "A": 4,
+      "sum_equivalent_U": 2.995833333333333,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0049_favorable_physical_overlap_survives_capacity_respecting_cache_oracle_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 through FW-0039 establish the exact Qwen4-Exp MTP proposal path. FW-0040 through FW-0043 independently verify two sequential width-two and width-four transactions; width two uses 1,438 combined expert rows versus width four's 2,279. FW-0044 rejects raw-BF16 q2 residency at 2.598 median accepted TPS under favorable overlap. FW-0045 compresses the exact q2 target union to 77.765% but rejects serial decompression. FW-0046 shows parallel physical decode can be hidden at 4.978 median TPS for one reset-oracle transaction. FW-0047 removes that reset and rejects untransformed zstd-1 at a 3.395-TPS two-transaction storage ceiling. FW-0048's exact BF16 byte shuffle reaches 68.447%. FW-0049 measures its page-aligned reads, parallel decode, inverse shuffle, and routed Metal overlap at 4.277 median accepted TPS under a non-capacity-respecting future-known cache. A capacity-respecting sequential oracle is next; none of these bounds is endpoint TPS."
+  "status": "fw_0050_capacity_schedule_survives_exact_physical_replay_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 through FW-0039 establish the exact Qwen4-Exp MTP proposal path. FW-0040 through FW-0043 independently verify two sequential width-two and width-four transactions; width two uses 1,438 combined expert rows versus width four's 2,279. FW-0044 rejects raw-BF16 q2 residency at 2.598 median accepted TPS under favorable overlap. FW-0045 compresses the exact q2 target union to 77.765% but rejects serial decompression. FW-0046 shows parallel physical decode can be hidden at 4.978 median TPS for one reset-oracle transaction. FW-0047 removes that reset and rejects untransformed zstd-1 at a 3.395-TPS two-transaction storage ceiling. FW-0048's exact BF16 byte shuffle reaches 68.447%. FW-0049 measures page-aligned transformed overlap at 4.277 median accepted TPS under a non-capacity-respecting cache. FW-0050 finds a capacity-respecting offline schedule with a 4.483-TPS storage-only rate. Exact physical replay is next; none of these bounds is endpoint TPS."
 }

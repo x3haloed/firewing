@@ -454,6 +454,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   frames when capacity is exceeded. A capacity-respecting sequential oracle
   is now the cheapest required falsification. See
   [`experiments/FW-0049-sequential-shuffle-physical-overlap.md`](experiments/FW-0049-sequential-shuffle-physical-overlap.md).
+- FW-0050 repairs FW-0049's non-capacity-respecting cache grant without losing
+  the storage-rate survivor. A node-limited whole-frame interval MILP finds an
+  independently replayed feasible schedule with 633 free initial frames, all
+  823 later reuses retained, and 464 unique first-access misses. It never
+  exceeds 4.259 GB compressed residency across 192 event boundaries and needs
+  3.125 GB of physical reads, a favorable 4.482576-TPS storage-only rate for
+  `A=4`. This reverses the preliminary 3.989-TPS farthest-future heuristic:
+  largest-frame initial fill ignored reuse value and caused 58 unnecessary
+  reloads. Capacity is no longer the immediate contradiction, but future-known
+  initial contents and retention remain noncausal. See
+  [`experiments/FW-0050-capacity-respecting-sequential-cache-oracle.md`](experiments/FW-0050-capacity-respecting-sequential-cache-oracle.md).
 
 ## Prediction errors
 
@@ -475,9 +486,10 @@ These unresolved distinctions can still change the next decision:
   representation across two sequential transactions even under a fractional
   cache oracle. FW-0048's exact BF16 byte shuffle reopens the storage ceiling,
   and FW-0049 establishes that physical transformed decoding plus inverse
-  shuffle can overlap four rows of routed Metal above 4 TPS. Capacity-respecting
-  cache behavior, causality, actual resident capacity, and full endpoint work
-  remain unresolved.
+  shuffle can overlap four rows of routed Metal above 4 TPS. FW-0050 supplies
+  a capacity-respecting offline schedule at the same compulsory-miss count.
+  Its physical replay, causality, actual resident capacity, and full endpoint
+  work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;

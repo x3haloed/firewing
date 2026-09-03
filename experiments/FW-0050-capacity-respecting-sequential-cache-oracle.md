@@ -1,7 +1,7 @@
 # FW-0050 - Capacity-respecting sequential cache oracle
 
-- Status: implementation ready; measurement pending
-- Disposition: unexecuted
+- Status: completed
+- Disposition: conditional offline cache survivor
 - Date: 2026-09-03
 - Parent experiment: FW-0049
 - Exactness: L1 whole-frame cache scheduling over exact lossless records
@@ -39,4 +39,40 @@ policy, runtime residency, physical overlap, or endpoint TPS.
 
 ## Result
 
-Pending a clean-commit run.
+At clean commit `4fa77fd3ed24171b862914f826c958279110acb7`, the
+10,000-node MILP incumbent selects 1,456 hit-producing retention intervals and
+leaves 464 misses across 1,920 accesses. Independent replay shows a maximum of
+4,258,752,496 resident compressed bytes across all 192 boundaries, 2,150,392
+bytes below the fixed capacity, with zero capacity violations.
+
+Every miss is the first access to one distinct identity. The free initial cache
+contains 633 future-selected frames, and all 823 subsequent reuses remain
+resident until their next access. This explains the prediction error from the
+pre-experiment farthest-future probe: that probe initialized the cache with the
+largest frames, which optimized static byte fill but discarded future reuse
+value and caused 58 avoidable reloads.
+
+The feasible schedule reads 3,122,618,255 compressed bytes occupying
+3,124,527,104 physical bytes. At the unchanged favorable measured SSD rate,
+storage takes 892.344 ms and retains a **4.482576 accepted-TPS storage-only
+rate** for aggregate `A=4`.
+
+The node-limited solve stops with a 0.0233911% relative gap. SciPy maps HiGHS'
+solution-limit status to generic status 4, so the 3,122,233,344-byte dual-side
+miss estimate is retained only as a diagnostic. The passing incumbent itself
+is the authority: it is integral, its objective matches the independent byte
+replay within 0.5 byte, and it violates no capacity boundary.
+
+Raw receipt:
+`/Users/chad/Models/firewing/evidence/FW-0050/capacity-cache-milp-4fa77fd.json`
+
+Receipt SHA-256:
+`ed4ae0d2137bde9393b9aad1556910360bf1e5689de56df5c1f32a82a691159e`
+
+## Decision
+
+Promote this exact schedule to a capacity-respecting offline physical replay.
+Do not promote it as a runtime cache: its 633 initial frames are installed for
+free with full route knowledge, and its retention choices are noncausal. The
+next benchmark must replay its exact miss list with page-aligned reads,
+decompression, inverse shuffle, and four-row Metal overlap.
