@@ -333,6 +333,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   verifier commits a proposal. A causal target/MTP window is now the next
   correctness and economics gate. See
   [`experiments/FW-0038-qwen4-mtp-proposal-path.md`](experiments/FW-0038-qwen4-mtp-proposal-path.md).
+- FW-0039 replaces the synthetic MTP roots with exact target hiddens from the
+  committed `Firewing` endpoint and pins SGLang's EAGLE prefill rotation. The
+  target tokens `[16207,22856]` plus target-authorized token `369` become MTP
+  inputs `[22856,369]`; the independent native replay matches 108 BF16 draft
+  captures, 20 distinct MTP experts, both full-logit hashes, and proposes token
+  `264`. This is the first live target-derived proposal but remains `A=0`,
+  `U=0`: exact target continuation through input 369 is the next acceptance
+  gate. See
+  [`experiments/FW-0039-target-derived-mtp-prefill.md`](experiments/FW-0039-target-derived-mtp-prefill.md).
 
 ## Prediction errors
 

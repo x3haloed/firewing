@@ -300,9 +300,33 @@
       "A": 0,
       "U": 0,
       "performance_claim": null
+    },
+    "qwen4_exp_target_derived_mtp_prefill": {
+      "status": "fw_0039_target_derived_live_proposal_verified_acceptance_next",
+      "implementation_commit": "042b72bd46aad8c0e01713136caac61aa7dcfaea",
+      "source_commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+      "mtp_source_lock_sha256": "8160eed0480d8a5bacad0803569f2031626dde26a87eff2b79e62058f7699282",
+      "scheduler_source_lock_sha256": "8ae9341b655e4310644b2e7442c60305b7b8907f18800407e523b3480b6aac68",
+      "raw_report_sha256": "5ecb16ec9b0ffbbd8a47951f7df04e9b7be7637388bafd5b5b72831299f879ba",
+      "target_input_token_ids": [16207, 22856],
+      "target_next_token_id": 369,
+      "mtp_prefill_token_ids": [22856, 369],
+      "live_proposal_token_id": 264,
+      "input_fusion_capture_hashes": 14,
+      "decoder_path_bf16_capture_hashes": 108,
+      "full_logit_hashes": 2,
+      "dense_tensors_verified": 26,
+      "unique_selected_experts": 20,
+      "bounded_logical_payload_bytes": 18717486336,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "A": 0,
+      "U": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0038_mtp_proposal_path_verified_target_derived_acceptance_union_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 pins the Qwen4-Exp MTP source and exactly verifies its real-weight four-stream input fusion. FW-0038 continues two independent fused states through sequential MTP QSA, the complete real MTP decoder and final mixer, and the shared target LM head, matching two full-logit hashes and 20 distinct selected experts. The path is layer-local: target-derived acceptance A and combined expert union U remain unresolved. No accepted TPS is claimed."
+  "status": "fw_0039_target_derived_live_mtp_proposal_verified_exact_acceptance_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 and FW-0038 pin and verify the complete Qwen4-Exp MTP layer-local proposal path. FW-0039 replaces its synthetic roots with exact target pre-final-mixer hiddens, pins the EAGLE prefill rotation from `[16207,22856]` to `[22856,369]`, and independently reproduces live proposal token 264. Exact target continuation, accepted A, combined union U, and accepted TPS remain unresolved."
 }
