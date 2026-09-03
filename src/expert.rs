@@ -312,12 +312,12 @@ fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", digest.finalize()))
 }
 
-fn to_bf16(value: f32) -> u16 {
+pub(crate) fn to_bf16(value: f32) -> u16 {
     let bits = value.to_bits();
     (bits.wrapping_add(0x7fff + ((bits >> 16) & 1)) >> 16) as u16
 }
 
-fn from_bf16(value: u16) -> f32 {
+pub(crate) fn from_bf16(value: u16) -> f32 {
     f32::from_bits((value as u32) << 16)
 }
 
@@ -328,7 +328,7 @@ fn bf16_bytes(values: &[u16]) -> Vec<u8> {
         .collect()
 }
 
-fn bf16_hash(values: &[u16]) -> String {
+pub(crate) fn bf16_hash(values: &[u16]) -> String {
     format!("{:x}", Sha256::digest(bf16_bytes(values)))
 }
 
@@ -535,7 +535,7 @@ fn pytorch_bf16_vector_dot(left: &[u16], right: &[u16]) -> f32 {
     reduced
 }
 
-fn linear_bf16(weight: &[u16], input: &[u16], rows: usize, columns: usize) -> Vec<u16> {
+pub(crate) fn linear_bf16(weight: &[u16], input: &[u16], rows: usize, columns: usize) -> Vec<u16> {
     weight
         .chunks_exact(columns)
         .take(rows)
@@ -554,7 +554,7 @@ fn swiglu_bf16(gate: &[u16], up: &[u16]) -> Vec<u16> {
         .collect()
 }
 
-fn sigmoid_bf16(value: u16) -> u16 {
+pub(crate) fn sigmoid_bf16(value: u16) -> u16 {
     let value = from_bf16(value);
     to_bf16(1.0 / (1.0 + (-value).exp()))
 }

@@ -6,6 +6,7 @@ use tokenizers::Tokenizer;
 
 mod expert;
 mod expert_acquisition;
+mod hyper_connection;
 mod ngram;
 mod router;
 
@@ -17,6 +18,7 @@ pub use expert_acquisition::{
     ExpertAcquisitionBenchmarkReport, ExpertAcquisitionSummary, ExpertAcquisitionTrial,
     benchmark_expert_acquisition,
 };
+pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
