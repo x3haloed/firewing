@@ -1,7 +1,7 @@
 # FW-0021 - Complete layer-3 full-attention decoder
 
-- Status: planned
-- Disposition: unexecuted
+- Status: in progress
+- Disposition: reference fixture passed; native layer pending
 - Date: 2026-09-03
 - Parent experiments: FW-0017, FW-0020
 - Exactness: L0 bit-identical component semantics
@@ -85,8 +85,18 @@ endpoint behavior, modalities, latency, physical-I/O performance, and TPS.
 
 ## Result
 
-Pending execution.
+The reference fixture passes and regenerates byte-identically. It reproduces
+FW-0020 from the checkpoint rather than loading a stored activation, then
+freezes all 16 MLP/MoE and final-residual captures for each case. The initial
+and active-QSA states select disjoint top-10 expert sets, exercising twenty
+distinct layer-3 expert slices. Nine ordinary tensors and both full expert-bank
+descriptors are bound to the model lock; selected expert payloads are committed
+only as hashes. Fixture SHA-256:
+`c41e5db1d9cd4678f08e3fdac82f5ce569d4e49ab2e9d4bef050b76466f1f5a9`.
+All 41 Python tests pass. Native complete-layer verification remains pending.
 
 ## Decision
 
-Pending. No performance default follows from layer-local correctness.
+Continue by exposing FW-0020's composed outputs to the native MLP/MoE runner
+and verifying the twenty actual expert slices. No performance default follows
+from reference correctness.
