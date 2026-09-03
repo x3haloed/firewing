@@ -159,6 +159,14 @@ runtime passing every target gate, including reproducible batch-one decode at
   architectures. It does not establish PLE-bearing layer composition,
   accumulated layers, endpoint behavior, or TPS. See
   [`experiments/FW-0021-layer3-complete-decoder.md`](experiments/FW-0021-layer3-complete-decoder.md).
+- FW-0022 composes the model's only PLE site exactly through layer 1's
+  attention hyper-connection, Gated DeltaNet, and four-stream residual across
+  an initial and cached token. The native path authenticates 32 sparse n-gram
+  rows and 194,816,448 total payload bytes while matching 48 BF16, two int64,
+  and two F32 authorities, including the independent PLE and DeltaNet states.
+  This closes PLE-bearing attention composition, not layer 1's MLP/MoE half,
+  accumulated layers, endpoint behavior, or TPS. See
+  [`experiments/FW-0022-layer1-ple-attention-residual.md`](experiments/FW-0022-layer1-ple-attention-residual.md).
 
 ## Prediction errors
 

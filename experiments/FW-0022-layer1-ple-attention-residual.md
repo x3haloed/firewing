@@ -1,7 +1,7 @@
 # FW-0022 - Layer-1 PLE and attention residual composition
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: pass
 - Date: 2026-09-03
 - Parent experiments: FW-0015, FW-0018, FW-0021
 - Exactness: L0 bit-identical component semantics
@@ -93,8 +93,21 @@ after receiving the real PLE-modified, hyper-mixed input. The fixture SHA-256
 is `b75aeba72b2e32897f576ab01372e1fa410d066ce15f177f1ea85830ff8a968c`.
 All 43 Python tests pass.
 
-Native verification is pending.
+At commit `c40778f`, the release-mode native verifier independently matched
+all 48 BF16 capture hashes inherited from and added beyond FW-0018, both int64
+token-state hashes, and both F32 DeltaNet-state hashes. It authenticated 32
+sparse PLE rows and 19 dense tensors: 65,689,600 PLE bytes including selected
+rows and 129,126,848 attention tensor bytes, or 194,816,448 verified payload
+bytes in total. The external receipt is
+`/Users/chad/Models/firewing/evidence/FW-0022/ple-attention-residual.json`,
+SHA-256
+`8bb7450cec9591fc97cf787e630dc6a2d563ba469a9449366eaab2831effaedc`.
+The final suite has 43 Python and 33 Rust tests; Clippy passes with warnings
+denied.
 
 ## Decision
 
-Pending.
+Pass as a correctness composition result. The model's only PLE site now
+composes exactly through its complete attention half for initial and cached
+decode. Proceed to layer 1's MLP/MoE half and complete decoder-layer parity.
+No performance default or endpoint claim follows from component composition.
