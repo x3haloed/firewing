@@ -35,8 +35,8 @@ struct Reference {
     config_sha256: String,
     tensor_index_sha256: String,
     model_lock_sha256: String,
-    hyper_fixture_sha256: String,
-    deltanet_fixture_sha256: String,
+    hyper_fixture_sha256: Option<String>,
+    deltanet_fixture_sha256: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -204,7 +204,7 @@ fn require_f32(step: &Step, name: &str, shape: &[usize], values: &[f32]) -> Resu
     Ok(())
 }
 
-fn expected_tensors() -> Vec<(String, Vec<usize>, String, String)> {
+fn expected_tensors(layer: usize) -> Vec<(String, Vec<usize>, String, String)> {
     let mut expected = vec![
         (
             "attn_hyper_connection.hc_norm",
@@ -270,42 +270,46 @@ fn expected_tensors() -> Vec<(String, Vec<usize>, String, String)> {
             (
                 key.to_owned(),
                 shape,
-                format!("model.language_model.layers.0.{suffix}"),
+                format!("model.language_model.layers.{layer}.{suffix}"),
                 key.split_once('.').unwrap().1.to_owned(),
             )
         })
         .collect()
 }
 
-pub(crate) fn verify_attention_residual_fixture_with_outputs(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_attention_residual_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
-    hyper_fixture_path: &Path,
-    deltanet_fixture_path: &Path,
-    fixture_path: &Path,
+    fixture_bytes: &[u8],
+    layer: usize,
+    expected_semantic: &str,
+    expected_case_name: &str,
+    verification_semantic: &'static str,
+    hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(AttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
-    let fixture: Fixture =
-        serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
-            .map_err(|error| format!("malformed attention-residual fixture: {error}"))?;
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed attention-residual fixture: {error}"))?;
     let config = &fixture.configuration;
     let case = &fixture.case;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer0_attention_residual_cached_decode"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation != "huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || fixture.reference.source
             != "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward"
-        || config.layer != 0
+        || config.layer != layer
         || config.layer_type != "linear_attention"
         || config.ple_applied
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
         || config.boundary_dtype != "BF16"
         || config.recurrent_state_dtype != "F32"
-        || case.name != "layer_0_two_token_attention_residual"
+        || case.name != expected_case_name
         || case.tensors.len() != 13
         || case.steps.len() != 2
+        || hidden_overrides.is_some_and(|values| values.len() != case.steps.len())
     {
         return Err(
             "attention-residual fixture identity or configuration is unsupported".to_owned(),
@@ -315,8 +319,6 @@ pub(crate) fn verify_attention_residual_fixture_with_outputs(
         || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
         || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
             != fixture.reference.tensor_index_sha256
-        || sha256_file(hyper_fixture_path)? != fixture.reference.hyper_fixture_sha256
-        || sha256_file(deltanet_fixture_path)? != fixture.reference.deltanet_fixture_sha256
     {
         return Err("attention-residual reference identity mismatch".to_owned());
     }
@@ -330,7 +332,7 @@ pub(crate) fn verify_attention_residual_fixture_with_outputs(
     let mut hyper_weights = BTreeMap::new();
     let mut deltanet_weights = BTreeMap::new();
     let mut tensor_payload_bytes = 0;
-    for (key, shape, tensor_name, local_name) in expected_tensors() {
+    for (key, shape, tensor_name, local_name) in expected_tensors(layer) {
         let tensor = case
             .tensors
             .get(&key)
@@ -387,7 +389,15 @@ pub(crate) fn verify_attention_residual_fixture_with_outputs(
                 "attention-residual step {ordinal} metadata mismatch"
             ));
         }
-        let hyper_input = make_input(&step.input_spec, ordinal)?;
+        let generated_input = make_input(&step.input_spec, ordinal)?;
+        let hyper_input = hidden_overrides
+            .map(|values| values[ordinal].clone())
+            .unwrap_or(generated_input);
+        if hyper_input.len() != HC_HIDDEN {
+            return Err(format!(
+                "attention-residual hidden override shape mismatch at step {ordinal}"
+            ));
+        }
         require_bf16(step, "hyper_input", &[1, 1, HC_HIDDEN], &hyper_input)?;
         let hyper = run_hyper_connection(&hyper_input, &hyper_weights)?;
         require_bf16(step, "mixed_input", &[1, 1, HIDDEN], &hyper.mixed)?;
@@ -440,10 +450,10 @@ pub(crate) fn verify_attention_residual_fixture_with_outputs(
     Ok((
         AttentionResidualVerificationReport {
             schema_version: 1,
-            semantic: "qwen3_8_flash_next_layer0_attention_residual_verification",
+            semantic: verification_semantic,
             model: fixture.model,
             revision: fixture.revision,
-            layer: 0,
+            layer,
             steps_verified: 2,
             tensors_verified: 13,
             exact_bf16_capture_hashes: 14,
@@ -454,6 +464,35 @@ pub(crate) fn verify_attention_residual_fixture_with_outputs(
         },
         composed_outputs,
     ))
+}
+
+pub(crate) fn verify_attention_residual_fixture_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    hyper_fixture_path: &Path,
+    deltanet_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<(AttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
+    let bytes = fs::read(fixture_path).map_err(|error| error.to_string())?;
+    let fixture: Fixture = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("malformed attention-residual fixture: {error}"))?;
+    if fixture.reference.hyper_fixture_sha256.as_deref()
+        != Some(sha256_file(hyper_fixture_path)?.as_str())
+        || fixture.reference.deltanet_fixture_sha256.as_deref()
+            != Some(sha256_file(deltanet_fixture_path)?.as_str())
+    {
+        return Err("attention-residual component authority mismatch".to_owned());
+    }
+    verify_attention_residual_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        &bytes,
+        0,
+        "qwen3_8_flash_next_layer0_attention_residual_cached_decode",
+        "layer_0_two_token_attention_residual",
+        "qwen3_8_flash_next_layer0_attention_residual_verification",
+        None,
+    )
 }
 
 pub fn verify_attention_residual_fixture(

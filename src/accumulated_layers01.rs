@@ -160,7 +160,7 @@ fn validate_step_metadata(step: &Step, ordinal: usize) -> Result<(), String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_accumulated_layers01_fixture(
+pub(crate) fn verify_accumulated_layers01_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
@@ -174,7 +174,7 @@ pub fn verify_accumulated_layers01_fixture(
     layer1_attention_fixture_path: &Path,
     layer1_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<AccumulatedLayers01VerificationReport, String> {
+) -> Result<(AccumulatedLayers01VerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
     )
@@ -321,30 +321,67 @@ pub fn verify_accumulated_layers01_fixture(
         }
     }
 
-    Ok(AccumulatedLayers01VerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_accumulated_layers0_1_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layers_verified: vec![0, 1],
-        steps_verified: 2,
-        boundary_links_verified: 8,
-        layer0_exact_bf16_capture_hashes: layer0_report.exact_bf16_capture_hashes,
-        layer0_exact_weighted_expert_hashes: layer0_report.exact_weighted_expert_hashes,
-        layer1_ple_attention_exact_bf16_capture_hashes: attention_bf16_hashes,
-        layer1_ple_attention_exact_f32_capture_hashes: attention_f32_hashes,
-        layer1_ple_exact_i64_capture_hashes: ple_i64_hashes,
-        layer1_decoder_exact_bf16_capture_hashes: layer1_report.exact_bf16_capture_hashes,
-        layer1_decoder_exact_weighted_expert_hashes: layer1_report.exact_weighted_expert_hashes,
-        layer0_verified_payload_bytes: layer0_report.total_verified_payload_bytes,
-        layer1_verified_payload_bytes: layer1_report.total_verified_payload_bytes,
-        total_verified_payload_bytes: layer0_report.total_verified_payload_bytes
-            + layer1_report.total_verified_payload_bytes,
-        layer0_selected_experts_by_step: layer0_report.selected_experts_by_step,
-        layer1_selected_experts_by_step: layer1_report.selected_experts_by_step,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        AccumulatedLayers01VerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_accumulated_layers0_1_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layers_verified: vec![0, 1],
+            steps_verified: 2,
+            boundary_links_verified: 8,
+            layer0_exact_bf16_capture_hashes: layer0_report.exact_bf16_capture_hashes,
+            layer0_exact_weighted_expert_hashes: layer0_report.exact_weighted_expert_hashes,
+            layer1_ple_attention_exact_bf16_capture_hashes: attention_bf16_hashes,
+            layer1_ple_attention_exact_f32_capture_hashes: attention_f32_hashes,
+            layer1_ple_exact_i64_capture_hashes: ple_i64_hashes,
+            layer1_decoder_exact_bf16_capture_hashes: layer1_report.exact_bf16_capture_hashes,
+            layer1_decoder_exact_weighted_expert_hashes: layer1_report.exact_weighted_expert_hashes,
+            layer0_verified_payload_bytes: layer0_report.total_verified_payload_bytes,
+            layer1_verified_payload_bytes: layer1_report.total_verified_payload_bytes,
+            total_verified_payload_bytes: layer0_report.total_verified_payload_bytes
+                + layer1_report.total_verified_payload_bytes,
+            layer0_selected_experts_by_step: layer0_report.selected_experts_by_step,
+            layer1_selected_experts_by_step: layer1_report.selected_experts_by_step,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        layer1_outputs,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_accumulated_layers01_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    layer0_hyper_fixture_path: &Path,
+    layer0_deltanet_fixture_path: &Path,
+    layer0_attention_fixture_path: &Path,
+    layer0_sparse_moe_fixture_path: &Path,
+    layer0_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    layer1_attention_fixture_path: &Path,
+    layer1_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<AccumulatedLayers01VerificationReport, String> {
+    verify_accumulated_layers01_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        layer0_hyper_fixture_path,
+        layer0_deltanet_fixture_path,
+        layer0_attention_fixture_path,
+        layer0_sparse_moe_fixture_path,
+        layer0_fixture_path,
+        ple_fixture_path,
+        layer1_attention_fixture_path,
+        layer1_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]

@@ -60,6 +60,16 @@ carry the layer-2 prefix.
 cargo run --release -- verify-accumulated-layer2 \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
   fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
   fixtures/accumulated/qwen3_8_flash_next_layer2.json \
   /Users/chad/Models/firewing/evidence/FW-0025/accumulated-layer2.json

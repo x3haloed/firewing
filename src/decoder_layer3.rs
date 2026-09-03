@@ -42,8 +42,8 @@ struct Reference {
     config_sha256: String,
     tensor_index_sha256: String,
     model_lock_sha256: String,
-    full_attention_fixture_sha256: String,
-    attention_residual_fixture_sha256: String,
+    full_attention_fixture_sha256: Option<String>,
+    attention_residual_fixture_sha256: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -161,7 +161,7 @@ fn require_capture(step: &Step, name: &str, shape: &[usize], values: &[u16]) -> 
     Ok(())
 }
 
-fn expected_dense() -> Vec<(String, String, Vec<usize>, String)> {
+fn expected_dense(layer: usize) -> Vec<(String, String, Vec<usize>, String)> {
     let hyper = [
         ("hc_norm", vec![HC_HIDDEN]),
         ("input_mix_weight_down", vec![320, HC_HIDDEN]),
@@ -173,7 +173,7 @@ fn expected_dense() -> Vec<(String, String, Vec<usize>, String)> {
         .map(|(local, shape)| {
             (
                 format!("mlp_hyper_connection.{local}"),
-                format!("model.language_model.layers.{LAYER}.mlp_hyper_connection.{local}.weight"),
+                format!("model.language_model.layers.{layer}.mlp_hyper_connection.{local}.weight"),
                 shape,
                 local.to_owned(),
             )
@@ -182,31 +182,31 @@ fn expected_dense() -> Vec<(String, String, Vec<usize>, String)> {
     expected.extend([
         (
             "router".to_owned(),
-            format!("model.language_model.layers.{LAYER}.mlp.gate.weight"),
+            format!("model.language_model.layers.{layer}.mlp.gate.weight"),
             vec![EXPERTS, HIDDEN],
             "router".to_owned(),
         ),
         (
             "shared_gate_weight".to_owned(),
-            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.gate_proj.weight"),
+            format!("model.language_model.layers.{layer}.mlp.shared_expert.gate_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
             "shared_gate_weight".to_owned(),
         ),
         (
             "shared_up_weight".to_owned(),
-            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.up_proj.weight"),
+            format!("model.language_model.layers.{layer}.mlp.shared_expert.up_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
             "shared_up_weight".to_owned(),
         ),
         (
             "shared_down_weight".to_owned(),
-            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.down_proj.weight"),
+            format!("model.language_model.layers.{layer}.mlp.shared_expert.down_proj.weight"),
             vec![HIDDEN, INTERMEDIATE],
             "shared_down_weight".to_owned(),
         ),
         (
             "shared_expert_gate_weight".to_owned(),
-            format!("model.language_model.layers.{LAYER}.mlp.shared_expert_gate.weight"),
+            format!("model.language_model.layers.{layer}.mlp.shared_expert_gate.weight"),
             vec![1, HIDDEN],
             "shared_expert_gate_weight".to_owned(),
         ),
@@ -242,27 +242,31 @@ fn require_locked_tensor(
     Ok(())
 }
 
-pub fn verify_decoder_layer3_fixture(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
-    full_attention_fixture_path: &Path,
-    attention_residual_fixture_path: &Path,
-    fixture_path: &Path,
-) -> Result<DecoderLayer3VerificationReport, String> {
-    let fixture: Fixture = serde_json::from_slice(
-        &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
-    )
-    .map_err(|error| format!("malformed layer-3 decoder fixture: {error}"))?;
+    fixture_bytes: &[u8],
+    layer: usize,
+    layer_type: &str,
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    modes: [&str; 2],
+    parent_bytes: usize,
+    post_attention: Vec<Vec<u16>>,
+) -> Result<(DecoderLayer3VerificationReport, Vec<Vec<u16>>), String> {
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed decoder fixture: {error}"))?;
     let config = &fixture.configuration;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer3_complete_decoder"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation != "source_derived_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || fixture.reference.source
             != "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward"
-        || config.layer != LAYER
-        || config.layer_type != "full_attention"
+        || config.layer != layer
+        || config.layer_type != layer_type
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
         || config.num_experts != EXPERTS
@@ -275,18 +279,14 @@ pub fn verify_decoder_layer3_fixture(
         || fixture.expert_banks.len() != 2
         || fixture.steps.len() != 2
     {
-        return Err("layer-3 decoder fixture identity or configuration is unsupported".to_owned());
+        return Err("decoder fixture identity or configuration is unsupported".to_owned());
     }
     if sha256_file(model_lock_path)? != fixture.reference.model_lock_sha256
         || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
         || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
             != fixture.reference.tensor_index_sha256
-        || sha256_file(full_attention_fixture_path)?
-            != fixture.reference.full_attention_fixture_sha256
-        || sha256_file(attention_residual_fixture_path)?
-            != fixture.reference.attention_residual_fixture_sha256
     {
-        return Err("layer-3 decoder reference identity mismatch".to_owned());
+        return Err("decoder reference identity mismatch".to_owned());
     }
     let lock: ModelLock = serde_json::from_slice(
         &fs::read(model_lock_path).map_err(|error| format!("cannot read model lock: {error}"))?,
@@ -295,17 +295,10 @@ pub fn verify_decoder_layer3_fixture(
     if lock.model != fixture.model || lock.revision != fixture.revision {
         return Err("layer-3 decoder model lock mismatch".to_owned());
     }
-    let (attention_report, post_attention) = verify_full_attention_residual_fixture_with_outputs(
-        checkpoint_dir,
-        model_lock_path,
-        full_attention_fixture_path,
-        attention_residual_fixture_path,
-    )?;
-
     let mut dense = BTreeMap::new();
     let mut hyper_weights = BTreeMap::new();
     let mut dense_bytes = 0;
-    for (key, name, shape, local) in expected_dense() {
+    for (key, name, shape, local) in expected_dense(layer) {
         let tensor = fixture
             .tensors
             .get(&key)
@@ -340,10 +333,11 @@ pub fn verify_decoder_layer3_fixture(
         .expert_banks
         .get("down")
         .ok_or("missing down bank")?;
-    if gate_up_bank.tensor != "model.language_model.layers.3.mlp.experts.gate_up_proj"
+    if gate_up_bank.tensor
+        != format!("model.language_model.layers.{layer}.mlp.experts.gate_up_proj")
         || gate_up_bank.shape != [EXPERTS, INTERMEDIATE * 2, HIDDEN]
         || gate_up_bank.payload_sha256.is_some()
-        || down_bank.tensor != "model.language_model.layers.3.mlp.experts.down_proj"
+        || down_bank.tensor != format!("model.language_model.layers.{layer}.mlp.experts.down_proj")
         || down_bank.shape != [EXPERTS, HIDDEN, INTERMEDIATE]
         || down_bank.payload_sha256.is_some()
     {
@@ -354,14 +348,10 @@ pub fn verify_decoder_layer3_fixture(
 
     let mut unique_experts = BTreeSet::new();
     let mut selected_experts_by_step = Vec::new();
+    let mut layer_outputs = Vec::with_capacity(fixture.steps.len());
     for (ordinal, (step, post)) in fixture.steps.iter().zip(post_attention).enumerate() {
         if step.ordinal != ordinal
-            || step.mode
-                != if ordinal == 0 {
-                    "initial"
-                } else {
-                    "active_qsa_pruning"
-                }
+            || step.mode != modes[ordinal]
             || step.selected_experts.len() != TOP_K
             || step.experts.len() != TOP_K
             || step.captures.len() != 16
@@ -525,30 +515,74 @@ pub fn verify_decoder_layer3_fixture(
             .map(|(left, right)| add_bf16(*left, *right))
             .collect::<Vec<_>>();
         require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &output)?;
+        layer_outputs.push(output);
         selected_experts_by_step.push(step.selected_experts.clone());
     }
 
     let selected_expert_bytes = unique_experts.len() * 9_830_400;
-    let parent_bytes = attention_report.total_verified_payload_bytes;
-    Ok(DecoderLayer3VerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer3_complete_decoder_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: LAYER,
-        steps_verified: 2,
-        exact_bf16_capture_hashes: 32,
-        exact_weighted_expert_hashes: 20,
-        dense_tensors_verified: 9,
-        unique_experts_verified: unique_experts.len(),
-        attention_residual_tensor_payload_bytes: parent_bytes,
-        dense_tensor_payload_bytes: dense_bytes,
-        selected_expert_payload_bytes: selected_expert_bytes,
-        total_verified_payload_bytes: parent_bytes + dense_bytes + selected_expert_bytes,
-        selected_experts_by_step,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        DecoderLayer3VerificationReport {
+            schema_version: 1,
+            semantic: verification_semantic,
+            model: fixture.model,
+            revision: fixture.revision,
+            layer,
+            steps_verified: 2,
+            exact_bf16_capture_hashes: 32,
+            exact_weighted_expert_hashes: 20,
+            dense_tensors_verified: 9,
+            unique_experts_verified: unique_experts.len(),
+            attention_residual_tensor_payload_bytes: parent_bytes,
+            dense_tensor_payload_bytes: dense_bytes,
+            selected_expert_payload_bytes: selected_expert_bytes,
+            total_verified_payload_bytes: parent_bytes + dense_bytes + selected_expert_bytes,
+            selected_experts_by_step,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        layer_outputs,
+    ))
+}
+
+pub fn verify_decoder_layer3_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    full_attention_fixture_path: &Path,
+    attention_residual_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<DecoderLayer3VerificationReport, String> {
+    let bytes = fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?;
+    let fixture: Fixture = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("malformed layer-3 decoder fixture: {error}"))?;
+    if fixture.reference.full_attention_fixture_sha256.as_deref()
+        != Some(sha256_file(full_attention_fixture_path)?.as_str())
+        || fixture
+            .reference
+            .attention_residual_fixture_sha256
+            .as_deref()
+            != Some(sha256_file(attention_residual_fixture_path)?.as_str())
+    {
+        return Err("layer-3 decoder component authority mismatch".to_owned());
+    }
+    let (attention_report, post_attention) = verify_full_attention_residual_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        full_attention_fixture_path,
+        attention_residual_fixture_path,
+    )?;
+    verify_decoder_mlp_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        &bytes,
+        LAYER,
+        "full_attention",
+        "qwen3_8_flash_next_layer3_complete_decoder",
+        "qwen3_8_flash_next_layer3_complete_decoder_verification",
+        ["initial", "active_qsa_pruning"],
+        attention_report.total_verified_payload_bytes,
+        post_attention,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]
