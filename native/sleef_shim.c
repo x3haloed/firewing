@@ -5,6 +5,7 @@
 #include <sleef.h>
 
 typedef float32x4_t (*firewing_sleef_unary)(float32x4_t);
+typedef float32x4_t (*firewing_sleef_binary)(float32x4_t, float32x4_t);
 
 static void firewing_sleef_map(float *output, const float *input, size_t count,
                                firewing_sleef_unary function) {
@@ -26,8 +27,46 @@ static void firewing_sleef_map(float *output, const float *input, size_t count,
   }
 }
 
+static void firewing_sleef_map_binary(float *output, const float *left,
+                                      const float *right, size_t count,
+                                      firewing_sleef_binary function) {
+  size_t offset = 0;
+  for (; offset + 4 <= count; offset += 4) {
+    vst1q_f32(output + offset,
+              function(vld1q_f32(left + offset), vld1q_f32(right + offset)));
+  }
+  if (offset < count) {
+    float tail_left[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float tail_right[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float tail_output[4];
+    size_t tail = count - offset;
+    for (size_t index = 0; index < tail; ++index) {
+      tail_left[index] = left[offset + index];
+      tail_right[index] = right[offset + index];
+    }
+    vst1q_f32(tail_output,
+              function(vld1q_f32(tail_left), vld1q_f32(tail_right)));
+    for (size_t index = 0; index < tail; ++index) {
+      output[offset + index] = tail_output[index];
+    }
+  }
+}
+
 void firewing_sleef_expf_u10(float *output, const float *input, size_t count) {
   firewing_sleef_map(output, input, count, Sleef_expf4_u10);
+}
+
+void firewing_sleef_cosf_u10(float *output, const float *input, size_t count) {
+  firewing_sleef_map(output, input, count, Sleef_cosf4_u10);
+}
+
+void firewing_sleef_sinf_u10(float *output, const float *input, size_t count) {
+  firewing_sleef_map(output, input, count, Sleef_sinf4_u10);
+}
+
+void firewing_sleef_powf_u10(float *output, const float *left,
+                             const float *right, size_t count) {
+  firewing_sleef_map_binary(output, left, right, count, Sleef_powf4_u10);
 }
 
 void firewing_sleef_log1pf_u10(float *output, const float *input, size_t count) {
@@ -66,6 +105,14 @@ static float32x4_t firewing_neon_reciprocal(float32x4_t input) {
 
 void firewing_neon_reciprocalf(float *output, const float *input, size_t count) {
   firewing_sleef_map(output, input, count, firewing_neon_reciprocal);
+}
+
+void firewing_accelerate_sgemm_right_transposed(
+    float *output, const float *left, const float *right, size_t rows,
+    size_t right_rows, size_t columns) {
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, (int)rows,
+              (int)right_rows, (int)columns, 1.0f, left, (int)columns, right,
+              (int)columns, 0.0f, output, (int)right_rows);
 }
 
 float firewing_accelerate_padded_dot(const float *left, const float *right) {

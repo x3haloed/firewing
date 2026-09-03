@@ -16,6 +16,59 @@ const INDEX_HEADS: usize = 4;
 const INDEX_DIM: usize = 128;
 const LONG_PAST: usize = 2080;
 
+unsafe extern "C" {
+    fn firewing_sleef_cosf_u10(output: *mut f32, input: *const f32, count: usize);
+    fn firewing_sleef_sinf_u10(output: *mut f32, input: *const f32, count: usize);
+    fn firewing_sleef_powf_u10(output: *mut f32, left: *const f32, right: *const f32, count: usize);
+    fn firewing_neon_reciprocalf(output: *mut f32, input: *const f32, count: usize);
+    fn firewing_accelerate_sgemm_right_transposed(
+        output: *mut f32,
+        left: *const f32,
+        right: *const f32,
+        rows: usize,
+        right_rows: usize,
+        columns: usize,
+    );
+}
+
+fn rope_embeddings(positions: usize) -> (Vec<u16>, Vec<u16>) {
+    const ROTARY_DIM: usize = 64;
+    let half = ROTARY_DIM / 2;
+    let bases = vec![10_000_000.0_f32; half];
+    let exponents = (0..half)
+        .map(|pair| (pair * 2) as f32 / ROTARY_DIM as f32)
+        .collect::<Vec<_>>();
+    let mut powers = vec![0.0_f32; half];
+    let mut inverse = vec![0.0_f32; half];
+    unsafe {
+        firewing_sleef_powf_u10(
+            powers.as_mut_ptr(),
+            bases.as_ptr(),
+            exponents.as_ptr(),
+            half,
+        );
+        firewing_neon_reciprocalf(inverse.as_mut_ptr(), powers.as_ptr(), half);
+    }
+    let mut angles = vec![0.0_f32; positions * ROTARY_DIM];
+    for position in 0..positions {
+        for pair in 0..half {
+            let angle = inverse[pair] * position as f32;
+            angles[position * ROTARY_DIM + pair] = angle;
+            angles[position * ROTARY_DIM + half + pair] = angle;
+        }
+    }
+    let mut cosine = vec![0.0_f32; angles.len()];
+    let mut sine = vec![0.0_f32; angles.len()];
+    unsafe {
+        firewing_sleef_cosf_u10(cosine.as_mut_ptr(), angles.as_ptr(), angles.len());
+        firewing_sleef_sinf_u10(sine.as_mut_ptr(), angles.as_ptr(), angles.len());
+    }
+    (
+        cosine.into_iter().map(to_bf16).collect(),
+        sine.into_iter().map(to_bf16).collect(),
+    )
+}
+
 #[derive(Deserialize)]
 struct Fixture {
     schema_version: u32,
@@ -117,6 +170,9 @@ pub struct FullAttentionProjectionReport {
     pub layer: usize,
     pub cases_verified: usize,
     pub exact_bf16_capture_hashes: usize,
+    pub exact_f32_capture_hashes: usize,
+    pub exact_i64_capture_hashes: usize,
+    pub exact_bool_capture_hashes: usize,
     pub dense_tensors_verified: usize,
     pub dense_tensor_payload_bytes: usize,
     pub synthetic_cache_bytes: usize,
@@ -164,6 +220,46 @@ fn require_bf16(case: &Case, name: &str, shape: &[usize], values: &[u16]) -> Res
     {
         return Err(format!(
             "full-attention projection mismatch at case {} {name}: expected {}, got {actual}",
+            case.ordinal, expected.sha256
+        ));
+    }
+    Ok(())
+}
+
+fn f32_hash(values: &[f32]) -> String {
+    let mut digest = Sha256::new();
+    for value in values {
+        digest.update(value.to_le_bytes());
+    }
+    format!("{:x}", digest.finalize())
+}
+
+fn i64_hash(values: &[i64]) -> String {
+    let mut digest = Sha256::new();
+    for value in values {
+        digest.update(value.to_le_bytes());
+    }
+    format!("{:x}", digest.finalize())
+}
+
+fn require_capture(
+    case: &Case,
+    name: &str,
+    dtype: &str,
+    shape: &[usize],
+    actual: String,
+) -> Result<(), String> {
+    let expected = case
+        .captures
+        .get(name)
+        .ok_or_else(|| format!("missing full-attention capture {name}"))?;
+    if expected.dtype != dtype
+        || expected.shape != shape
+        || !is_hash(&expected.sha256)
+        || expected.sha256 != actual
+    {
+        return Err(format!(
+            "full-attention capture mismatch at case {} {name}: expected {}, got {actual}",
             case.ordinal, expected.sha256
         ));
     }
@@ -325,6 +421,20 @@ pub fn verify_full_attention_projections(
         center: 32760,
         divisor: 32768,
     };
+    let expected_key_state = ArithmeticSpec {
+        multiplier: 37,
+        add: 23,
+        modulus: 263,
+        center: 131,
+        divisor: 256,
+    };
+    let expected_value_state = ArithmeticSpec {
+        multiplier: 43,
+        add: 17,
+        modulus: 271,
+        center: 135,
+        divisor: 256,
+    };
     let mut synthetic_cache_bytes = 0;
     for (ordinal, case) in fixture.cases.iter().enumerate() {
         let past = if ordinal == 0 { 0 } else { LONG_PAST };
@@ -345,6 +455,11 @@ pub fn verify_full_attention_projections(
         }
         let hidden = make_bf16(&[HIDDEN], &case.input_spec)?;
         require_bf16(case, "hidden_states", &[1, 1, HIDDEN], &hidden)?;
+        let (position_cos, position_sin) = rope_embeddings(past + 1);
+        require_bf16(case, "position_cos", &[1, past + 1, 64], &position_cos)?;
+        require_bf16(case, "position_sin", &[1, past + 1, 64], &position_sin)?;
+        let current_cos = &position_cos[past * 64..(past + 1) * 64];
+        let current_sin = &position_sin[past * 64..(past + 1) * 64];
         let index_qk = linear_bf16(
             &tensors["indexer.index_qk_proj.weight"],
             &hidden,
@@ -356,6 +471,32 @@ pub fn verify_full_attention_projections(
             "index_qk_projection",
             &[1, 1, (INDEX_HEADS + 1) * INDEX_DIM],
             &index_qk,
+        )?;
+        let index_query_normed = rms_norm_heads(
+            &index_qk[..INDEX_HEADS * INDEX_DIM],
+            &tensors["indexer.q_layernorm.weight"],
+            INDEX_DIM,
+            1.0e-6,
+        )?;
+        require_bf16(
+            case,
+            "index_query_normed",
+            &[1, 1, INDEX_HEADS, INDEX_DIM],
+            &index_query_normed,
+        )?;
+        let mut index_query_rotated = index_query_normed.clone();
+        apply_partial_rope(
+            &mut index_query_rotated,
+            INDEX_HEADS,
+            INDEX_DIM,
+            current_cos,
+            current_sin,
+        )?;
+        require_bf16(
+            case,
+            "index_query_rotated",
+            &[1, 1, INDEX_HEADS, INDEX_DIM],
+            &index_query_rotated,
         )?;
         let mut raw_cache = if past == 0 {
             Vec::new()
@@ -377,6 +518,136 @@ pub fn verify_full_attention_projections(
             &[1, past + 1, INDEX_DIM],
             &raw_cache,
         )?;
+        let complete_blocks = (past + 1) / 4;
+        let mut pooled_keys = Vec::with_capacity(complete_blocks * INDEX_DIM);
+        for block in raw_cache[..complete_blocks * 4 * INDEX_DIM].chunks_exact(4 * INDEX_DIM) {
+            for column in 0..INDEX_DIM {
+                let sum = ((from_bf16(block[column]) + from_bf16(block[INDEX_DIM + column]))
+                    + from_bf16(block[2 * INDEX_DIM + column]))
+                    + from_bf16(block[3 * INDEX_DIM + column]);
+                pooled_keys.push(to_bf16(sum / 4.0));
+            }
+        }
+        require_bf16(
+            case,
+            "pooled_indexer_keys",
+            &[complete_blocks, INDEX_DIM],
+            &pooled_keys,
+        )?;
+        let pooled_keys_normed = rms_norm_heads(
+            &pooled_keys,
+            &tensors["indexer.k_layernorm.weight"],
+            INDEX_DIM,
+            1.0e-6,
+        )?;
+        require_bf16(
+            case,
+            "pooled_indexer_keys_normed",
+            &[complete_blocks, INDEX_DIM],
+            &pooled_keys_normed,
+        )?;
+        let mut block_keys_rotated = pooled_keys_normed.clone();
+        for block in 0..complete_blocks {
+            let position = block * 4;
+            apply_partial_rope(
+                &mut block_keys_rotated[block * INDEX_DIM..(block + 1) * INDEX_DIM],
+                1,
+                INDEX_DIM,
+                &position_cos[position * 64..(position + 1) * 64],
+                &position_sin[position * 64..(position + 1) * 64],
+            )?;
+        }
+        require_bf16(
+            case,
+            "block_indexer_keys_rotated",
+            &[complete_blocks, INDEX_DIM],
+            &block_keys_rotated,
+        )?;
+        let index_left = index_query_rotated
+            .iter()
+            .map(|value| from_bf16(*value))
+            .collect::<Vec<_>>();
+        let index_right = block_keys_rotated
+            .iter()
+            .map(|value| from_bf16(*value))
+            .collect::<Vec<_>>();
+        let mut index_products = vec![0.0_f32; INDEX_HEADS * complete_blocks];
+        if complete_blocks > 0 {
+            unsafe {
+                firewing_accelerate_sgemm_right_transposed(
+                    index_products.as_mut_ptr(),
+                    index_left.as_ptr(),
+                    index_right.as_ptr(),
+                    INDEX_HEADS,
+                    complete_blocks,
+                    INDEX_DIM,
+                );
+            }
+        }
+        let index_scores = (0..complete_blocks)
+            .map(|block| {
+                let score = |head: usize| index_products[head * complete_blocks + block].max(0.0);
+                ((score(0) + score(1)) + (score(2) + score(3))) / (INDEX_DIM as f32).sqrt()
+            })
+            .collect::<Vec<_>>();
+        require_capture(
+            case,
+            "index_scores",
+            "F32",
+            &[complete_blocks],
+            f32_hash(&index_scores),
+        )?;
+        let selected_blocks = select_qsa_blocks(&index_scores, 512.min(complete_blocks))?;
+        let selected_i64 = selected_blocks
+            .iter()
+            .map(|value| *value as i64)
+            .collect::<Vec<_>>();
+        require_capture(
+            case,
+            "selected_blocks",
+            "I64",
+            &[selected_blocks.len()],
+            i64_hash(&selected_i64),
+        )?;
+        let mut is_selected_block = vec![false; complete_blocks];
+        for block in &selected_blocks {
+            is_selected_block[*block] = true;
+        }
+        let excluded = is_selected_block
+            .iter()
+            .enumerate()
+            .filter_map(|(block, selected)| (!selected).then_some(block as i64))
+            .collect::<Vec<_>>();
+        require_capture(
+            case,
+            "excluded_blocks",
+            "I64",
+            &[excluded.len()],
+            i64_hash(&excluded),
+        )?;
+        let mut selected_tokens = Vec::with_capacity(selected_blocks.len() * 4 + 3);
+        for block in &selected_blocks {
+            selected_tokens.extend((block * 4..block * 4 + 4).map(|token| token as i64));
+        }
+        selected_tokens.extend((complete_blocks * 4..past + 1).map(|token| token as i64));
+        require_capture(
+            case,
+            "selected_tokens",
+            "I64",
+            &[selected_tokens.len()],
+            i64_hash(&selected_tokens),
+        )?;
+        let mut selected_mask = vec![0_u8; past + 1];
+        for token in &selected_tokens {
+            selected_mask[*token as usize] = 1;
+        }
+        require_capture(
+            case,
+            "selected_token_mask",
+            "BOOL",
+            &[past + 1],
+            format!("{:x}", Sha256::digest(&selected_mask)),
+        )?;
 
         let q_projection = linear_bf16(
             &tensors["q_proj.weight"],
@@ -390,6 +661,31 @@ pub fn verify_full_attention_projections(
             &[1, 1, HEADS * HEAD_DIM * 2],
             &q_projection,
         )?;
+        let query = q_projection
+            .chunks_exact(HEAD_DIM * 2)
+            .flat_map(|head| head[..HEAD_DIM].iter().copied())
+            .collect::<Vec<_>>();
+        let query_normed = rms_norm_heads(&query, &tensors["q_norm.weight"], HEAD_DIM, 1.0e-6)?;
+        require_bf16(
+            case,
+            "query_normed",
+            &[1, HEADS, 1, HEAD_DIM],
+            &query_normed,
+        )?;
+        let mut query_rotated = query_normed.clone();
+        apply_partial_rope(
+            &mut query_rotated,
+            HEADS,
+            HEAD_DIM,
+            current_cos,
+            current_sin,
+        )?;
+        require_bf16(
+            case,
+            "query_rotated",
+            &[1, HEADS, 1, HEAD_DIM],
+            &query_rotated,
+        )?;
         let gate = q_projection
             .chunks_exact(HEAD_DIM * 2)
             .flat_map(|head| head[HEAD_DIM..].iter().copied())
@@ -402,6 +698,22 @@ pub fn verify_full_attention_projections(
             HIDDEN,
         );
         require_bf16(case, "key_projection", &[1, 1, KV_HEADS * HEAD_DIM], &key)?;
+        let key_normed = rms_norm_heads(&key, &tensors["k_norm.weight"], HEAD_DIM, 1.0e-6)?;
+        require_bf16(case, "key_normed", &[1, KV_HEADS, 1, HEAD_DIM], &key_normed)?;
+        let mut key_rotated = key_normed.clone();
+        apply_partial_rope(
+            &mut key_rotated,
+            KV_HEADS,
+            HEAD_DIM,
+            current_cos,
+            current_sin,
+        )?;
+        require_bf16(
+            case,
+            "key_rotated",
+            &[1, KV_HEADS, 1, HEAD_DIM],
+            &key_rotated,
+        )?;
         let value = linear_bf16(
             &tensors["v_proj.weight"],
             &hidden,
@@ -414,6 +726,48 @@ pub fn verify_full_attention_projections(
             &[1, KV_HEADS, 1, HEAD_DIM],
             &value,
         )?;
+        let (mut key_cache, mut value_cache) = (Vec::new(), Vec::new());
+        if past > 0 {
+            let key_spec = case
+                .state_specs
+                .get("key_states")
+                .ok_or("missing key state spec")?;
+            let value_spec = case
+                .state_specs
+                .get("value_states")
+                .ok_or("missing value state spec")?;
+            if key_spec != &expected_key_state || value_spec != &expected_value_state {
+                return Err("unsupported K/V state specification".to_owned());
+            }
+            let old_keys = make_bf16(&[KV_HEADS, past, HEAD_DIM], key_spec)?;
+            let old_values = make_bf16(&[KV_HEADS, past, HEAD_DIM], value_spec)?;
+            for head in 0..KV_HEADS {
+                key_cache.extend_from_slice(
+                    &old_keys[head * past * HEAD_DIM..(head + 1) * past * HEAD_DIM],
+                );
+                key_cache.extend_from_slice(&key_rotated[head * HEAD_DIM..(head + 1) * HEAD_DIM]);
+                value_cache.extend_from_slice(
+                    &old_values[head * past * HEAD_DIM..(head + 1) * past * HEAD_DIM],
+                );
+                value_cache.extend_from_slice(&value[head * HEAD_DIM..(head + 1) * HEAD_DIM]);
+            }
+        } else {
+            key_cache.extend_from_slice(&key_rotated);
+            value_cache.extend_from_slice(&value);
+        }
+        synthetic_cache_bytes += (key_cache.len() + value_cache.len()) * 2;
+        require_bf16(
+            case,
+            "key_cache",
+            &[1, KV_HEADS, past + 1, HEAD_DIM],
+            &key_cache,
+        )?;
+        require_bf16(
+            case,
+            "value_cache",
+            &[1, KV_HEADS, past + 1, HEAD_DIM],
+            &value_cache,
+        )?;
     }
     Ok(FullAttentionProjectionReport {
         schema_version: 1,
@@ -422,7 +776,10 @@ pub fn verify_full_attention_projections(
         revision: fixture.revision,
         layer: 3,
         cases_verified: 2,
-        exact_bf16_capture_hashes: 12,
+        exact_bf16_capture_hashes: 38,
+        exact_f32_capture_hashes: 2,
+        exact_i64_capture_hashes: 6,
+        exact_bool_capture_hashes: 2,
         dense_tensors_verified: 9,
         dense_tensor_payload_bytes: dense_bytes,
         synthetic_cache_bytes,
