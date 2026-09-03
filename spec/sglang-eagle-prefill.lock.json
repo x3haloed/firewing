@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/sgl-project/sglang",
+  "pull_request": "https://github.com/sgl-project/sglang/pull/36497",
+  "commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+  "role": "source-derived EAGLE prefill rotation and Qwen4-Exp MTP seed alignment",
+  "files": [
+    {
+      "path": "python/sglang/srt/speculative/eagle_worker_v2.py",
+      "git_blob": "93fdd61761c4f976305d7af4e4aecd65430e0539",
+      "sha256": "9a66d31868385646b9fb9f78053730f55d2e885e72382a8c8dc6db9f07709271",
+      "authority": [
+        "prefill input-token left rotation",
+        "target next token as final MTP prefill input",
+        "target hidden states paired position-for-position with rotated inputs",
+        "sequential MTP KV-cache population before recurrent drafting"
+      ]
+    },
+    {
+      "path": "python/sglang/srt/speculative/eagle_utils.py",
+      "git_blob": "18c9f0cbdd849667f9b743f704e79ff08d2e5827",
+      "sha256": "87e9dc749e94f5899140457393389397840a2258978c021fd3ac490e9da4c053",
+      "authority": [
+        "final prefill tail-token selection",
+        "non-final chunked-prefill tail-token substitution"
+      ]
+    }
+  ],
+  "limitations": [
+    "This source lock proves the non-chunked prefill seed layout used by the fixture, not accepted-token accounting.",
+    "Tree construction, target verification, acceptance, correction, and rollback remain outside this lock.",
+    "The pull request was not a tagged SGLang release at the pinned commit."
+  ]
+}

@@ -156,7 +156,12 @@ def build_output(
     return {"tensors": records, "steps": steps}
 
 
-def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]:
+def build_fixture(
+    checkpoint_dir: Path,
+    model_lock_path: Path,
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -299,7 +304,7 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]
         gc.collect()
 
     output = build_output(checkpoint_dir, lock, raw_config, weight_map, current_outputs)
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -327,6 +332,9 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path) -> dict[str, Any]
         "layers": layers,
         "output": output,
     }
+    if _return_outputs:
+        return fixture, current_outputs
+    return fixture
 
 
 def main() -> int:

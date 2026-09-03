@@ -118,6 +118,9 @@ def build_output_fixture(
     fusion_fixture_path: Path,
     decoder_fixture_path: Path,
     decoder_outputs: list[torch.Tensor],
+    *,
+    _semantic: str = OUTPUT_SEMANTIC,
+    _reference_hashes: dict[str, str] | None = None,
 ) -> dict[str, object]:
     lock = load_model_lock(model_lock_path)
     config_path = checkpoint_dir / "config.json"
@@ -193,7 +196,7 @@ def build_output_fixture(
     gc.collect()
     return {
         "schema_version": 1,
-        "semantic": OUTPUT_SEMANTIC,
+        "semantic": _semantic,
         "model": "Qwen/Qwen3.8-Flash-Next",
         "revision": lock["revision"],
         "reference": {
@@ -206,6 +209,7 @@ def build_output_fixture(
             "tensor_index_sha256": sha256_file(index_path),
             "model_lock_sha256": sha256_file(model_lock_path),
             "shared_head_tensor": head_name,
+            **(_reference_hashes or {}),
         },
         "configuration": {
             "hidden_size": HIDDEN,

@@ -188,6 +188,23 @@ cargo run --release -- verify-mtp-proposal \
   fixtures/mtp/qwen3_8_flash_next_decoder.json \
   fixtures/mtp/qwen3_8_flash_next_logits.json
 
+# Target-derived EAGLE prefill through the first live MTP proposal (slow)
+cargo run --release -- verify-mtp-causal-prefill \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  spec/sglang-qwen4-exp-mtp.lock.json \
+  spec/sglang-eagle-prefill.lock.json \
+  fixtures/tokenizer/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json \
+  fixtures/mtp/qwen3_8_flash_next_input_fusion.json \
+  fixtures/mtp/qwen3_8_flash_next_causal_prefill_seed.json \
+  fixtures/mtp/qwen3_8_flash_next_causal_prefill_attention.json \
+  fixtures/mtp/qwen3_8_flash_next_causal_prefill_decoder.json \
+  fixtures/mtp/qwen3_8_flash_next_causal_prefill_logits.json
+
 # Bounded exact tokenizer-to-logits replay (slow; reads selected experts across all 48 layers)
 cargo run --release -- verify-token-text-endpoint \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \

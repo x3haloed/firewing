@@ -287,7 +287,7 @@ fn four_stream_root(row: &[u16]) -> Result<Vec<u16>, String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_token_text_endpoint_fixture(
+pub(crate) fn verify_token_text_endpoint_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     tokenizer_fixture_path: &Path,
@@ -295,7 +295,7 @@ pub fn verify_token_text_endpoint_fixture(
     ngram_row_fixture_path: &Path,
     ple_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<TokenTextEndpointVerificationReport, String> {
+) -> Result<(TokenTextEndpointVerificationReport, Vec<Vec<u16>>), String> {
     let total_started = Instant::now();
     let setup_started = Instant::now();
     let mut residency = vec![
@@ -541,7 +541,7 @@ pub fn verify_token_text_endpoint_fixture(
     let final_safety_wall_time_ns = final_safety_started.elapsed().as_nanos();
     let complete_wall_time_ns = total_started.elapsed().as_nanos();
     let embedding_bytes = TOKEN_IDS.len() * HIDDEN * 2;
-    Ok(TokenTextEndpointVerificationReport {
+    let report = TokenTextEndpointVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_firewing_two_token_cached_text_logits_verification",
         model: fixture.model,
@@ -579,7 +579,30 @@ pub fn verify_token_text_endpoint_fixture(
         host_safety_snapshots,
         accepted_tokens: 0,
         performance_claim: None,
-    })
+    };
+    Ok((report, current_outputs))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_token_text_endpoint_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<TokenTextEndpointVerificationReport, String> {
+    verify_token_text_endpoint_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[allow(clippy::too_many_arguments)]

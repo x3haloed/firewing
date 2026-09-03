@@ -159,3 +159,15 @@ MTP final mixer, and the target's shared 248,320-row LM head. The fixtures are
 hash-only and deliberately produce distinct second-position routes and logits.
 They establish proposal computation, not recursive scheduling, verifier
 acceptance, committed tokens, or TPS.
+
+`mtp/qwen3_8_flash_next_causal_prefill_seed.json` replaces FW-0038's
+deterministic roots with the exact pre-final-mixer target hiddens from the
+committed `Firewing` endpoint. It pins SGLang's EAGLE prefill rotation:
+target tokens `[16207, 22856]` and target next token `369` become MTP inputs
+`[22856, 369]`, paired position-for-position with the two target hiddens.
+
+The adjacent `causal_prefill_attention`, `causal_prefill_decoder`, and
+`causal_prefill_logits` fixtures carry those roots through the sequential MTP
+prefill cache and shared head. They are hash-only and establish the first live
+proposal (`264`), but do not yet verify or accept that proposal with the target
+model. Consequently they remain `A=0`, `U=0`, with no TPS claim.

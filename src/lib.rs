@@ -68,7 +68,8 @@ pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_conne
 pub use metal_bf16::{MetalBf16GemvReport, benchmark_metal_bf16_gemv};
 pub use metal_moe::{MetalTop10MoeReport, benchmark_metal_top10_moe};
 pub use mtp::{
-    MtpInputFusionVerificationReport, MtpProposalVerificationReport,
+    MtpCausalPrefillVerificationReport, MtpInputFusionVerificationReport,
+    MtpProposalVerificationReport, verify_mtp_causal_prefill_fixture,
     verify_mtp_input_fusion_fixture, verify_mtp_proposal_fixture,
 };
 pub use ngram::{
