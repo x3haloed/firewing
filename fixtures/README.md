@@ -65,6 +65,11 @@ hyper-connection and Gated DeltaNet across two consecutive layer-0 calls. It
 stores only exact tensor and capture hashes for the four-stream input, mixed
 attention input, cache states, injection products, and composed residual.
 
+`attention_residual/qwen3_8_flash_next_layer3.json` composes layer 3's real
+four-stream attention hyper-connection with full attention and QSA. Its long
+case begins over a regenerated 2,080-token cache, selects 512 of 520 complete
+blocks, and freezes all attention state plus the final 10,240-wide residual.
+
 `decoder_layer/qwen3_8_flash_next_layer0.json` continues those same two calls
 through the independently parameterized MLP hyper-connection, actual dynamic
 top-10 routes, selected routed experts, shared expert, and final four-stream
