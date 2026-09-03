@@ -13,6 +13,7 @@ use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+use std::time::Instant;
 
 const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
 const HIDDEN: usize = 2560;
@@ -98,6 +99,16 @@ struct LockedFile {
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct EndpointLayerTiming {
+    pub layer: usize,
+    pub layer_type: String,
+    pub attention_wall_time_ns: u128,
+    pub decoder_wall_time_ns: u128,
+    pub safety_checkpoint_wall_time_ns: u128,
+    pub complete_layer_wall_time_ns: u128,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct TokenTextEndpointVerificationReport {
     pub schema_version: u32,
     pub semantic: &'static str,
@@ -119,6 +130,13 @@ pub struct TokenTextEndpointVerificationReport {
     pub total_verified_payload_bytes: usize,
     pub top20_token_ids_by_step: Vec<Vec<usize>>,
     pub top20_cutoff_tie_counts_by_step: Vec<usize>,
+    pub cache_state: &'static str,
+    pub setup_wall_time_ns: u128,
+    pub embedding_wall_time_ns: u128,
+    pub layer_timings: Vec<EndpointLayerTiming>,
+    pub output_wall_time_ns: u128,
+    pub final_safety_wall_time_ns: u128,
+    pub complete_wall_time_ns: u128,
     pub host_safety_policy: HostSafetyPolicy,
     pub host_safety_snapshots: Vec<HostSafetySnapshot>,
     pub accepted_tokens: usize,
@@ -238,6 +256,8 @@ pub fn verify_token_text_endpoint_fixture(
     ple_fixture_path: &Path,
     fixture_path: &Path,
 ) -> Result<TokenTextEndpointVerificationReport, String> {
+    let total_started = Instant::now();
+    let setup_started = Instant::now();
     let mut safety = HostSafetyMonitor::start_normative()?;
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path)
@@ -291,6 +311,8 @@ pub fn verify_token_text_endpoint_fixture(
     if lock.model != fixture.model || lock.revision != fixture.revision {
         return Err("token text endpoint model lock mismatch".to_owned());
     }
+    let setup_wall_time_ns = setup_started.elapsed().as_nanos();
+    let embedding_started = Instant::now();
     let mut current_outputs = Vec::with_capacity(2);
     for (ordinal, row) in fixture.embedding.selected_rows.iter().enumerate() {
         if row.token_id != TOKEN_IDS[ordinal] {
@@ -308,12 +330,16 @@ pub fn verify_token_text_endpoint_fixture(
         current_outputs.push(root);
     }
     safety.checkpoint("embedding_complete", true)?;
+    let embedding_wall_time_ns = embedding_started.elapsed().as_nanos();
 
     let mut decoder_bytes = 0_usize;
     let mut selections = 0_usize;
     let mut linear_layers = 0_usize;
     let mut full_layers = 0_usize;
+    let mut layer_timings = Vec::with_capacity(48);
     for layer in &fixture.layers {
+        let layer_started = Instant::now();
+        let attention_started = Instant::now();
         let attention_bytes =
             serde_json::to_vec(&layer.attention).map_err(|error| error.to_string())?;
         let modes = if layer.layer_type == "linear_attention" {
@@ -401,6 +427,8 @@ pub fn verify_token_text_endpoint_fixture(
             full_layers += 1;
             (execution.1, execution.0.total_verified_payload_bytes)
         };
+        let attention_wall_time_ns = attention_started.elapsed().as_nanos();
+        let decoder_started = Instant::now();
         let decoder_fixture =
             serde_json::to_vec(&layer.decoder).map_err(|error| error.to_string())?;
         let execution = verify_decoder_mlp_fixture_bytes_with_outputs(
@@ -423,8 +451,20 @@ pub fn verify_token_text_endpoint_fixture(
             .sum::<usize>();
         decoder_bytes += execution.0.total_verified_payload_bytes;
         current_outputs = execution.1;
+        let decoder_wall_time_ns = decoder_started.elapsed().as_nanos();
+        let safety_started = Instant::now();
         safety.checkpoint(&format!("layer_{}_complete", layer.layer), true)?;
+        let safety_checkpoint_wall_time_ns = safety_started.elapsed().as_nanos();
+        layer_timings.push(EndpointLayerTiming {
+            layer: layer.layer,
+            layer_type: layer.layer_type.clone(),
+            attention_wall_time_ns,
+            decoder_wall_time_ns,
+            safety_checkpoint_wall_time_ns,
+            complete_layer_wall_time_ns: layer_started.elapsed().as_nanos(),
+        });
     }
+    let output_started = Instant::now();
     let output = verify_embedded_text_output_fixture(
         checkpoint_dir,
         model_lock_path,
@@ -433,7 +473,11 @@ pub fn verify_token_text_endpoint_fixture(
         &fixture.revision,
         &current_outputs,
     )?;
+    let output_wall_time_ns = output_started.elapsed().as_nanos();
+    let final_safety_started = Instant::now();
     let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
+    let final_safety_wall_time_ns = final_safety_started.elapsed().as_nanos();
+    let complete_wall_time_ns = total_started.elapsed().as_nanos();
     let embedding_bytes = TOKEN_IDS.len() * HIDDEN * 2;
     Ok(TokenTextEndpointVerificationReport {
         schema_version: 1,
@@ -458,6 +502,13 @@ pub fn verify_token_text_endpoint_fixture(
             + output.output_verified_payload_bytes,
         top20_token_ids_by_step: output.top20_token_ids_by_step,
         top20_cutoff_tie_counts_by_step: output.top20_cutoff_tie_counts_by_step,
+        cache_state: "uncontrolled_mixed_os_cache_no_application_tensor_cache",
+        setup_wall_time_ns,
+        embedding_wall_time_ns,
+        layer_timings,
+        output_wall_time_ns,
+        final_safety_wall_time_ns,
+        complete_wall_time_ns,
         host_safety_policy,
         host_safety_snapshots,
         accepted_tokens: 0,

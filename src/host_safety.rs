@@ -35,6 +35,10 @@ pub struct HostSafetySnapshot {
     pub process_resident_bytes: u64,
     pub process_physical_footprint_bytes: u64,
     pub process_peak_resident_bytes: u64,
+    pub process_disk_bytes_read: u64,
+    pub process_disk_bytes_read_growth: u64,
+    pub process_disk_bytes_written: u64,
+    pub process_disk_bytes_written_growth: u64,
     pub malloc_pressure_relief_bytes: u64,
     pub allocator_relief_state: String,
     pub declared_persistent_residency: Vec<PersistentResidencyDeclaration>,
@@ -48,6 +52,8 @@ pub(crate) struct HostSafetyMonitor {
     policy: HostSafetyPolicy,
     baseline_swap_bytes: u64,
     baseline_throttled_pages: u64,
+    baseline_disk_bytes_read: u64,
+    baseline_disk_bytes_written: u64,
     baseline_services: BTreeMap<String, Vec<u32>>,
     snapshots: Vec<HostSafetySnapshot>,
 }
@@ -241,6 +247,7 @@ impl HostSafetyMonitor {
         let policy = normative_policy();
         let baseline_swap_bytes = swap_used_bytes()?;
         let baseline_throttled_pages = throttled_pages()?;
+        let baseline_usage = process_usage()?;
         let services = protected_service_pids(&policy.protected_service_names)?;
         let baseline_services = services
             .into_iter()
@@ -250,6 +257,8 @@ impl HostSafetyMonitor {
             policy,
             baseline_swap_bytes,
             baseline_throttled_pages,
+            baseline_disk_bytes_read: baseline_usage.diskio_bytesread,
+            baseline_disk_bytes_written: baseline_usage.diskio_byteswritten,
             baseline_services,
             snapshots: Vec::new(),
         };
@@ -280,6 +289,14 @@ impl HostSafetyMonitor {
             process_resident_bytes: usage.resident_size,
             process_physical_footprint_bytes: usage.phys_footprint,
             process_peak_resident_bytes: peak,
+            process_disk_bytes_read: usage.diskio_bytesread,
+            process_disk_bytes_read_growth: usage
+                .diskio_bytesread
+                .saturating_sub(self.baseline_disk_bytes_read),
+            process_disk_bytes_written: usage.diskio_byteswritten,
+            process_disk_bytes_written_growth: usage
+                .diskio_byteswritten
+                .saturating_sub(self.baseline_disk_bytes_written),
             malloc_pressure_relief_bytes: relief,
             allocator_relief_state: if release_boundary {
                 "phase_buffers_dropped_then_malloc_relief_requested".to_owned()
