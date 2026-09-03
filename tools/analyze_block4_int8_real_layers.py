@@ -14,6 +14,7 @@ if __package__:
     from tools import analyze_q2_lossless_experts as common
     from tools.analyze_block_fp8_weight_fidelity import (
         block_affine_uint8_weight,
+        block_affine_uint8_with_exact_groups,
         block_int8_weight,
         error_metrics,
         write_json,
@@ -26,6 +27,7 @@ else:
     import analyze_q2_lossless_experts as common
     from analyze_block_fp8_weight_fidelity import (
         block_affine_uint8_weight,
+        block_affine_uint8_with_exact_groups,
         block_int8_weight,
         error_metrics,
         write_json,
@@ -54,6 +56,7 @@ def quantized_mixture(
     reference_mixture: torch.Tensor,
     block_shape: tuple[int, int] = DEFAULT_BLOCK_SHAPE,
     weight_format: str = "symmetric_int8",
+    exact_group_bps: int = 0,
 ) -> dict[str, Any]:
     if (
         hidden.dtype != torch.bfloat16
@@ -65,8 +68,14 @@ def quantized_mixture(
         raise common.AnalysisError("INT8 real-layer mixture authority mismatch")
     if len(block_shape) != 2 or block_shape[0] * block_shape[1] != 16:
         raise common.AnalysisError("INT8 real-layer scale topology must cover 16 weights")
-    if weight_format not in ("symmetric_int8", "affine_uint8"):
+    if weight_format not in (
+        "symmetric_int8",
+        "affine_uint8",
+        "affine_uint8_exact_groups",
+    ):
         raise common.AnalysisError("unknown INT8 real-layer weight format")
+    if (weight_format == "affine_uint8_exact_groups") != (exact_group_bps > 0):
+        raise common.AnalysisError("exact-group format and basis points must agree")
     score_by_expert = dict(zip(selection, scores, strict=True))
     contributions = []
     expert_rows = []
@@ -77,13 +86,16 @@ def quantized_mixture(
         down = down_file.get_slice(down_name)[expert].contiguous()
         route_weight = torch.tensor(score_by_expert[expert], dtype=torch.bfloat16)
         reference = expert_forward(hidden, gate_up, down, route_weight)["weighted_down"]
-        quantize = (
-            block_int8_weight
-            if weight_format == "symmetric_int8"
-            else block_affine_uint8_weight
-        )
-        quantized_gate_up, gate_scales, gate_bytes = quantize(gate_up, block_shape)
-        quantized_down, down_scales, down_bytes = quantize(down, block_shape)
+        if weight_format == "symmetric_int8":
+            quantize = lambda value: block_int8_weight(value, block_shape)
+        elif weight_format == "affine_uint8":
+            quantize = lambda value: block_affine_uint8_weight(value, block_shape)
+        else:
+            quantize = lambda value: block_affine_uint8_with_exact_groups(
+                value, block_shape, exact_group_bps
+            )
+        quantized_gate_up, gate_scales, gate_bytes = quantize(gate_up)
+        quantized_down, down_scales, down_bytes = quantize(down)
         candidate = expert_forward(
             hidden, quantized_gate_up, quantized_down, route_weight
         )["weighted_down"]
@@ -118,6 +130,7 @@ def analyze(
     block_rows: int = DEFAULT_BLOCK_SHAPE[0],
     block_columns: int = DEFAULT_BLOCK_SHAPE[1],
     weight_format: str = "symmetric_int8",
+    exact_group_bps: int = 0,
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -143,6 +156,7 @@ def analyze(
             values["reference_mixture"],
             block_shape,
             weight_format,
+            exact_group_bps,
         )
         observations.append(
             {"layer": layer, "ordinal": values["ordinal"], **result}
@@ -185,7 +199,13 @@ def analyze(
         if block_shape == DEFAULT_BLOCK_SHAPE
         else f"block{block_rows}x{block_columns}"
     )
-    format_tag = "int8" if weight_format == "symmetric_int8" else "affine_uint8"
+    format_tag = {
+        "symmetric_int8": "int8",
+        "affine_uint8": "affine_uint8",
+        "affine_uint8_exact_groups": "affine_uint8_exact_groups",
+    }.get(weight_format)
+    if format_tag is None:
+        raise common.AnalysisError("unknown INT8 real-layer weight format")
     return {
         "schema_version": 1,
         "semantic": (
@@ -201,6 +221,7 @@ def analyze(
         "selected_layers": list(SELECTED_LAYERS),
         "block_shape": [block_rows, block_columns],
         "weight_format": weight_format,
+        "exact_group_bps": exact_group_bps,
         "observations": observations,
         "maximum_mixture_relative_l2": maximum_mixture,
         "maximum_expert_weighted_down_relative_l2": maximum_expert,
@@ -234,9 +255,14 @@ def main() -> int:
     parser.add_argument("--block-columns", type=int, default=DEFAULT_BLOCK_SHAPE[1])
     parser.add_argument(
         "--weight-format",
-        choices=("symmetric_int8", "affine_uint8"),
+        choices=(
+            "symmetric_int8",
+            "affine_uint8",
+            "affine_uint8_exact_groups",
+        ),
         default="symmetric_int8",
     )
+    parser.add_argument("--exact-group-bps", type=int, default=0)
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -245,6 +271,7 @@ def main() -> int:
         args.block_rows,
         args.block_columns,
         args.weight_format,
+        args.exact_group_bps,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))
