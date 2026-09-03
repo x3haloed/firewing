@@ -54,24 +54,24 @@ runtime passing every target gate, including reproducible batch-one decode at
   requested bytes per row and no whole-table mapping. Only hashes and a tiny
   synthetic reader fixture are committed. Physical disk bytes, latency, cache
   amplification, and embedding math remain unresolved.
+- FW-0008 repairs FW-0007's cache-state failure with explicit range
+  invalidation. On the fixed 14-position trace, every uncached run moved exactly
+  3,719,168 bytes and took 22.079 ms median: 265,654.9 bytes and 1.577 ms per
+  token, or 51.886x the 5,120 useful bytes. The unchanged serialized transport
+  missed its 1 ms/token continuation threshold and is not a runtime default.
 
 ## Prediction errors
 
 These unresolved distinctions can still change the next decision:
 
-- Expected: `F_NOCACHE` plus disabled read-ahead would make FW-0007's aligned
-  reads observable as physical SSD traffic after correctness preflight.
-  Observed: all 30 nominally uncached trials reported zero physical disk bytes
-  and a 0.685 ms median for 224 reads. Uncertain: whether explicit mapped-range
-  invalidation can reliably make these checkpoint pages nonresident before
-  measurement. Evidence: FW-0007 raw report
-  `9b9b313b2a4b731a09d865035bbc8416a09fa288de7fce1fc33662eaf8277fb7`.
-
 - Whether hosted Qwen3.8-Flash is distributionally and semantically equivalent
   enough to the open Qwen3.8-Flash-Next checkpoint to serve as its behavioral
   reference.
-- Active executable bytes, realized n-gram storage amplification, MTP
-  acceptance, expert union, and cold internal-SSD demand. The complete census
+- Active executable bytes, production-trace n-gram storage amplification, MTP
+  acceptance, expert union, and cold internal-SSD demand. FW-0008 measured the
+  fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
+  uncached ms/token after verified range invalidation; generalization remains
+  open. The complete census
   establishes a 4,718,592,000-byte routed-expert source demand per ordinary
   token before caching or speculative union, plus about 8.624 GB of ordinary
   fixed matrices if none remain resident. These are byte-ledger bounds, not

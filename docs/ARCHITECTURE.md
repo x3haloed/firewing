@@ -81,6 +81,15 @@ requesting 71,680 payload bytes. Only hashes and invented synthetic bytes are
 committed; sampled Qwen weight bytes remain outside Git. Physical SSD traffic,
 page amplification, and useful throughput remain unmeasured.
 
+FW-0008 supplies the first scoped physical measurement. For FW-0005's fixed
+14-position trace, explicit range invalidation followed by page-aligned
+`F_NOCACHE` reads moved exactly 3,719,168 bytes and took 22.079 ms median. That
+is 265,654.9 bytes and 1.577 ms per token, a 51.886x amplification over 5,120
+useful row bytes. The serialized reader missed its frozen 1 ms/token
+continuation threshold, so it is evidence rather than a promoted transport.
+Real decode traces, coalescing, parallelism, BF16 conversion, and PLE compute
+remain outside this result.
+
 MTP can reduce routed SSD demand only when committed-token acceptance grows
 faster than the byte-weighted union of experts required for proposal and
 verification. Firewing records those quantities as `A`, `U`, and `A/U` rather

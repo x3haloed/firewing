@@ -1,7 +1,7 @@
 # FW-0008 - Range-invalidated n-gram transport
 
-- Status: planned and frozen
-- Disposition: unexecuted
+- Status: complete
+- Disposition: conditional — valid fixed-trace diagnostic; transport not promoted
 - Date: 2026-09-03
 - Parent experiment: FW-0007
 - Exactness: L0 row bytes
@@ -20,8 +20,8 @@ that explicit invalidation before every uncached timed trial closes that gap.
 The checkpoint, model lock, address fixture, row-hash fixture, toolchains, and
 hardware are identical to FW-0007. FW-0007 raw evidence SHA-256 is
 `9b9b313b2a4b731a09d865035bbc8416a09fa288de7fce1fc33662eaf8277fb7`.
-The implementation/protocol commit will be filled after this frozen record is
-committed.
+Implementation/protocol commit:
+`5e2c84a7b3789e87df19ac976eff917c2f0f79b2`.
 
 Range invalidation, residency probing, aligned buffers, and Darwin counters are
 adapted from Prismwing commit
@@ -72,8 +72,42 @@ Batch size and concurrency are one. Accepted tokens, `A`, and `U` are zero.
 
 ## Result
 
-Unexecuted. Preserve the raw report before changing this section.
+All 13,440 timed row reads matched. Every one of the 30 invalidated trials
+reported zero resident page instances before timing and exactly 3,719,168
+physical disk bytes, equal to the declared widened reads. Explicit invalidation
+therefore repaired FW-0007's cache-state ambiguity.
+
+| Transport | Median | p10 | p90 | Physical bytes median |
+| --- | ---: | ---: | ---: | ---: |
+| Warm cacheable exact `pread` | 0.7365 ms | 0.6449 ms | 0.8984 ms | 0 |
+| Invalidated aligned uncached | 22.0785 ms | 21.9508 ms | 22.2274 ms | 3,719,168 |
+
+Across 14 positions this is 0.0526 warm ms/token and 1.5770 uncached
+ms/token. The uncached transport moved 265,654.9 physical bytes/token for
+5,120 useful bytes/token, a 51.886x observed amplification on this trace.
+Median excluded cold preparation was 0.5122 ms per trace.
+
+The uncached p90 passed the 28 ms gate, but the median missed the 14 ms
+continuation threshold. It remained well below the 70 ms minor-cost kill
+threshold, and physical bytes exactly matched rather than exceeding the
+widened declaration.
+
+- Raw report SHA-256:
+  `5cc08a817b3ec711e48cedc76ed72c8e36bdfbba38b7bab12a50af502909a562`
+- Stream SHA-256 in every trial:
+  `95129dd9c62501a44f1c987c8ac5d871011c59b3cea2d5579a99a3789ba07c31`
+- Accepted tokens: 0; `A=0`; `U=0`; performance claim: none
 
 ## Decision
 
-Unexecuted. FW-0007 remains rejected as physical-I/O evidence.
+Retain the measurement as conditional evidence for this exact five-case trace,
+M1 host, internal SSD, and serialized 224-read schedule. Do not promote the
+transport unchanged because it missed the frozen median continuation gate.
+The evidence rejects neither the minor-cost hypothesis nor Firewing 4: 1.58
+ms/token is a small component of a 250 ms/token endpoint budget, but this trace
+is not a production decode distribution and excludes address computation, BF16
+conversion, PLE math, synchronization, and the rest of the model.
+
+The next transport experiment should preserve exact rows while increasing I/O
+parallelism or coalescing shared pages. Long-context and holdout schedules must
+be measured after real tokenizer traces exist; no result here covers them.
