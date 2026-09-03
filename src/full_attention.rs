@@ -386,13 +386,39 @@ pub(crate) fn verify_full_attention_with_overrides(
     capture_overrides: Option<&[BTreeMap<String, Capture>]>,
     hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(FullAttentionVerificationReport, Vec<Vec<u16>>), String> {
-    let mut fixture: Fixture = serde_json::from_slice(
-        &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
+    let bytes = fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?;
+    verify_full_attention_fixture_bytes_with_overrides(
+        checkpoint_dir,
+        model_lock_path,
+        &bytes,
+        "qwen3_8_flash_next_layer3_full_attention_qsa",
+        "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
+        [0, LONG_PAST],
+        ["initial", "active_qsa_pruning"],
+        false,
+        capture_overrides,
+        hidden_overrides,
     )
-    .map_err(|error| format!("malformed full-attention fixture: {error}"))?;
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    past_lengths: [usize; 2],
+    modes: [&str; 2],
+    sequential_cache: bool,
+    capture_overrides: Option<&[BTreeMap<String, Capture>]>,
+    hidden_overrides: Option<&[Vec<u16>]>,
+) -> Result<(FullAttentionVerificationReport, Vec<Vec<u16>>), String> {
+    let mut fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed full-attention fixture: {error}"))?;
     let config = &fixture.configuration;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer3_full_attention_qsa"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation
             != "source_derived_and_official_huggingface_transformers_qwen4_exp"
@@ -414,6 +440,7 @@ pub(crate) fn verify_full_attention_with_overrides(
         || config.boundary_dtype != "BF16"
         || fixture.tensors.len() != 9
         || fixture.cases.len() != 2
+        || (sequential_cache && past_lengths != [0, 1])
     {
         return Err("full-attention fixture identity or configuration is unsupported".to_owned());
     }
@@ -522,20 +549,19 @@ pub(crate) fn verify_full_attention_with_overrides(
     };
     let mut synthetic_cache_bytes = 0;
     let mut outputs = Vec::with_capacity(fixture.cases.len());
+    let mut previous_raw_cache = Vec::new();
+    let mut previous_key_cache = Vec::new();
+    let mut previous_value_cache = Vec::new();
     for (ordinal, case) in fixture.cases.iter().enumerate() {
-        let past = if ordinal == 0 { 0 } else { LONG_PAST };
+        let past = past_lengths[ordinal];
         if case.ordinal != ordinal
-            || case.mode
-                != if ordinal == 0 {
-                    "initial"
-                } else {
-                    "active_qsa_pruning"
-                }
+            || case.mode != modes[ordinal]
             || case.position != past
             || case.past_length != past
-            || case.input_spec != expected_inputs[ordinal]
+            || (hidden_overrides.is_none() && case.input_spec != expected_inputs[ordinal])
             || case.captures.len() != 31
-            || (ordinal == 0 && !case.state_specs.is_empty())
+            || (sequential_cache && !case.state_specs.is_empty())
+            || (!sequential_cache && ordinal == 0 && !case.state_specs.is_empty())
         {
             return Err(format!("full-attention case {ordinal} metadata mismatch"));
         }
@@ -590,6 +616,11 @@ pub(crate) fn verify_full_attention_with_overrides(
         )?;
         let mut raw_cache = if past == 0 {
             Vec::new()
+        } else if sequential_cache {
+            if previous_raw_cache.len() != past * INDEX_DIM {
+                return Err("sequential indexer cache length mismatch".to_owned());
+            }
+            previous_raw_cache.clone()
         } else {
             let spec = case
                 .state_specs
@@ -601,6 +632,7 @@ pub(crate) fn verify_full_attention_with_overrides(
             make_bf16(&[past, INDEX_DIM], spec)?
         };
         raw_cache.extend_from_slice(&index_qk[INDEX_HEADS * INDEX_DIM..]);
+        previous_raw_cache = raw_cache.clone();
         synthetic_cache_bytes += raw_cache.len() * 2;
         require_bf16(
             case,
@@ -822,19 +854,30 @@ pub(crate) fn verify_full_attention_with_overrides(
         )?;
         let (mut key_cache, mut value_cache) = (Vec::new(), Vec::new());
         if past > 0 {
-            let key_spec = case
-                .state_specs
-                .get("key_states")
-                .ok_or("missing key state spec")?;
-            let value_spec = case
-                .state_specs
-                .get("value_states")
-                .ok_or("missing value state spec")?;
-            if key_spec != &expected_key_state || value_spec != &expected_value_state {
-                return Err("unsupported K/V state specification".to_owned());
-            }
-            let old_keys = make_bf16(&[KV_HEADS, past, HEAD_DIM], key_spec)?;
-            let old_values = make_bf16(&[KV_HEADS, past, HEAD_DIM], value_spec)?;
+            let (old_keys, old_values) = if sequential_cache {
+                if previous_key_cache.len() != KV_HEADS * past * HEAD_DIM
+                    || previous_value_cache.len() != KV_HEADS * past * HEAD_DIM
+                {
+                    return Err("sequential K/V cache length mismatch".to_owned());
+                }
+                (previous_key_cache.clone(), previous_value_cache.clone())
+            } else {
+                let key_spec = case
+                    .state_specs
+                    .get("key_states")
+                    .ok_or("missing key state spec")?;
+                let value_spec = case
+                    .state_specs
+                    .get("value_states")
+                    .ok_or("missing value state spec")?;
+                if key_spec != &expected_key_state || value_spec != &expected_value_state {
+                    return Err("unsupported K/V state specification".to_owned());
+                }
+                (
+                    make_bf16(&[KV_HEADS, past, HEAD_DIM], key_spec)?,
+                    make_bf16(&[KV_HEADS, past, HEAD_DIM], value_spec)?,
+                )
+            };
             for head in 0..KV_HEADS {
                 key_cache.extend_from_slice(
                     &old_keys[head * past * HEAD_DIM..(head + 1) * past * HEAD_DIM],
@@ -849,6 +892,8 @@ pub(crate) fn verify_full_attention_with_overrides(
             key_cache.extend_from_slice(&key_rotated);
             value_cache.extend_from_slice(&value);
         }
+        previous_key_cache = key_cache.clone();
+        previous_value_cache = value_cache.clone();
         synthetic_cache_bytes += (key_cache.len() + value_cache.len()) * 2;
         require_bf16(
             case,
@@ -970,7 +1015,7 @@ pub(crate) fn verify_full_attention_with_overrides(
     }
     let report = FullAttentionVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
+        semantic: verification_semantic,
         model: fixture.model,
         revision: fixture.revision,
         layer: 3,

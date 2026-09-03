@@ -1,6 +1,8 @@
 use crate::deltanet::read_tensor;
 use crate::expert::{add_bf16, bf16_hash, from_bf16, to_bf16};
-use crate::full_attention::{Capture as AttentionCapture, verify_full_attention_with_overrides};
+use crate::full_attention::{
+    Capture as AttentionCapture, verify_full_attention_fixture_bytes_with_overrides,
+};
 use crate::hyper_connection::run_hyper_connection;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -33,7 +35,7 @@ struct Reference {
     config_sha256: String,
     tensor_index_sha256: String,
     model_lock_sha256: String,
-    full_attention_fixture_sha256: String,
+    full_attention_fixture_sha256: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -234,13 +236,48 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
     full_attention_fixture_path: &Path,
     fixture_path: &Path,
 ) -> Result<(FullAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
-    let fixture: Fixture = serde_json::from_slice(
-        &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
+    let bytes = fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?;
+    let fixture: Fixture = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("malformed full-attention residual fixture: {error}"))?;
+    if fixture.reference.full_attention_fixture_sha256.as_deref()
+        != Some(sha256_file(full_attention_fixture_path)?.as_str())
+    {
+        return Err("full-attention residual component authority mismatch".to_owned());
+    }
+    let full_attention_bytes = fs::read(full_attention_fixture_path)
+        .map_err(|error| format!("cannot read full-attention fixture: {error}"))?;
+    verify_full_attention_residual_fixture_bytes_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        &bytes,
+        "qwen3_8_flash_next_layer3_full_attention_residual",
+        "qwen3_8_flash_next_layer3_full_attention_residual_verification",
+        [0, 2080],
+        ["initial", "active_qsa_pruning"],
+        false,
+        Some(&full_attention_bytes),
+        None,
     )
-    .map_err(|error| format!("malformed full-attention residual fixture: {error}"))?;
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    past_lengths: [usize; 2],
+    modes: [&str; 2],
+    sequential_cache: bool,
+    full_attention_fixture_bytes: Option<&[u8]>,
+    hidden_overrides: Option<&[Vec<u16>]>,
+) -> Result<(FullAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
+    let fixture: Fixture = serde_json::from_slice(fixture_bytes)
+        .map_err(|error| format!("malformed full-attention residual fixture: {error}"))?;
     let config = &fixture.configuration;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer3_full_attention_residual"
+        || fixture.semantic != expected_semantic
         || fixture.model != MODEL
         || fixture.reference.implementation
             != "source_derived_and_official_huggingface_transformers_qwen4_exp"
@@ -251,9 +288,13 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
         || config.boundary_dtype != "BF16"
-        || config.active_qsa_past_length != 2080
+        || config.active_qsa_past_length != past_lengths[1]
         || fixture.tensors.len() != 13
         || fixture.cases.len() != 2
+        || hidden_overrides.is_some_and(|values| {
+            values.len() != fixture.cases.len()
+                || values.iter().any(|value| value.len() != HC_HIDDEN)
+        })
     {
         return Err("full-attention residual identity or configuration is unsupported".to_owned());
     }
@@ -261,8 +302,6 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
         || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
         || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
             != fixture.reference.tensor_index_sha256
-        || sha256_file(full_attention_fixture_path)?
-            != fixture.reference.full_attention_fixture_sha256
     {
         return Err("full-attention residual reference identity mismatch".to_owned());
     }
@@ -313,19 +352,14 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
         }
     }
 
-    let mut hidden_overrides = Vec::with_capacity(2);
+    let mut attention_hidden_overrides = Vec::with_capacity(2);
     let mut attention_captures = Vec::with_capacity(2);
     let mut hyper_inputs = Vec::with_capacity(2);
     let mut injection_weights = Vec::with_capacity(2);
     for (ordinal, case) in fixture.cases.iter().enumerate() {
-        let past = if ordinal == 0 { 0 } else { 2080 };
+        let past = past_lengths[ordinal];
         if case.ordinal != ordinal
-            || case.mode
-                != if ordinal == 0 {
-                    "initial"
-                } else {
-                    "active_qsa_pruning"
-                }
+            || case.mode != modes[ordinal]
             || case.position != past
             || case.past_length != past
             || case.captures.len() != 36
@@ -334,7 +368,10 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
                 "full-attention residual case {ordinal} metadata mismatch"
             ));
         }
-        let input = make_input(&case.input_spec, ordinal)?;
+        let generated_input = make_input(&case.input_spec, ordinal)?;
+        let input = hidden_overrides
+            .map(|values| values[ordinal].clone())
+            .unwrap_or(generated_input);
         require_bf16(case, "hyper_input", &[1, 1, HC_HIDDEN], &input)?;
         let hyper = run_hyper_connection(&input, &hyper_weights)?;
         require_bf16(case, "mixed_input", &[1, 1, HIDDEN], &hyper.mixed)?;
@@ -365,18 +402,102 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
                 "full-attention residual case {ordinal} attention captures missing"
             ));
         }
-        hidden_overrides.push(hyper.mixed);
+        attention_hidden_overrides.push(hyper.mixed);
         attention_captures.push(captures);
         hyper_inputs.push(input);
         injection_weights.push(hyper.injection_weights);
     }
 
-    let (attention_report, attention_outputs) = verify_full_attention_with_overrides(
+    let synthesized_attention_bytes;
+    let attention_fixture_bytes = if let Some(bytes) = full_attention_fixture_bytes {
+        bytes
+    } else {
+        let raw: serde_json::Value = serde_json::from_slice(fixture_bytes)
+            .map_err(|error| format!("malformed embedded attention fixture: {error}"))?;
+        let mut tensors = serde_json::Map::new();
+        for (name, record) in raw["tensors"]
+            .as_object()
+            .ok_or("embedded attention tensors are missing")?
+        {
+            if let Some(local) = name.strip_prefix("self_attn.") {
+                tensors.insert(local.to_owned(), record.clone());
+            }
+        }
+        let cases = raw["cases"]
+            .as_array()
+            .ok_or("embedded attention cases are missing")?
+            .iter()
+            .map(|case| {
+                let mut captures = serde_json::Map::new();
+                for (name, capture) in case["captures"].as_object().unwrap() {
+                    if let Some(local) = name.strip_prefix("attention.") {
+                        captures.insert(local.to_owned(), capture.clone());
+                    }
+                }
+                serde_json::json!({
+                    "ordinal": case["ordinal"],
+                    "mode": case["mode"],
+                    "position": case["position"],
+                    "past_length": case["past_length"],
+                    "input_spec": case["input_spec"],
+                    "state_specs": {},
+                    "captures": captures,
+                })
+            })
+            .collect::<Vec<_>>();
+        synthesized_attention_bytes = serde_json::to_vec(&serde_json::json!({
+            "schema_version": 1,
+            "semantic": "qwen3_8_flash_next_layer3_full_attention_embedded",
+            "model": raw["model"],
+            "revision": raw["revision"],
+            "reference": {
+                "implementation": "source_derived_and_official_huggingface_transformers_qwen4_exp",
+                "transformers_version": raw["reference"]["transformers_version"],
+                "source": [
+                    "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextAttention.forward",
+                    "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextQSAIndexer.forward"
+                ],
+                "config_sha256": raw["reference"]["config_sha256"],
+                "tensor_index_sha256": raw["reference"]["tensor_index_sha256"],
+                "model_lock_sha256": raw["reference"]["model_lock_sha256"]
+            },
+            "configuration": {
+                "layer": 3,
+                "hidden_size": 2560,
+                "attention_heads": 24,
+                "kv_heads": 2,
+                "head_dim": 256,
+                "rotary_dim": 64,
+                "rope_theta": 10000000,
+                "mrope_section": [11, 11, 10],
+                "indexer_heads": 4,
+                "indexer_kv_heads": 1,
+                "indexer_head_dim": 128,
+                "indexer_budget": 2048,
+                "indexer_compress_ratio": 4,
+                "boundary_dtype": "BF16"
+            },
+            "tensors": tensors,
+            "cases": cases
+        }))
+        .map_err(|error| error.to_string())?;
+        &synthesized_attention_bytes
+    };
+    let (attention_report, attention_outputs) = verify_full_attention_fixture_bytes_with_overrides(
         checkpoint_dir,
         model_lock_path,
-        full_attention_fixture_path,
+        attention_fixture_bytes,
+        if full_attention_fixture_bytes.is_some() {
+            "qwen3_8_flash_next_layer3_full_attention_qsa"
+        } else {
+            "qwen3_8_flash_next_layer3_full_attention_embedded"
+        },
+        "qwen3_8_flash_next_layer3_full_attention_embedded_verification",
+        past_lengths,
+        modes,
+        sequential_cache,
         Some(&attention_captures),
-        Some(&hidden_overrides),
+        Some(&attention_hidden_overrides),
     )?;
     let mut composed_outputs = Vec::with_capacity(2);
     for ordinal in 0..2 {
@@ -406,7 +527,7 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
 
     let report = FullAttentionResidualVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer3_full_attention_residual_verification",
+        semantic: verification_semantic,
         model: fixture.model,
         revision: fixture.revision,
         layer: 3,

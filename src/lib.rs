@@ -5,6 +5,7 @@ use std::path::Path;
 use tokenizers::Tokenizer;
 
 mod accumulated_layer2;
+mod accumulated_layer3;
 mod accumulated_layers01;
 mod attention_residual;
 mod decoder_layer;
@@ -23,6 +24,9 @@ mod router;
 
 pub use accumulated_layer2::{
     AccumulatedLayer2VerificationReport, verify_accumulated_layer2_fixture,
+};
+pub use accumulated_layer3::{
+    AccumulatedLayer3VerificationReport, verify_accumulated_layer3_fixture,
 };
 pub use accumulated_layers01::{
     AccumulatedLayers01VerificationReport, verify_accumulated_layers01_fixture,
