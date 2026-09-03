@@ -85,7 +85,9 @@ def build_fixture(
     model_lock_path: Path,
     attention_fixture_path: Path,
     sparse_moe_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -180,6 +182,7 @@ def build_fixture(
     explicit_cache = DynamicCache(config=config)
     official_cache = DynamicCache(config=config)
     steps = []
+    layer_outputs = []
     with safe_open(checkpoint_dir / gate_up_shard, framework="pt", device="cpu") as gate_up_file:
         with safe_open(checkpoint_dir / down_shard, framework="pt", device="cpu") as down_file:
             for ordinal, spec in enumerate(INPUT_SPECS):
@@ -232,6 +235,7 @@ def build_fixture(
                     moe_output.unsqueeze(-2) * mlp_injection.unsqueeze(-1)
                 ).contiguous()
                 layer_output = (post_attention + injection_products.flatten(-2)).contiguous()
+                layer_outputs.append(layer_output)
                 captures = {
                     "post_attention": post_attention,
                     "mlp_input": mlp_input,
@@ -261,7 +265,7 @@ def build_fixture(
                     }
                 )
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -296,6 +300,9 @@ def build_fixture(
             "steps": steps,
         },
     }
+    if _return_outputs:
+        return fixture, layer_outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:

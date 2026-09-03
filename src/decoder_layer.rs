@@ -285,7 +285,7 @@ pub(crate) fn route(logits: &[u16]) -> Result<(Vec<usize>, Vec<u16>), String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_decoder_layer_fixture(
+pub(crate) fn verify_decoder_layer_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     hyper_fixture_path: &Path,
@@ -293,7 +293,7 @@ pub fn verify_decoder_layer_fixture(
     attention_fixture_path: &Path,
     sparse_moe_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<DecoderLayerVerificationReport, String> {
+) -> Result<(DecoderLayerVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture =
         serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed decoder-layer fixture: {error}"))?;
@@ -395,6 +395,7 @@ pub fn verify_decoder_layer_fixture(
 
     let mut unique_experts = BTreeSet::new();
     let mut selected_experts_by_step = Vec::new();
+    let mut layer_outputs = Vec::with_capacity(case.steps.len());
     for (ordinal, (step, post_attention)) in case.steps.iter().zip(post_attention).enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -567,6 +568,7 @@ pub fn verify_decoder_layer_fixture(
             .map(|(left, right)| add_bf16(*left, *right))
             .collect();
         require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &layer_output)?;
+        layer_outputs.push(layer_output);
         selected_experts_by_step.push(selection);
     }
 
@@ -574,25 +576,50 @@ pub fn verify_decoder_layer_fixture(
     let total_verified_payload_bytes = attention_report.tensor_payload_bytes
         + dense_tensor_payload_bytes
         + selected_expert_payload_bytes;
-    Ok(DecoderLayerVerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer0_complete_cached_decoder_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: 0,
-        steps_verified: 2,
-        exact_bf16_capture_hashes: 32,
-        exact_weighted_expert_hashes: 20,
-        dense_tensors_verified: 9,
-        unique_experts_verified: unique_experts.len(),
-        attention_tensor_payload_bytes: attention_report.tensor_payload_bytes,
-        dense_tensor_payload_bytes,
-        selected_expert_payload_bytes,
-        total_verified_payload_bytes,
-        selected_experts_by_step,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        DecoderLayerVerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_layer0_complete_cached_decoder_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layer: 0,
+            steps_verified: 2,
+            exact_bf16_capture_hashes: 32,
+            exact_weighted_expert_hashes: 20,
+            dense_tensors_verified: 9,
+            unique_experts_verified: unique_experts.len(),
+            attention_tensor_payload_bytes: attention_report.tensor_payload_bytes,
+            dense_tensor_payload_bytes,
+            selected_expert_payload_bytes,
+            total_verified_payload_bytes,
+            selected_experts_by_step,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        layer_outputs,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_decoder_layer_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    hyper_fixture_path: &Path,
+    deltanet_fixture_path: &Path,
+    attention_fixture_path: &Path,
+    sparse_moe_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<DecoderLayerVerificationReport, String> {
+    verify_decoder_layer_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        hyper_fixture_path,
+        deltanet_fixture_path,
+        attention_fixture_path,
+        sparse_moe_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]
