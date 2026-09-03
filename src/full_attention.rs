@@ -324,8 +324,8 @@ fn require_capture(
     Ok(())
 }
 
-fn expected_tensors() -> Vec<(&'static str, String, Vec<usize>)> {
-    let prefix = "model.language_model.layers.3.self_attn";
+fn expected_tensors(layer: usize) -> Vec<(&'static str, String, Vec<usize>)> {
+    let prefix = format!("model.language_model.layers.{layer}.self_attn");
     vec![
         (
             "q_proj.weight",
@@ -393,6 +393,7 @@ pub(crate) fn verify_full_attention_with_overrides(
         &bytes,
         "qwen3_8_flash_next_layer3_full_attention_qsa",
         "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
+        3,
         [0, LONG_PAST],
         ["initial", "active_qsa_pruning"],
         false,
@@ -408,6 +409,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
     fixture_bytes: &[u8],
     expected_semantic: &str,
     verification_semantic: &'static str,
+    layer: usize,
     past_lengths: [usize; 2],
     modes: [&str; 2],
     sequential_cache: bool,
@@ -424,7 +426,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
             != "source_derived_and_official_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || fixture.reference.source.len() != 2
-        || config.layer != 3
+        || config.layer != layer
         || config.hidden_size != HIDDEN
         || config.attention_heads != HEADS
         || config.kv_heads != KV_HEADS
@@ -477,7 +479,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
 
     let mut tensors = BTreeMap::new();
     let mut dense_bytes = 0;
-    for (key, name, shape) in expected_tensors() {
+    for (key, name, shape) in expected_tensors(layer) {
         let record = fixture
             .tensors
             .get(key)
@@ -1018,7 +1020,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
         semantic: verification_semantic,
         model: fixture.model,
         revision: fixture.revision,
-        layer: 3,
+        layer,
         cases_verified: 2,
         exact_bf16_capture_hashes: 52,
         exact_f32_capture_hashes: 2,

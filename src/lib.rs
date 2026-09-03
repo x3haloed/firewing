@@ -7,6 +7,7 @@ use tokenizers::Tokenizer;
 mod accumulated_layer2;
 mod accumulated_layer3;
 mod accumulated_layers01;
+mod accumulated_layers4_47;
 mod attention_residual;
 mod decoder_layer;
 mod decoder_layer1;
@@ -30,6 +31,9 @@ pub use accumulated_layer3::{
 };
 pub use accumulated_layers01::{
     AccumulatedLayers01VerificationReport, verify_accumulated_layers01_fixture,
+};
+pub use accumulated_layers4_47::{
+    AccumulatedLayers4Through47VerificationReport, verify_accumulated_layers4_through47_fixture,
 };
 pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,

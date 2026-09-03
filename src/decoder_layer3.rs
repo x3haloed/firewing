@@ -360,7 +360,18 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
         }
         require_capture(step, "post_attention", &[1, 1, HC_HIDDEN], &post)?;
         let hyper = run_hyper_connection(&post, &hyper_weights)?;
-        require_capture(step, "mlp_input", &[1, 1, HIDDEN], &hyper.mixed)?;
+        require_capture(step, "mlp_input", &[1, 1, HIDDEN], &hyper.mixed).map_err(|error| {
+            format!(
+                "{error}; hyper intermediates norm={} down={} down_scaled={} down_silu={} up={} input_mix={} products={}",
+                bf16_hash(&hyper.hyper_input_normed),
+                bf16_hash(&hyper.mix_down),
+                bf16_hash(&hyper.mix_down_scaled),
+                bf16_hash(&hyper.mix_down_silu),
+                bf16_hash(&hyper.mix_up),
+                bf16_hash(&hyper.input_mix),
+                bf16_hash(&hyper.products),
+            )
+        })?;
         require_capture(
             step,
             "mlp_injection_weights",

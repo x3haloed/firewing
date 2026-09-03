@@ -1,12 +1,13 @@
 use firewing::{
     benchmark_expert_acquisition, benchmark_ngram_transport, verify_accumulated_layer2_fixture,
     verify_accumulated_layer3_fixture, verify_accumulated_layers01_fixture,
-    verify_attention_residual_fixture, verify_decoder_layer_fixture, verify_decoder_layer1_fixture,
-    verify_decoder_layer3_fixture, verify_deltanet_fixture, verify_expert_fixture,
-    verify_full_attention_fixture, verify_full_attention_residual_fixture,
-    verify_hyper_connection_fixture, verify_mixture_fixture, verify_ngram_fixture,
-    verify_ngram_rows, verify_ple_attention_residual_fixture, verify_ple_fixture,
-    verify_router_fixture, verify_sparse_moe_fixture, verify_tokenizer_fixture,
+    verify_accumulated_layers4_through47_fixture, verify_attention_residual_fixture,
+    verify_decoder_layer_fixture, verify_decoder_layer1_fixture, verify_decoder_layer3_fixture,
+    verify_deltanet_fixture, verify_expert_fixture, verify_full_attention_fixture,
+    verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
+    verify_mixture_fixture, verify_ngram_fixture, verify_ngram_rows,
+    verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
+    verify_sparse_moe_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -15,6 +16,9 @@ use std::path::Path;
 fn usage() -> ! {
     eprintln!(
         "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]\n  firewing bench-expert-acquisition CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON COMMIT [REPORT_JSON]\n  firewing verify-router CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-expert CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE [REPORT_JSON]\n  firewing verify-mixture CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE [REPORT_JSON]\n  firewing verify-sparse-moe CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE SPARSE_MOE_FIXTURE [REPORT_JSON]\n  firewing verify-hyper-connection CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-deltanet CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-attention-residual CHECKPOINT_DIR MODEL_LOCK HYPER_FIXTURE DELTANET_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-decoder-layer CHECKPOINT_DIR MODEL_LOCK HYPER_FIXTURE DELTANET_FIXTURE ATTENTION_FIXTURE SPARSE_MOE_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ple CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE [REPORT_JSON]\n  firewing verify-ple-attention-residual CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-decoder-layer1 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ATTENTION_RESIDUAL_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-accumulated-layers01 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-accumulated-layer2 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-accumulated-layer3 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE LAYER2_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-full-attention CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-full-attention-residual CHECKPOINT_DIR MODEL_LOCK FULL_ATTENTION_FIXTURE FIXTURE_JSON [REPORT_JSON]\n  firewing verify-decoder-layer3 CHECKPOINT_DIR MODEL_LOCK FULL_ATTENTION_FIXTURE ATTENTION_RESIDUAL_FIXTURE FIXTURE_JSON [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-accumulated-layers4-47 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE LAYER2_FIXTURE LAYER3_FIXTURE FIXTURE_JSON [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -213,6 +217,28 @@ fn main() {
             )
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(17),
+        ),
+        Some("verify-accumulated-layers4-47") if (18..=19).contains(&args.len()) => (
+            verify_accumulated_layers4_through47_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+                Path::new(&args[9]),
+                Path::new(&args[10]),
+                Path::new(&args[11]),
+                Path::new(&args[12]),
+                Path::new(&args[13]),
+                Path::new(&args[14]),
+                Path::new(&args[15]),
+                Path::new(&args[16]),
+                Path::new(&args[17]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(18),
         ),
         Some("verify-full-attention") if (5..=6).contains(&args.len()) => (
             verify_full_attention_fixture(

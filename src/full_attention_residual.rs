@@ -175,7 +175,7 @@ fn make_input(spec: &InputSpec, ordinal: usize) -> Result<Vec<u16>, String> {
         .collect())
 }
 
-fn expected_tensors() -> Vec<(String, String, Vec<usize>, Option<&'static str>)> {
+fn expected_tensors(layer: usize) -> Vec<(String, String, Vec<usize>, Option<&'static str>)> {
     let hyper = [
         ("hc_norm", vec![HC_HIDDEN]),
         ("input_mix_weight_down", vec![320, HC_HIDDEN]),
@@ -187,7 +187,7 @@ fn expected_tensors() -> Vec<(String, String, Vec<usize>, Option<&'static str>)>
         .map(|(local, shape)| {
             (
                 format!("attn_hyper_connection.{local}"),
-                format!("model.language_model.layers.3.attn_hyper_connection.{local}.weight"),
+                format!("model.language_model.layers.{layer}.attn_hyper_connection.{local}.weight"),
                 shape,
                 Some(local),
             )
@@ -207,7 +207,7 @@ fn expected_tensors() -> Vec<(String, String, Vec<usize>, Option<&'static str>)>
     expected.extend(attention.into_iter().map(|(local, shape)| {
         (
             format!("self_attn.{local}"),
-            format!("model.language_model.layers.3.self_attn.{local}"),
+            format!("model.language_model.layers.{layer}.self_attn.{local}"),
             shape,
             None,
         )
@@ -252,6 +252,7 @@ pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
         &bytes,
         "qwen3_8_flash_next_layer3_full_attention_residual",
         "qwen3_8_flash_next_layer3_full_attention_residual_verification",
+        3,
         [0, 2080],
         ["initial", "active_qsa_pruning"],
         false,
@@ -267,6 +268,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
     fixture_bytes: &[u8],
     expected_semantic: &str,
     verification_semantic: &'static str,
+    layer: usize,
     past_lengths: [usize; 2],
     modes: [&str; 2],
     sequential_cache: bool,
@@ -283,7 +285,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
             != "source_derived_and_official_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || fixture.reference.source.len() != 3
-        || config.layer != 3
+        || config.layer != layer
         || config.layer_type != "full_attention"
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
@@ -315,7 +317,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
 
     let mut hyper_weights = BTreeMap::new();
     let mut hyper_bytes = 0;
-    for (key, name, shape, hyper_local) in expected_tensors() {
+    for (key, name, shape, hyper_local) in expected_tensors(layer) {
         let tensor = fixture
             .tensors
             .get(&key)
@@ -462,7 +464,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
                 "model_lock_sha256": raw["reference"]["model_lock_sha256"]
             },
             "configuration": {
-                "layer": 3,
+                "layer": layer,
                 "hidden_size": 2560,
                 "attention_heads": 24,
                 "kv_heads": 2,
@@ -493,6 +495,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
             "qwen3_8_flash_next_layer3_full_attention_embedded"
         },
         "qwen3_8_flash_next_layer3_full_attention_embedded_verification",
+        layer,
         past_lengths,
         modes,
         sequential_cache,
@@ -530,7 +533,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
         semantic: verification_semantic,
         model: fixture.model,
         revision: fixture.revision,
-        layer: 3,
+        layer,
         cases_verified: 2,
         exact_bf16_capture_hashes: attention_report.exact_bf16_capture_hashes + 10,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,

@@ -295,6 +295,10 @@ pub(crate) fn grouped_rms(input: &[u16], weight: &[u16], epsilon: f32) -> Vec<u1
     output
 }
 
+fn four_stream_mean(values: [f32; HC_COUNT]) -> f32 {
+    values.into_iter().fold(0.0_f32, |sum, value| sum + value) / HC_COUNT as f32
+}
+
 fn silu_bf16(values: &[u16]) -> Vec<u16> {
     values
         .iter()
@@ -376,10 +380,8 @@ pub(crate) fn run_hyper_connection(
         .collect();
     let mixed = (0..HIDDEN)
         .map(|column| {
-            let values = (0..HC_COUNT)
-                .map(|group| from_bf16(products[group * HIDDEN + column]))
-                .collect::<Vec<_>>();
-            to_bf16(((values[0] + values[1]) + (values[2] + values[3])) / HC_COUNT as f32)
+            let values = std::array::from_fn(|group| from_bf16(products[group * HIDDEN + column]));
+            to_bf16(four_stream_mean(values))
         })
         .collect();
     let inject = linear_bf16(
@@ -597,11 +599,10 @@ mod tests {
     }
 
     #[test]
-    fn four_stream_mean_uses_fixed_pair_tree() {
-        let values = [1.0_f32, 2.0, 4.0, 8.0];
-        assert_eq!(
-            ((values[0] + values[1]) + (values[2] + values[3])) / 4.0,
-            3.75
-        );
+    fn four_stream_mean_uses_sequential_reduction() {
+        let values = [1.0e8_f32, 1.0, -1.0e8, 1.0];
+        let balanced = ((values[0] + values[1]) + (values[2] + values[3])) / 4.0;
+        assert_eq!(four_stream_mean(values), 0.25);
+        assert_eq!(balanced, 0.0);
     }
 }

@@ -15,6 +15,15 @@ const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
 const HIDDEN: usize = 2560;
 const HC_COUNT: usize = 4;
 const HC_HIDDEN: usize = HIDDEN * HC_COUNT;
+
+unsafe extern "C" {
+    fn firewing_torch_topk_bf16(
+        values: *const u16,
+        count: usize,
+        k: usize,
+        indices: *mut usize,
+    ) -> bool;
+}
 const EXPERTS: usize = 512;
 const TOP_K: usize = 10;
 const INTERMEDIATE: usize = 640;
@@ -254,16 +263,16 @@ fn require_locked_tensor(
 }
 
 pub(crate) fn route(logits: &[u16]) -> Result<(Vec<usize>, Vec<u16>), String> {
-    let mut indices: Vec<_> = (0..logits.len()).collect();
-    indices.sort_by(|left, right| {
-        from_bf16(logits[*right])
-            .total_cmp(&from_bf16(logits[*left]))
-            .then(left.cmp(right))
-    });
-    if from_bf16(logits[indices[TOP_K - 1]]) == from_bf16(logits[indices[TOP_K]]) {
-        return Err("decoder-layer router has an unsupported top-k boundary tie".to_owned());
+    if logits.len() != EXPERTS || logits.iter().any(|value| from_bf16(*value).is_nan()) {
+        return Err("decoder-layer router received unsupported logits".to_owned());
     }
-    indices.truncate(TOP_K);
+    let mut indices = vec![0_usize; TOP_K];
+    let succeeded = unsafe {
+        firewing_torch_topk_bf16(logits.as_ptr(), logits.len(), TOP_K, indices.as_mut_ptr())
+    };
+    if !succeeded {
+        return Err("decoder-layer router top-k failed".to_owned());
+    }
 
     let values: Vec<_> = logits.iter().map(|value| from_bf16(*value)).collect();
     let maximum = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -642,11 +651,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn route_fails_closed_on_unknown_topk_tie_semantics() {
+    fn route_matches_pinned_torch_topk_at_selection_boundary_tie() {
         let logits = vec![to_bf16(0.0); EXPERTS];
+        assert_eq!(route(&logits).unwrap().0, (0..TOP_K).collect::<Vec<_>>());
+
+        let mut logits = logits;
+        for index in [10, 20, 30, 40, 50, 60, 70, 80, 90] {
+            logits[index] = to_bf16(1.0);
+        }
         assert_eq!(
-            route(&logits).unwrap_err(),
-            "decoder-layer router has an unsupported top-k boundary tie"
+            route(&logits).unwrap().0,
+            [90, 80, 70, 60, 50, 40, 30, 20, 10, 9]
         );
     }
 
