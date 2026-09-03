@@ -202,12 +202,14 @@ fn load_locked_tensor(
     Ok(values)
 }
 
-fn verify_output_core(
+fn verify_output_core_with_names(
     checkpoint_dir: &Path,
     lock: &ModelLock,
     tensors: &BTreeMap<String, Tensor>,
     steps: &[Step],
     decoder_outputs: &[Vec<u16>],
+    mixer_prefix: &str,
+    head_name: &str,
 ) -> Result<EmbeddedTextOutputVerification, String> {
     if tensors.len() != 4
         || steps.len() != 2
@@ -228,7 +230,6 @@ fn verify_output_core(
             .get(key)
             .ok_or_else(|| format!("missing text output tensor record {key}"))
     };
-    let mixer_prefix = "model.language_model.hyper_connection_mixer";
     let hc_norm = load_locked_tensor(
         checkpoint_dir,
         lock,
@@ -254,7 +255,7 @@ fn verify_output_core(
         checkpoint_dir,
         lock,
         tensor("lm_head")?,
-        "lm_head.weight",
+        head_name,
         &[VOCAB, HIDDEN],
     )?;
     let output_bytes = (hc_norm.len() + mix_down.len() + mix_up.len() + head.len()) * 2;
@@ -313,6 +314,24 @@ fn verify_output_core(
     })
 }
 
+fn verify_output_core(
+    checkpoint_dir: &Path,
+    lock: &ModelLock,
+    tensors: &BTreeMap<String, Tensor>,
+    steps: &[Step],
+    decoder_outputs: &[Vec<u16>],
+) -> Result<EmbeddedTextOutputVerification, String> {
+    verify_output_core_with_names(
+        checkpoint_dir,
+        lock,
+        tensors,
+        steps,
+        decoder_outputs,
+        "model.language_model.hyper_connection_mixer",
+        "lm_head.weight",
+    )
+}
+
 pub(crate) fn verify_embedded_text_output_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -335,6 +354,36 @@ pub(crate) fn verify_embedded_text_output_fixture(
         &fixture.tensors,
         &fixture.steps,
         decoder_outputs,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_embedded_text_output_fixture_with_names(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    output: &serde_json::Value,
+    expected_model: &str,
+    expected_revision: &str,
+    decoder_outputs: &[Vec<u16>],
+    mixer_prefix: &str,
+    head_name: &str,
+) -> Result<EmbeddedTextOutputVerification, String> {
+    let fixture: EmbeddedOutput = serde_json::from_value(output.clone())
+        .map_err(|error| format!("malformed embedded text output: {error}"))?;
+    let lock: ModelLock =
+        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    if lock.model != expected_model || lock.revision != expected_revision {
+        return Err("embedded text output model lock mismatch".to_owned());
+    }
+    verify_output_core_with_names(
+        checkpoint_dir,
+        &lock,
+        &fixture.tensors,
+        &fixture.steps,
+        decoder_outputs,
+        mixer_prefix,
+        head_name,
     )
 }
 

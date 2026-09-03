@@ -96,5 +96,33 @@
   },
   "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
   "schema_version": 1,
-  "semantic": "qwen3_8_flash_next_real_mtp_input_fusion"
+  "semantic": "qwen3_8_flash_next_real_mtp_input_fusion",
+  "sequence_case": {
+    "expected_bf16_sha256": {
+      "embedding": "96c43611b81e894221d14dfa28d40ab8fa2f0e735996a3285423ec9dbf88e792",
+      "embedding_normed": "1ccb87c0683eb3e58458c5c086f775c3fb62a64a04f4a850c255675f45438917",
+      "embedding_projected": "8ec58fd40dc0d16e535299b0e3cb1f13ba1d8d470b260d42267ca45be41fdc67",
+      "fused_hidden": "18a28c3a1e7bdc0abb801b539e9c99431a9f807301afc229f7fb53bf3ceb41e7",
+      "target_hidden": "8cfed4cd999491d0c5ced6d3cd24640fa3622d73695a4b1965a7e8292810ce3d",
+      "target_hidden_normed": "92a2474bab86acc19f7b70e94b7ff9784eb3f0f8b5c705b0f60ce60d77f85141",
+      "target_hidden_projected": "f781572708f159e44b86992b2d63f31218a5107dd8b9a0143b683c3d80155efe"
+    },
+    "input_specs": {
+      "embedding": {
+        "add": 19,
+        "center": 134,
+        "divisor": 128,
+        "modulus": 269,
+        "multiplier": 37
+      },
+      "target_hidden": {
+        "add": 23,
+        "center": 135,
+        "divisor": 128,
+        "modulus": 271,
+        "multiplier": 47
+      }
+    },
+    "name": "real_mtp_second_position_input_fusion"
+  }
 }

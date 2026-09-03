@@ -149,3 +149,13 @@ the shared hidden projection independently to all four 2,560-wide hyper
 streams, applies the separate embedding projection, and freezes seven exact
 BF16 hashes through the fused draft input. It contains no checkpoint-derived
 weight or activation payloads and makes no acceptance or performance claim.
+
+`mtp/qwen3_8_flash_next_attention_residual.json`,
+`mtp/qwen3_8_flash_next_decoder.json`, and
+`mtp/qwen3_8_flash_next_logits.json` continue two independently fused inputs
+through sequential position-0/position-1 draft QSA cache updates, both MTP
+hyper-connection wrappers, real top-10 routed and shared experts, the dedicated
+MTP final mixer, and the target's shared 248,320-row LM head. The fixtures are
+hash-only and deliberately produce distinct second-position routes and logits.
+They establish proposal computation, not recursive scheduling, verifier
+acceptance, committed tokens, or TPS.

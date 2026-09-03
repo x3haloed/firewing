@@ -90,6 +90,8 @@ def build_fixture(
     _reference_hashes: dict[str, str] | None = None,
     _require_committed_parent: bool = True,
     _sequential_cache: bool = False,
+    _layer_prefix: str | None = None,
+    _mtp_config: bool = False,
     _return_outputs: bool = False,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
@@ -111,18 +113,25 @@ def build_fixture(
         or (_require_committed_parent and _layer != LAYER)
         or (_hidden_overrides is not None and len(_hidden_overrides) != 2)
         or (_sequential_cache and _past_lengths != (0, 1))
+        or (_mtp_config and _layer != 0)
     ):
         raise ValueError(f"layer-{_layer} attention-residual parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))["text_config"]
+    effective_config = dict(raw_config)
+    if _mtp_config:
+        effective_config["num_hidden_layers"] = 1
+        effective_config["layer_types"] = ["full_attention"]
+        effective_config["full_attention_interval"] = 1
+        effective_config["ple_layer_ids"] = []
     if (
         raw_config["hidden_size"] != HIDDEN
         or raw_config["hc_count"] != HC_COUNT
-        or raw_config["layer_types"][_layer] != "full_attention"
-        or _layer + 1 in raw_config["ple_layer_ids"]
+        or effective_config["layer_types"][_layer] != "full_attention"
+        or _layer + 1 in effective_config["ple_layer_ids"]
     ):
         raise ValueError(f"unsupported layer-{_layer} attention-residual configuration")
-    config = Qwen4ExpTextConfig(**raw_config)
+    config = Qwen4ExpTextConfig(**effective_config)
     config._attn_implementation = "eager"
     hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
     attention = Qwen4ExpTextAttention(config, _layer).to(torch.bfloat16).eval()
@@ -132,8 +141,9 @@ def build_fixture(
 
     tensors: dict[str, Any] = {}
     hyper_state = {}
+    layer_prefix = _layer_prefix or f"model.language_model.layers.{_layer}"
     for key, local_name in HYPER_LOCAL_TENSORS.items():
-        name = f"model.language_model.layers.{_layer}.attn_hyper_connection.{local_name}"
+        name = f"{layer_prefix}.attn_hyper_connection.{local_name}"
         value, record = load_tensor(checkpoint_dir, lock, weight_map, name, HYPER_SHAPES[key])
         hyper_state[local_name] = value
         tensors[f"attn_hyper_connection.{key}"] = record
@@ -151,7 +161,7 @@ def build_fixture(
         "indexer.k_layernorm.weight": [INDEX_DIM],
     }
     attention_state = {}
-    prefix = f"model.language_model.layers.{_layer}.self_attn"
+    prefix = f"{layer_prefix}.self_attn"
     for local_name, shape in shapes.items():
         value, record = load_tensor(
             checkpoint_dir, lock, weight_map, f"{prefix}.{local_name}", shape

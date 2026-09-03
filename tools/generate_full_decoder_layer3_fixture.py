@@ -55,6 +55,8 @@ def build_fixture(
     _reference_hashes: dict[str, str] | None = None,
     _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
     _require_committed_parent: bool = True,
+    _layer_prefix: str | None = None,
+    _mtp_config: bool = False,
     _return_outputs: bool = False,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
@@ -81,12 +83,19 @@ def build_fixture(
         or authority is None
         or authority.get("revision") != revision
         or authority.get("semantic") != _parent_semantic
+        or (_mtp_config and _layer != 0)
     ):
         raise ValueError(f"layer-{_layer} decoder parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))["text_config"]
+    effective_config = dict(raw_config)
+    if _mtp_config:
+        effective_config["num_hidden_layers"] = 1
+        effective_config["layer_types"] = ["full_attention"]
+        effective_config["full_attention_interval"] = 1
+        effective_config["ple_layer_ids"] = []
     if (
-        raw_config["layer_types"][_layer] != _layer_type
+        effective_config["layer_types"][_layer] != _layer_type
         or raw_config["hidden_size"] != HIDDEN
         or raw_config["hc_count"] != HC_COUNT
         or raw_config["num_experts"] != EXPERTS
@@ -97,27 +106,28 @@ def build_fixture(
         or raw_config.get("norm_topk_prob", True) is not True
     ):
         raise ValueError(f"unsupported layer-{_layer} decoder configuration")
-    config = Qwen4ExpTextConfig(**raw_config)
+    config = Qwen4ExpTextConfig(**effective_config)
     mlp_hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
     index_path = checkpoint_dir / "model.safetensors.index.json"
     weight_map = json.loads(index_path.read_text(encoding="utf-8"))["weight_map"]
 
+    layer_prefix = _layer_prefix or f"model.language_model.layers.{_layer}"
     mlp_names = {
         f"mlp_hyper_connection.{key}": (
-            f"model.language_model.layers.{_layer}.mlp_hyper_connection.{local_name}",
+            f"{layer_prefix}.mlp_hyper_connection.{local_name}",
             HYPER_SHAPES[key],
         )
         for key, local_name in HYPER_LOCAL_TENSORS.items()
     }
-    shared_prefix = f"model.language_model.layers.{_layer}.mlp.shared_expert"
+    shared_prefix = f"{layer_prefix}.mlp.shared_expert"
     dense_names = {
         **mlp_names,
-        "router": (f"model.language_model.layers.{_layer}.mlp.gate.weight", [EXPERTS, HIDDEN]),
+        "router": (f"{layer_prefix}.mlp.gate.weight", [EXPERTS, HIDDEN]),
         "shared_gate_weight": (f"{shared_prefix}.gate_proj.weight", [INTERMEDIATE, HIDDEN]),
         "shared_up_weight": (f"{shared_prefix}.up_proj.weight", [INTERMEDIATE, HIDDEN]),
         "shared_down_weight": (f"{shared_prefix}.down_proj.weight", [HIDDEN, INTERMEDIATE]),
         "shared_expert_gate_weight": (
-            f"model.language_model.layers.{_layer}.mlp.shared_expert_gate.weight",
+            f"{layer_prefix}.mlp.shared_expert_gate.weight",
             [1, HIDDEN],
         ),
     }
@@ -130,7 +140,7 @@ def build_fixture(
         strict=True,
     )
 
-    expert_prefix = f"model.language_model.layers.{_layer}.mlp.experts"
+    expert_prefix = f"{layer_prefix}.mlp.experts"
     gate_up_name = f"{expert_prefix}.gate_up_proj"
     down_name = f"{expert_prefix}.down_proj"
     expert_banks = {}

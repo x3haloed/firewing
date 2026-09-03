@@ -1,7 +1,7 @@
 use crate::deltanet::read_tensor;
 use crate::expert::{add_bf16, bf16_hash, bf16_payload_matches, from_bf16, to_bf16};
 use crate::full_attention::{
-    Capture as AttentionCapture, verify_full_attention_fixture_bytes_with_overrides,
+    Capture as AttentionCapture, verify_full_attention_fixture_bytes_with_prefix,
 };
 use crate::hyper_connection::run_hyper_connection;
 use serde::{Deserialize, Serialize};
@@ -175,7 +175,7 @@ fn make_input(spec: &InputSpec, ordinal: usize) -> Result<Vec<u16>, String> {
         .collect())
 }
 
-fn expected_tensors(layer: usize) -> Vec<(String, String, Vec<usize>, Option<&'static str>)> {
+fn expected_tensors(layer_prefix: &str) -> Vec<(String, String, Vec<usize>, Option<&'static str>)> {
     let hyper = [
         ("hc_norm", vec![HC_HIDDEN]),
         ("input_mix_weight_down", vec![320, HC_HIDDEN]),
@@ -187,7 +187,7 @@ fn expected_tensors(layer: usize) -> Vec<(String, String, Vec<usize>, Option<&'s
         .map(|(local, shape)| {
             (
                 format!("attn_hyper_connection.{local}"),
-                format!("model.language_model.layers.{layer}.attn_hyper_connection.{local}.weight"),
+                format!("{layer_prefix}.attn_hyper_connection.{local}.weight"),
                 shape,
                 Some(local),
             )
@@ -207,7 +207,7 @@ fn expected_tensors(layer: usize) -> Vec<(String, String, Vec<usize>, Option<&'s
     expected.extend(attention.into_iter().map(|(local, shape)| {
         (
             format!("self_attn.{local}"),
-            format!("model.language_model.layers.{layer}.self_attn.{local}"),
+            format!("{layer_prefix}.self_attn.{local}"),
             shape,
             None,
         )
@@ -275,6 +275,37 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
     full_attention_fixture_bytes: Option<&[u8]>,
     hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(FullAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
+    verify_full_attention_residual_fixture_bytes_with_prefix(
+        checkpoint_dir,
+        model_lock_path,
+        fixture_bytes,
+        expected_semantic,
+        verification_semantic,
+        layer,
+        past_lengths,
+        modes,
+        sequential_cache,
+        full_attention_fixture_bytes,
+        hidden_overrides,
+        &format!("model.language_model.layers.{layer}"),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_full_attention_residual_fixture_bytes_with_prefix(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    layer: usize,
+    past_lengths: [usize; 2],
+    modes: [&str; 2],
+    sequential_cache: bool,
+    full_attention_fixture_bytes: Option<&[u8]>,
+    hidden_overrides: Option<&[Vec<u16>]>,
+    layer_prefix: &str,
+) -> Result<(FullAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(fixture_bytes)
         .map_err(|error| format!("malformed full-attention residual fixture: {error}"))?;
     let config = &fixture.configuration;
@@ -317,7 +348,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
 
     let mut hyper_weights = BTreeMap::new();
     let mut hyper_bytes = 0;
-    for (key, name, shape, hyper_local) in expected_tensors(layer) {
+    for (key, name, shape, hyper_local) in expected_tensors(layer_prefix) {
         let tensor = fixture
             .tensors
             .get(&key)
@@ -485,7 +516,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
         .map_err(|error| error.to_string())?;
         &synthesized_attention_bytes
     };
-    let (attention_report, attention_outputs) = verify_full_attention_fixture_bytes_with_overrides(
+    let (attention_report, attention_outputs) = verify_full_attention_fixture_bytes_with_prefix(
         checkpoint_dir,
         model_lock_path,
         attention_fixture_bytes,
@@ -501,6 +532,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
         sequential_cache,
         Some(&attention_captures),
         Some(&attention_hidden_overrides),
+        layer_prefix,
     )?;
     let mut composed_outputs = Vec::with_capacity(2);
     for ordinal in 0..2 {

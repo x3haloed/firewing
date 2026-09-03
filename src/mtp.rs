@@ -1,5 +1,8 @@
+use crate::decoder_layer3::verify_decoder_mlp_fixture_bytes_with_prefix;
 use crate::expert::{bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, to_bf16};
+use crate::full_attention_residual::verify_full_attention_residual_fixture_bytes_with_prefix;
 use crate::hyper_connection::pytorch_inner_square_sum;
+use crate::text_output::verify_embedded_text_output_fixture_with_names;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -25,6 +28,7 @@ struct Fixture {
     reference: Reference,
     configuration: Configuration,
     case: Case,
+    sequence_case: Option<SequenceCase>,
 }
 
 #[derive(Deserialize)]
@@ -56,6 +60,13 @@ struct Case {
     name: String,
     input_specs: BTreeMap<String, InputSpec>,
     tensors: BTreeMap<String, Tensor>,
+    expected_bf16_sha256: BTreeMap<String, String>,
+}
+
+#[derive(Deserialize)]
+struct SequenceCase {
+    name: String,
+    input_specs: BTreeMap<String, InputSpec>,
     expected_bf16_sha256: BTreeMap<String, String>,
 }
 
@@ -121,6 +132,35 @@ pub struct MtpInputFusionVerificationReport {
     pub tensor_payload_bytes: usize,
     pub exact_capture_hashes: usize,
     pub accepted_tokens: usize,
+    pub performance_claim: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MtpProposalVerificationReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub source_commit: String,
+    pub steps_verified: usize,
+    pub exact_bf16_capture_hashes: usize,
+    pub exact_f32_capture_hashes: usize,
+    pub exact_i64_capture_hashes: usize,
+    pub dense_tensors_verified: usize,
+    pub unique_experts_verified: usize,
+    pub total_verified_payload_bytes: usize,
+    pub selected_experts_by_step: Vec<Vec<usize>>,
+    pub vocab_size: usize,
+    pub exact_full_logit_hashes: usize,
+    pub exact_mixer_capture_hashes: usize,
+    pub exact_ranked_logit_entries: usize,
+    pub top20_token_ids_by_step: Vec<Vec<usize>>,
+    pub top20_cutoff_tie_counts_by_step: Vec<usize>,
+    pub accepted_tokens: usize,
+    #[serde(rename = "A")]
+    pub accepted_per_transaction: usize,
+    #[serde(rename = "U")]
+    pub expert_union: usize,
     pub performance_claim: Option<String>,
 }
 
@@ -242,12 +282,12 @@ fn require_capture(
     Ok(())
 }
 
-pub fn verify_mtp_input_fusion_fixture(
+fn verify_mtp_input_fusion_fixture_with_output(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     source_lock_path: &Path,
     fixture_path: &Path,
-) -> Result<MtpInputFusionVerificationReport, String> {
+) -> Result<(MtpInputFusionVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture =
         serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -428,18 +468,245 @@ pub fn verify_mtp_input_fusion_fixture(
         &fused_hidden,
     )?;
 
-    Ok(MtpInputFusionVerificationReport {
+    let mut fused_outputs = vec![fused_hidden];
+    if let Some(sequence) = &fixture.sequence_case {
+        if sequence.name != "real_mtp_second_position_input_fusion"
+            || sequence.expected_bf16_sha256.len() != 7
+        {
+            return Err("unsupported MTP sequence-fusion case".to_owned());
+        }
+        let embedding = make_input(
+            HIDDEN,
+            sequence
+                .input_specs
+                .get("embedding")
+                .ok_or("missing sequence embedding input specification")?,
+        )?;
+        let target_hidden = make_input(
+            HC_HIDDEN,
+            sequence
+                .input_specs
+                .get("target_hidden")
+                .ok_or("missing sequence target-hidden input specification")?,
+        )?;
+        require_capture(&sequence.expected_bf16_sha256, "embedding", &embedding)?;
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "target_hidden",
+            &target_hidden,
+        )?;
+        let embedding_normed = rms_norm(&embedding, &values["pre_fc_norm_embedding"], 1.0e-6)?;
+        let target_hidden_normed = rms_norm(&target_hidden, &values["pre_fc_norm_hidden"], 1.0e-6)?;
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "embedding_normed",
+            &embedding_normed,
+        )?;
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "target_hidden_normed",
+            &target_hidden_normed,
+        )?;
+        let embedding_projected =
+            linear_bf16(&values["fc_embedding"], &embedding_normed, HIDDEN, HIDDEN);
+        let mut target_hidden_projected = Vec::with_capacity(HC_HIDDEN);
+        for stream in target_hidden_normed.chunks_exact(HIDDEN) {
+            target_hidden_projected.extend(linear_bf16(
+                &values["fc_hidden"],
+                stream,
+                HIDDEN,
+                HIDDEN,
+            ));
+        }
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "embedding_projected",
+            &embedding_projected,
+        )?;
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "target_hidden_projected",
+            &target_hidden_projected,
+        )?;
+        let fused_hidden = target_hidden_projected
+            .chunks_exact(HIDDEN)
+            .flat_map(|stream| {
+                stream
+                    .iter()
+                    .zip(&embedding_projected)
+                    .map(|(hidden, embedding)| to_bf16(from_bf16(*hidden) + from_bf16(*embedding)))
+            })
+            .collect::<Vec<_>>();
+        require_capture(
+            &sequence.expected_bf16_sha256,
+            "fused_hidden",
+            &fused_hidden,
+        )?;
+        fused_outputs.push(fused_hidden);
+    }
+
+    Ok((
+        MtpInputFusionVerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_real_mtp_input_fusion_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            source_commit: fixture.reference.commit,
+            case: fixture.case.name,
+            target_hidden_streams: HC_COUNT,
+            tensors_verified: fixture.case.tensors.len(),
+            tensor_payload_bytes: payload_bytes,
+            exact_capture_hashes: fixture.case.expected_bf16_sha256.len(),
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        fused_outputs,
+    ))
+}
+
+pub fn verify_mtp_input_fusion_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    source_lock_path: &Path,
+    fixture_path: &Path,
+) -> Result<MtpInputFusionVerificationReport, String> {
+    verify_mtp_input_fusion_fixture_with_output(
+        checkpoint_dir,
+        model_lock_path,
+        source_lock_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
+}
+
+fn reference_hash(value: &Value, name: &str) -> Result<String, String> {
+    value
+        .get("reference")
+        .and_then(|reference| reference.get(name))
+        .and_then(Value::as_str)
+        .filter(|hash| hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .map(str::to_owned)
+        .ok_or_else(|| format!("MTP decoder fixture lacks reference hash {name}"))
+}
+
+pub fn verify_mtp_proposal_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    source_lock_path: &Path,
+    fusion_fixture_path: &Path,
+    attention_fixture_path: &Path,
+    decoder_fixture_path: &Path,
+    output_fixture_path: &Path,
+) -> Result<MtpProposalVerificationReport, String> {
+    let source_lock_hash = sha256_file(source_lock_path)?;
+    let fusion_fixture_hash = sha256_file(fusion_fixture_path)?;
+    let attention_fixture_hash = sha256_file(attention_fixture_path)?;
+    let decoder_fixture_hash = sha256_file(decoder_fixture_path)?;
+    let attention_bytes = fs::read(attention_fixture_path)
+        .map_err(|error| format!("cannot read MTP attention fixture: {error}"))?;
+    let decoder_bytes = fs::read(decoder_fixture_path)
+        .map_err(|error| format!("cannot read MTP decoder fixture: {error}"))?;
+    let attention_value: Value =
+        serde_json::from_slice(&attention_bytes).map_err(|error| error.to_string())?;
+    let decoder_value: Value =
+        serde_json::from_slice(&decoder_bytes).map_err(|error| error.to_string())?;
+    let output_value: Value = serde_json::from_slice(
+        &fs::read(output_fixture_path)
+            .map_err(|error| format!("cannot read MTP output fixture: {error}"))?,
+    )
+    .map_err(|error| error.to_string())?;
+    if reference_hash(&attention_value, "source_lock_sha256")? != source_lock_hash
+        || reference_hash(&attention_value, "mtp_input_fusion_fixture_sha256")?
+            != fusion_fixture_hash
+        || reference_hash(&decoder_value, "source_lock_sha256")? != source_lock_hash
+        || reference_hash(&decoder_value, "mtp_input_fusion_fixture_sha256")? != fusion_fixture_hash
+        || reference_hash(&decoder_value, "attention_residual_fixture_sha256")?
+            != attention_fixture_hash
+        || reference_hash(&output_value, "source_lock_sha256")? != source_lock_hash
+        || reference_hash(&output_value, "mtp_input_fusion_fixture_sha256")? != fusion_fixture_hash
+        || reference_hash(&output_value, "decoder_fixture_sha256")? != decoder_fixture_hash
+    {
+        return Err("MTP decoder component authority mismatch".to_owned());
+    }
+
+    let (fusion_report, fused_hidden) = verify_mtp_input_fusion_fixture_with_output(
+        checkpoint_dir,
+        model_lock_path,
+        source_lock_path,
+        fusion_fixture_path,
+    )?;
+    if fused_hidden.len() != 2 {
+        return Err("MTP decoder requires two independently fused input cases".to_owned());
+    }
+    let hidden_overrides = [fused_hidden[0].clone(), fused_hidden[1].clone()];
+    let (attention_report, post_attention) =
+        verify_full_attention_residual_fixture_bytes_with_prefix(
+            checkpoint_dir,
+            model_lock_path,
+            &attention_bytes,
+            "qwen3_8_flash_next_mtp_full_attention_residual",
+            "qwen3_8_flash_next_mtp_full_attention_residual_verification",
+            0,
+            [0, 1],
+            ["mtp_initial", "mtp_cached_decode"],
+            true,
+            None,
+            Some(&hidden_overrides),
+            "mtp.layers.0",
+        )?;
+    let (decoder_report, decoder_outputs) = verify_decoder_mlp_fixture_bytes_with_prefix(
+        checkpoint_dir,
+        model_lock_path,
+        &decoder_bytes,
+        0,
+        "full_attention",
+        "qwen3_8_flash_next_mtp_complete_decoder",
+        "qwen3_8_flash_next_mtp_complete_decoder_verification",
+        ["mtp_initial", "mtp_cached_decode"],
+        attention_report.total_verified_payload_bytes,
+        post_attention,
+        "mtp.layers.0",
+    )?;
+    let output_report = verify_embedded_text_output_fixture_with_names(
+        checkpoint_dir,
+        model_lock_path,
+        &output_value,
+        MODEL,
+        REVISION,
+        &decoder_outputs,
+        "mtp.hyper_connection_mixer",
+        "lm_head.weight",
+    )?;
+
+    Ok(MtpProposalVerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_real_mtp_input_fusion_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        source_commit: fixture.reference.commit,
-        case: fixture.case.name,
-        target_hidden_streams: HC_COUNT,
-        tensors_verified: fixture.case.tensors.len(),
-        tensor_payload_bytes: payload_bytes,
-        exact_capture_hashes: fixture.case.expected_bf16_sha256.len(),
+        semantic: "qwen3_8_flash_next_mtp_proposal_path_verification",
+        model: fusion_report.model,
+        revision: fusion_report.revision,
+        source_commit: fusion_report.source_commit,
+        steps_verified: decoder_report.steps_verified,
+        exact_bf16_capture_hashes: fusion_report.exact_capture_hashes
+            + attention_report.exact_bf16_capture_hashes
+            + decoder_report.exact_bf16_capture_hashes,
+        exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
+        exact_i64_capture_hashes: attention_report.exact_i64_capture_hashes,
+        dense_tensors_verified: fusion_report.tensors_verified
+            + attention_report.dense_tensors_verified
+            + decoder_report.dense_tensors_verified,
+        unique_experts_verified: decoder_report.unique_experts_verified,
+        total_verified_payload_bytes: fusion_report.tensor_payload_bytes
+            + decoder_report.total_verified_payload_bytes
+            + output_report.output_verified_payload_bytes,
+        selected_experts_by_step: decoder_report.selected_experts_by_step,
+        vocab_size: 248_320,
+        exact_full_logit_hashes: 2,
+        exact_mixer_capture_hashes: 18,
+        exact_ranked_logit_entries: 40,
+        top20_token_ids_by_step: output_report.top20_token_ids_by_step,
+        top20_cutoff_tie_counts_by_step: output_report.top20_cutoff_tie_counts_by_step,
         accepted_tokens: 0,
+        accepted_per_transaction: 0,
+        expert_union: 0,
         performance_claim: None,
     })
 }
@@ -475,5 +742,32 @@ mod tests {
             fused,
             vec![to_bf16(1.5), to_bf16(1.75), to_bf16(3.5), to_bf16(3.75)]
         );
+    }
+
+    #[test]
+    fn committed_mtp_sequence_exercises_distinct_routes_and_logits() {
+        let decoder: Value = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_decoder.json"
+        ))
+        .unwrap();
+        let output: Value = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_logits.json"
+        ))
+        .unwrap();
+        let routes = decoder["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|step| step["selected_experts"].clone())
+            .collect::<Vec<_>>();
+        let logits = output["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|step| step["captures"]["logits"].clone())
+            .collect::<Vec<_>>();
+        assert_eq!(routes.len(), 2);
+        assert_ne!(routes[0], routes[1]);
+        assert_ne!(logits[0], logits[1]);
     }
 }

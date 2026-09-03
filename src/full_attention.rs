@@ -324,8 +324,8 @@ fn require_capture(
     Ok(())
 }
 
-fn expected_tensors(layer: usize) -> Vec<(&'static str, String, Vec<usize>)> {
-    let prefix = format!("model.language_model.layers.{layer}.self_attn");
+fn expected_tensors(layer_prefix: &str) -> Vec<(&'static str, String, Vec<usize>)> {
+    let prefix = format!("{layer_prefix}.self_attn");
     vec![
         (
             "q_proj.weight",
@@ -416,6 +416,37 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
     capture_overrides: Option<&[BTreeMap<String, Capture>]>,
     hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(FullAttentionVerificationReport, Vec<Vec<u16>>), String> {
+    verify_full_attention_fixture_bytes_with_prefix(
+        checkpoint_dir,
+        model_lock_path,
+        fixture_bytes,
+        expected_semantic,
+        verification_semantic,
+        layer,
+        past_lengths,
+        modes,
+        sequential_cache,
+        capture_overrides,
+        hidden_overrides,
+        &format!("model.language_model.layers.{layer}"),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_full_attention_fixture_bytes_with_prefix(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_bytes: &[u8],
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    layer: usize,
+    past_lengths: [usize; 2],
+    modes: [&str; 2],
+    sequential_cache: bool,
+    capture_overrides: Option<&[BTreeMap<String, Capture>]>,
+    hidden_overrides: Option<&[Vec<u16>]>,
+    layer_prefix: &str,
+) -> Result<(FullAttentionVerificationReport, Vec<Vec<u16>>), String> {
     let mut fixture: Fixture = serde_json::from_slice(fixture_bytes)
         .map_err(|error| format!("malformed full-attention fixture: {error}"))?;
     let config = &fixture.configuration;
@@ -479,7 +510,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
 
     let mut tensors = BTreeMap::new();
     let mut dense_bytes = 0;
-    for (key, name, shape) in expected_tensors(layer) {
+    for (key, name, shape) in expected_tensors(layer_prefix) {
         let record = fixture
             .tensors
             .get(key)

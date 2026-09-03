@@ -39,6 +39,10 @@ INPUT_SPECS = {
     "embedding": {"multiplier": 29, "add": 7, "modulus": 251, "center": 125, "divisor": 128},
     "target_hidden": {"multiplier": 43, "add": 17, "modulus": 263, "center": 131, "divisor": 128},
 }
+SEQUENCE_INPUT_SPECS = {
+    "embedding": {"multiplier": 37, "add": 19, "modulus": 269, "center": 134, "divisor": 128},
+    "target_hidden": {"multiplier": 47, "add": 23, "modulus": 271, "center": 135, "divisor": 128},
+}
 TENSORS = {
     "pre_fc_norm_embedding": ("mtp.pre_fc_norm_embedding.weight", [HIDDEN]),
     "pre_fc_norm_hidden": ("mtp.pre_fc_norm_hidden.weight", [HC_HIDDEN]),
@@ -129,6 +133,33 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path, source_lock_path:
     if any(value.dtype != torch.bfloat16 or not value.is_contiguous() for value in captures.values()):
         raise ValueError("MTP input fusion did not preserve BF16 boundaries")
 
+    sequence_embedding = make_input(HIDDEN, SEQUENCE_INPUT_SPECS["embedding"])
+    sequence_hidden = make_input(HC_HIDDEN, SEQUENCE_INPUT_SPECS["target_hidden"])
+    sequence_embedding_normed = zero_centered_rms_norm(
+        sequence_embedding, values["pre_fc_norm_embedding"], 1e-6
+    )
+    sequence_hidden_normed = zero_centered_rms_norm(
+        sequence_hidden, values["pre_fc_norm_hidden"], 1e-6
+    )
+    sequence_embedding_projected = torch.nn.functional.linear(
+        sequence_embedding_normed, values["fc_embedding"]
+    ).contiguous()
+    sequence_hidden_projected = torch.nn.functional.linear(
+        sequence_hidden_normed.view(HC_COUNT, HIDDEN), values["fc_hidden"]
+    ).contiguous()
+    sequence_fused = (
+        sequence_embedding_projected.unsqueeze(0) + sequence_hidden_projected
+    ).contiguous().view(HC_HIDDEN)
+    sequence_captures = {
+        "embedding": sequence_embedding,
+        "target_hidden": sequence_hidden,
+        "embedding_normed": sequence_embedding_normed,
+        "target_hidden_normed": sequence_hidden_normed,
+        "embedding_projected": sequence_embedding_projected,
+        "target_hidden_projected": sequence_hidden_projected,
+        "fused_hidden": sequence_fused,
+    }
+
     return {
         "schema_version": 1,
         "semantic": SEMANTIC,
@@ -159,6 +190,13 @@ def build_fixture(checkpoint_dir: Path, model_lock_path: Path, source_lock_path:
             "input_specs": INPUT_SPECS,
             "tensors": records,
             "expected_bf16_sha256": {name: capture_hash(value) for name, value in captures.items()},
+        },
+        "sequence_case": {
+            "name": "real_mtp_second_position_input_fusion",
+            "input_specs": SEQUENCE_INPUT_SPECS,
+            "expected_bf16_sha256": {
+                name: capture_hash(value) for name, value in sequence_captures.items()
+            },
         },
     }
 

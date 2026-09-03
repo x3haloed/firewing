@@ -161,7 +161,7 @@ fn require_capture(step: &Step, name: &str, shape: &[usize], values: &[u16]) -> 
     Ok(())
 }
 
-fn expected_dense(layer: usize) -> Vec<(String, String, Vec<usize>, String)> {
+fn expected_dense(layer_prefix: &str) -> Vec<(String, String, Vec<usize>, String)> {
     let hyper = [
         ("hc_norm", vec![HC_HIDDEN]),
         ("input_mix_weight_down", vec![320, HC_HIDDEN]),
@@ -173,7 +173,7 @@ fn expected_dense(layer: usize) -> Vec<(String, String, Vec<usize>, String)> {
         .map(|(local, shape)| {
             (
                 format!("mlp_hyper_connection.{local}"),
-                format!("model.language_model.layers.{layer}.mlp_hyper_connection.{local}.weight"),
+                format!("{layer_prefix}.mlp_hyper_connection.{local}.weight"),
                 shape,
                 local.to_owned(),
             )
@@ -182,31 +182,31 @@ fn expected_dense(layer: usize) -> Vec<(String, String, Vec<usize>, String)> {
     expected.extend([
         (
             "router".to_owned(),
-            format!("model.language_model.layers.{layer}.mlp.gate.weight"),
+            format!("{layer_prefix}.mlp.gate.weight"),
             vec![EXPERTS, HIDDEN],
             "router".to_owned(),
         ),
         (
             "shared_gate_weight".to_owned(),
-            format!("model.language_model.layers.{layer}.mlp.shared_expert.gate_proj.weight"),
+            format!("{layer_prefix}.mlp.shared_expert.gate_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
             "shared_gate_weight".to_owned(),
         ),
         (
             "shared_up_weight".to_owned(),
-            format!("model.language_model.layers.{layer}.mlp.shared_expert.up_proj.weight"),
+            format!("{layer_prefix}.mlp.shared_expert.up_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
             "shared_up_weight".to_owned(),
         ),
         (
             "shared_down_weight".to_owned(),
-            format!("model.language_model.layers.{layer}.mlp.shared_expert.down_proj.weight"),
+            format!("{layer_prefix}.mlp.shared_expert.down_proj.weight"),
             vec![HIDDEN, INTERMEDIATE],
             "shared_down_weight".to_owned(),
         ),
         (
             "shared_expert_gate_weight".to_owned(),
-            format!("model.language_model.layers.{layer}.mlp.shared_expert_gate.weight"),
+            format!("{layer_prefix}.mlp.shared_expert_gate.weight"),
             vec![1, HIDDEN],
             "shared_expert_gate_weight".to_owned(),
         ),
@@ -255,6 +255,35 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
     parent_bytes: usize,
     post_attention: Vec<Vec<u16>>,
 ) -> Result<(DecoderLayer3VerificationReport, Vec<Vec<u16>>), String> {
+    verify_decoder_mlp_fixture_bytes_with_prefix(
+        checkpoint_dir,
+        model_lock_path,
+        fixture_bytes,
+        layer,
+        layer_type,
+        expected_semantic,
+        verification_semantic,
+        modes,
+        parent_bytes,
+        post_attention,
+        &format!("model.language_model.layers.{layer}"),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn verify_decoder_mlp_fixture_bytes_with_prefix(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_bytes: &[u8],
+    layer: usize,
+    layer_type: &str,
+    expected_semantic: &str,
+    verification_semantic: &'static str,
+    modes: [&str; 2],
+    parent_bytes: usize,
+    post_attention: Vec<Vec<u16>>,
+    layer_prefix: &str,
+) -> Result<(DecoderLayer3VerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(fixture_bytes)
         .map_err(|error| format!("malformed decoder fixture: {error}"))?;
     let config = &fixture.configuration;
@@ -298,7 +327,7 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
     let mut dense = BTreeMap::new();
     let mut hyper_weights = BTreeMap::new();
     let mut dense_bytes = 0;
-    for (key, name, shape, local) in expected_dense(layer) {
+    for (key, name, shape, local) in expected_dense(layer_prefix) {
         let tensor = fixture
             .tensors
             .get(&key)
@@ -333,11 +362,10 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
         .expert_banks
         .get("down")
         .ok_or("missing down bank")?;
-    if gate_up_bank.tensor
-        != format!("model.language_model.layers.{layer}.mlp.experts.gate_up_proj")
+    if gate_up_bank.tensor != format!("{layer_prefix}.mlp.experts.gate_up_proj")
         || gate_up_bank.shape != [EXPERTS, INTERMEDIATE * 2, HIDDEN]
         || gate_up_bank.payload_sha256.is_some()
-        || down_bank.tensor != format!("model.language_model.layers.{layer}.mlp.experts.down_proj")
+        || down_bank.tensor != format!("{layer_prefix}.mlp.experts.down_proj")
         || down_bank.shape != [EXPERTS, HIDDEN, INTERMEDIATE]
         || down_bank.payload_sha256.is_some()
     {

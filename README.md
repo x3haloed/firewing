@@ -132,6 +132,14 @@ brew install sleef
   --model-lock spec/model.lock.json \
   --source-lock spec/sglang-qwen4-exp-mtp.lock.json \
   --output fixtures/mtp/qwen3_8_flash_next_input_fusion.json
+.venv/bin/python tools/generate_mtp_decoder_fixture.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --model-lock spec/model.lock.json \
+  --source-lock spec/sglang-qwen4-exp-mtp.lock.json \
+  --fusion-fixture fixtures/mtp/qwen3_8_flash_next_input_fusion.json \
+  --attention-output fixtures/mtp/qwen3_8_flash_next_attention_residual.json \
+  --decoder-output fixtures/mtp/qwen3_8_flash_next_decoder.json \
+  --output-fixture fixtures/mtp/qwen3_8_flash_next_logits.json
 
 cargo test
 cargo run --release -- verify-tokenizer \
@@ -169,6 +177,16 @@ cargo run --release -- verify-mtp-input-fusion \
   spec/model.lock.json \
   spec/sglang-qwen4-exp-mtp.lock.json \
   fixtures/mtp/qwen3_8_flash_next_input_fusion.json
+
+# Complete source-pinned MTP proposal path through the shared target LM head
+cargo run --release -- verify-mtp-proposal \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  spec/sglang-qwen4-exp-mtp.lock.json \
+  fixtures/mtp/qwen3_8_flash_next_input_fusion.json \
+  fixtures/mtp/qwen3_8_flash_next_attention_residual.json \
+  fixtures/mtp/qwen3_8_flash_next_decoder.json \
+  fixtures/mtp/qwen3_8_flash_next_logits.json
 
 # Bounded exact tokenizer-to-logits replay (slow; reads selected experts across all 48 layers)
 cargo run --release -- verify-token-text-endpoint \
