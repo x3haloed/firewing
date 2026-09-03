@@ -109,3 +109,9 @@ outputs into layer 1 for the same initial and cached tokens. It embeds compact
 hash-only PLE, attention, and complete-decoder authorities for the changed
 layer-1 activations and routes, proving that the second layer does not reuse a
 layer-local input or route. No activation or checkpoint payload is committed.
+
+`accumulated/qwen3_8_flash_next_layer2.json` consumes FW-0024's final layer-1
+states and freezes layer 2's complete linear-attention decoder with its own
+weights and recurrent cache. Every recorded dense and expert-bank tensor is
+layer-2-owned; the fixture stores only hashes, metadata, and arithmetic input
+specifications.

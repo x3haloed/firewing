@@ -44,6 +44,16 @@ carry the layer-2 prefix.
 .venv/bin/python tools/generate_accumulated_layer2_fixture.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --model-lock spec/model.lock.json \
+  --ngram-fixture fixtures/ngram/qwen3_8_flash_next.json \
+  --ngram-row-fixture fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  --layer0-hyper-fixture fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  --layer0-deltanet-fixture fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  --layer0-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  --layer0-sparse-moe-fixture fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  --layer0-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  --ple-fixture fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  --layer1-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  --layer1-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
   --layers01-fixture fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
   --output fixtures/accumulated/qwen3_8_flash_next_layer2.json
 
@@ -83,7 +93,14 @@ prefill, modality processing, latency, and TPS.
 
 ## Result
 
-Pending.
+The source-derived fixture executes successfully. Layer 2 selects
+`[379, 377, 122, 262, 72, 52, 50, 152, 389, 139]` for the initial token and
+`[243, 107, 494, 365, 102, 116, 200, 444, 140, 142]` for the cached token; the
+two routes are disjoint. Each attention input hash exactly equals FW-0024's
+corresponding final layer-1 output hash, and every dense tensor carries the
+layer-2 prefix. The fixture regenerates byte-identically, has SHA-256
+`35eee9f43098affe4081130f72b48b547e3e610f9b155ac8034c9a770ab3c601`,
+and all 51 Python tests pass. Native verification is pending.
 
 ## Decision
 

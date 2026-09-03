@@ -91,7 +91,13 @@ def build_fixture(
     model_lock_path: Path,
     hyper_fixture_path: Path,
     deltanet_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _layer: int = 0,
+    _hidden_overrides: list[torch.Tensor] | None = None,
+    _semantic: str = SEMANTIC,
+    _reference_hashes: dict[str, str] | None = None,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -102,20 +108,30 @@ def build_fixture(
     if (
         raw_config["hidden_size"] != HIDDEN
         or raw_config["hc_count"] != HC_COUNT
-        or raw_config["layer_types"][0] != "linear_attention"
-        or 1 in raw_config["ple_layer_ids"]
+        or raw_config["layer_types"][_layer] != "linear_attention"
+        or _layer + 1 in raw_config["ple_layer_ids"]
     ):
-        raise ValueError("unsupported layer-0 attention composition")
+        raise ValueError(f"unsupported layer-{_layer} attention composition")
+    if _hidden_overrides is not None and (
+        len(_hidden_overrides) != len(INPUT_SPECS)
+        or any(
+            value.dtype != torch.bfloat16
+            or list(value.shape) != [1, 1, HC_HIDDEN]
+            or not value.is_contiguous()
+            for value in _hidden_overrides
+        )
+    ):
+        raise ValueError("unsupported attention hidden-state overrides")
     config = Qwen4ExpTextConfig(**raw_config)
     hyper = Qwen4ExpTextGatedResidual(config).to(torch.bfloat16).eval()
-    deltanet = Qwen4ExpTextGatedDeltaNet(config, 0).to(torch.bfloat16).eval()
+    deltanet = Qwen4ExpTextGatedDeltaNet(config, _layer).to(torch.bfloat16).eval()
     index_path = checkpoint_dir / "model.safetensors.index.json"
     weight_map = json.loads(index_path.read_text(encoding="utf-8"))["weight_map"]
     tensors: dict[str, Any] = {}
 
     hyper_state: dict[str, torch.Tensor] = {}
     for key, local_name in HYPER_LOCAL_TENSORS.items():
-        tensor_name = f"model.language_model.layers.0.attn_hyper_connection.{local_name}"
+        tensor_name = f"model.language_model.layers.{_layer}.attn_hyper_connection.{local_name}"
         value, record = load_tensor(checkpoint_dir, lock, weight_map, tensor_name, HYPER_SHAPES[key])
         hyper_state[local_name] = value
         tensors[f"attn_hyper_connection.{key}"] = record
@@ -123,7 +139,7 @@ def build_fixture(
 
     deltanet_state: dict[str, torch.Tensor] = {}
     for local_name, shape in DELTANET_SHAPES.items():
-        tensor_name = f"model.language_model.layers.0.linear_attn.{local_name}"
+        tensor_name = f"model.language_model.layers.{_layer}.linear_attn.{local_name}"
         value, record = load_tensor(checkpoint_dir, lock, weight_map, tensor_name, shape)
         deltanet_state[local_name] = value
         tensors[f"linear_attn.{local_name}"] = record
@@ -132,8 +148,13 @@ def build_fixture(
     explicit_cache = DynamicCache(config=config)
     official_cache = DynamicCache(config=config)
     steps = []
+    composed_outputs = []
     for ordinal, spec in enumerate(INPUT_SPECS):
-        hyper_input = make_hyper_input(spec)
+        hyper_input = (
+            make_hyper_input(spec)
+            if _hidden_overrides is None
+            else _hidden_overrides[ordinal]
+        )
         with torch.no_grad():
             mixed_input, official_hyper_input, injection_weights = hyper(hyper_input)
             attention_output, delta_captures = explicit_step(
@@ -144,14 +165,15 @@ def build_fixture(
             raise ValueError("gated residual did not preserve hyper input")
         if (
             not torch.equal(attention_output, official_attention)
-            or not torch.equal(delta_captures["convolution_state"], official_cache.layers[0].conv_states[0])
-            or not torch.equal(delta_captures["recurrent_state"], official_cache.layers[0].recurrent_states[0])
+            or not torch.equal(delta_captures["convolution_state"], official_cache.layers[_layer].conv_states[0])
+            or not torch.equal(delta_captures["recurrent_state"], official_cache.layers[_layer].recurrent_states[0])
         ):
             raise ValueError(f"explicit DeltaNet step {ordinal} disagrees with official module")
         injection_products = (
             attention_output.unsqueeze(-2) * injection_weights.unsqueeze(-1)
         ).contiguous()
         composed = (hyper_input + injection_products.flatten(-2)).contiguous()
+        composed_outputs.append(composed)
         captures = {
             "hyper_input": hyper_input,
             "mixed_input": mixed_input,
@@ -171,9 +193,9 @@ def build_fixture(
             }
         )
 
-    return {
+    fixture = {
         "schema_version": 1,
-        "semantic": SEMANTIC,
+        "semantic": _semantic,
         "model": MODEL,
         "revision": revision,
         "reference": {
@@ -183,11 +205,17 @@ def build_fixture(
             "config_sha256": sha256_file(config_path),
             "tensor_index_sha256": sha256_file(index_path),
             "model_lock_sha256": sha256_file(model_lock_path),
-            "hyper_fixture_sha256": sha256_file(hyper_fixture_path),
-            "deltanet_fixture_sha256": sha256_file(deltanet_fixture_path),
+            **(
+                _reference_hashes
+                if _reference_hashes is not None
+                else {
+                    "hyper_fixture_sha256": sha256_file(hyper_fixture_path),
+                    "deltanet_fixture_sha256": sha256_file(deltanet_fixture_path),
+                }
+            ),
         },
         "configuration": {
-            "layer": 0,
+            "layer": _layer,
             "layer_type": "linear_attention",
             "ple_applied": False,
             "hidden_size": HIDDEN,
@@ -196,11 +224,14 @@ def build_fixture(
             "recurrent_state_dtype": "F32",
         },
         "case": {
-            "name": "layer_0_two_token_attention_residual",
+            "name": f"layer_{_layer}_two_token_attention_residual",
             "tensors": tensors,
             "steps": steps,
         },
     }
+    if _return_outputs:
+        return fixture, composed_outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:
