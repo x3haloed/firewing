@@ -234,6 +234,7 @@ pub struct CompressedOverlapTrial {
     pub summed_inverse_shuffle_time_ns: u128,
     pub maximum_worker_inverse_shuffle_time_ns: u128,
     pub process_disk_bytes_read: u64,
+    pub physical_read_amplification_bytes: u64,
     pub cold_prepare_wall_time_ns: u128,
     pub resident_page_instances_before: u64,
     pub resident_page_instances_after: u64,
@@ -993,6 +994,16 @@ fn unshuffle_bf16(shuffled: &[u8], source: &mut [u8]) -> Result<(), String> {
     Ok(())
 }
 
+fn physical_read_amplification(requested: usize, actual: u64) -> Result<u64, String> {
+    let requested = requested as u64;
+    if actual < requested || !actual.is_multiple_of(PAGE_BYTES as u64) {
+        return Err(format!(
+            "compressed-overlap invalid physical read ledger: actual={actual} requested={requested}"
+        ));
+    }
+    Ok(actual - requested)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_trial(
     container_path: &Path,
@@ -1128,11 +1139,11 @@ fn run_trial(
         .map(|record| record.physical_bytes)
         .sum::<usize>();
     let expected_source = misses.len() * EXPERT_BYTES;
+    let read_amplification = physical_read_amplification(physical_bytes, disk_bytes)?;
     if compressed_bytes != expected_compressed
         || physical_bytes != expected_physical
         || source_bytes != misses.len() * EXPERT_BYTES
         || frames != misses.len()
-        || disk_bytes != physical_bytes as u64
     {
         return Err(format!(
             "compressed-overlap timed ledger mismatch: compressed={compressed_bytes}/{expected_compressed} physical={physical_bytes}/{expected_physical} source={source_bytes}/{expected_source} frames={frames}/{} disk={disk_bytes}/{physical_bytes}",
@@ -1179,6 +1190,7 @@ fn run_trial(
             .max()
             .unwrap_or(0),
         process_disk_bytes_read: disk_bytes,
+        physical_read_amplification_bytes: read_amplification,
         cold_prepare_wall_time_ns,
         resident_page_instances_before: resident_before,
         resident_page_instances_after: resident_after,
@@ -1641,6 +1653,20 @@ mod tests {
         unshuffle_bf16(&[1, 3, 5, 7, 2, 4, 6, 8], &mut source).unwrap();
         assert_eq!(source, [1, 2, 3, 4, 5, 6, 7, 8]);
         assert!(unshuffle_bf16(&[1, 2], &mut [0_u8; 4]).is_err());
+    }
+
+    #[test]
+    fn physical_read_ledger_charges_page_aligned_amplification() {
+        assert_eq!(
+            physical_read_amplification(PAGE_BYTES, PAGE_BYTES as u64),
+            Ok(0)
+        );
+        assert_eq!(
+            physical_read_amplification(PAGE_BYTES, (PAGE_BYTES * 3) as u64),
+            Ok((PAGE_BYTES * 2) as u64)
+        );
+        assert!(physical_read_amplification(PAGE_BYTES * 2, PAGE_BYTES as u64).is_err());
+        assert!(physical_read_amplification(PAGE_BYTES, PAGE_BYTES as u64 + 1).is_err());
     }
 
     #[test]
