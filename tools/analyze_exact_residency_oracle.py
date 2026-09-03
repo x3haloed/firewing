@@ -8,6 +8,8 @@ import hashlib
 import json
 import math
 import os
+import re
+import subprocess
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,7 @@ FIXED_CATEGORIES = (
     "ngram_projection",
 )
 CAPACITIES = (10 * 1024**3, 12 * 1024**3)
+GIT_COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 
 
 class AnalysisError(ValueError):
@@ -129,7 +132,31 @@ def belady(events: list[set[tuple[int, int]]], capacity: int) -> dict[str, Any]:
     }
 
 
-def analyze(endpoint_path: Path, census_path: Path, acquisition_path: Path) -> dict[str, Any]:
+def require_clean_commit(implementation_commit: str) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    head = subprocess.run(
+        ["git", "-C", os.fspath(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = subprocess.run(
+        ["git", "-C", os.fspath(repo), "status", "--porcelain"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    if not GIT_COMMIT_RE.fullmatch(implementation_commit) or implementation_commit != head or dirty:
+        raise AnalysisError("implementation commit must be exact clean Git HEAD")
+
+
+def analyze(
+    endpoint_path: Path,
+    census_path: Path,
+    acquisition_path: Path,
+    implementation_commit: str,
+) -> dict[str, Any]:
+    require_clean_commit(implementation_commit)
     require_hash(endpoint_path, ENDPOINT_SHA256)
     require_hash(census_path, CENSUS_SHA256)
     require_hash(acquisition_path, ACQUISITION_SHA256)
@@ -198,6 +225,7 @@ def analyze(endpoint_path: Path, census_path: Path, acquisition_path: Path) -> d
     return {
         "schema_version": 1,
         "semantic": "firewing_exact_bf16_future_aware_residency_oracle",
+        "implementation_commit": implementation_commit,
         "model": MODEL,
         "revision": REVISION,
         "authorities": {
@@ -234,10 +262,16 @@ def main() -> int:
     parser.add_argument("--endpoint", required=True, type=Path)
     parser.add_argument("--census", required=True, type=Path)
     parser.add_argument("--acquisition", required=True, type=Path)
+    parser.add_argument("--implementation-commit", required=True)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     try:
-        report = analyze(args.endpoint, args.census, args.acquisition)
+        report = analyze(
+            args.endpoint,
+            args.census,
+            args.acquisition,
+            args.implementation_commit,
+        )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except AnalysisError as exc:
