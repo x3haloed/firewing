@@ -306,11 +306,11 @@ def analyze(
     metal_seconds = metal_median_ns * EVENTS / 1_000_000_000
     optimistic_wall_seconds = max(acquisition_seconds, metal_seconds)
     initial_compressed = sum(
-        interval.after_event == -1 and keep
+        interval.after_event == -1 and bool(keep)
         for interval, keep in zip(intervals, compressed, strict=True)
     )
     initial_decoded = sum(
-        interval.after_event == -1 and keep
+        interval.after_event == -1 and bool(keep)
         for interval, keep in zip(intervals, decoded, strict=True)
     )
 
