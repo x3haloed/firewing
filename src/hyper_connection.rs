@@ -1,4 +1,6 @@
-use crate::expert::{bf16_hash, from_bf16, linear_bf16, sigmoid_bf16, to_bf16};
+use crate::expert::{
+    bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, sigmoid_bf16, to_bf16,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -134,6 +136,11 @@ fn make_input(spec: &InputSpec) -> Result<Vec<u16>, String> {
 }
 
 fn read_tensor(path: &Path, tensor: &str, expected_shape: &[usize]) -> Result<Vec<u16>, String> {
+    if let Some(result) =
+        crate::checkpoint_catalog::active_bf16_tensor(path, tensor, expected_shape)
+    {
+        return result;
+    }
     let mut file =
         File::open(path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
     let mut prefix = [0_u8; 8];
@@ -577,7 +584,7 @@ pub fn verify_hyper_connection_fixture(
             ));
         }
         let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &tensor.tensor, &shape)?;
-        if bf16_hash(&payload) != tensor.payload_sha256 {
+        if !bf16_payload_matches(&payload, &tensor.payload_sha256) {
             return Err(format!("hyper-connection payload mismatch for {key}"));
         }
         tensor_payload_bytes += payload.len() * 2;

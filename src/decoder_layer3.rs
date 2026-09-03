@@ -1,8 +1,8 @@
 use crate::decoder_layer::{equivalent_topk_order, route};
 use crate::deltanet::read_tensor;
 use crate::expert::{
-    add_bf16, bf16_hash, from_bf16, linear_bf16, read_expert_slice, sigmoid_bf16, swiglu_bf16,
-    to_bf16,
+    add_bf16, bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, read_expert_slice,
+    sigmoid_bf16, swiglu_bf16, to_bf16,
 };
 use crate::full_attention_residual::verify_full_attention_residual_fixture_with_outputs;
 use crate::hyper_connection::run_hyper_connection;
@@ -313,7 +313,7 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
         if tensor
             .payload_sha256
             .as_deref()
-            .is_none_or(|hash| !is_hash(hash) || bf16_hash(&payload) != hash)
+            .is_none_or(|hash| !bf16_payload_matches(&payload, hash))
         {
             return Err(format!("layer-3 decoder tensor payload mismatch for {key}"));
         }
@@ -436,8 +436,8 @@ pub(crate) fn verify_decoder_mlp_fixture_bytes_with_outputs(
                 HIDDEN,
                 INTERMEDIATE,
             )?;
-            if bf16_hash(&gate_up) != entry.gate_up_payload_sha256
-                || bf16_hash(&down) != entry.down_payload_sha256
+            if !bf16_payload_matches(&gate_up, &entry.gate_up_payload_sha256)
+                || !bf16_payload_matches(&down, &entry.down_payload_sha256)
             {
                 return Err(format!(
                     "layer-3 decoder expert payload mismatch for {}",

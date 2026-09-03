@@ -1,5 +1,5 @@
 use crate::deltanet::read_tensor;
-use crate::expert::{bf16_hash, from_bf16, linear_bf16, to_bf16};
+use crate::expert::{bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, to_bf16};
 use crate::hyper_connection::pytorch_inner_square_sum;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -505,7 +505,7 @@ pub(crate) fn verify_full_attention_fixture_bytes_with_overrides(
             return Err(format!("full-attention tensor identity mismatch for {key}"));
         }
         let payload = read_tensor(&checkpoint_dir.join(&record.shard), &name, &shape)?;
-        if bf16_hash(&payload) != record.payload_sha256 {
+        if !bf16_payload_matches(&payload, &record.payload_sha256) {
             return Err(format!("full-attention tensor payload mismatch for {key}"));
         }
         dense_bytes += payload.len() * 2;

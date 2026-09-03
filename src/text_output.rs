@@ -4,7 +4,7 @@ use crate::accumulated_layers4_47::{
 };
 use crate::decoder_layer::pytorch_topk_bf16;
 use crate::deltanet::read_tensor;
-use crate::expert::{bf16_hash, from_bf16, linear_bf16};
+use crate::expert::{bf16_hash, bf16_payload_matches, from_bf16, linear_bf16};
 use crate::hyper_connection::{FinalMixerOutputs, run_final_mixer};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -194,7 +194,7 @@ fn load_locked_tensor(
         expected_name,
         expected_shape,
     )?;
-    if bf16_hash(&values) != record.payload_sha256 {
+    if !bf16_payload_matches(&values, &record.payload_sha256) {
         return Err(format!(
             "text output tensor payload mismatch for {expected_name}"
         ));

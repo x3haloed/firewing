@@ -1,5 +1,5 @@
 use crate::deltanet::{read_tensor, run_deltanet_step, zero_deltanet_state};
-use crate::expert::{bf16_hash, from_bf16, to_bf16};
+use crate::expert::{bf16_hash, bf16_payload_matches, from_bf16, to_bf16};
 use crate::hyper_connection::run_hyper_connection;
 use crate::ple::{PleVerificationReport, verify_ple_fixture_with_outputs};
 use serde::{Deserialize, Serialize};
@@ -375,7 +375,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
             return Err(format!("PLE-attention tensor identity mismatch for {key}"));
         }
         let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &tensor.tensor, &shape)?;
-        if bf16_hash(&payload) != tensor.payload_sha256 {
+        if !bf16_payload_matches(&payload, &tensor.payload_sha256) {
             return Err(format!("PLE-attention tensor payload mismatch for {key}"));
         }
         attention_tensor_payload_bytes += payload.len() * 2;

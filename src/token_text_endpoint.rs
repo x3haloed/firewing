@@ -145,6 +145,29 @@ pub struct TokenTextEndpointVerificationReport {
     pub performance_claim: Option<String>,
 }
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CatalogTokenTextEndpointReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub implementation_commit: String,
+    pub identity_binding_sha256: String,
+    pub catalog_open_wall_time_ns: u128,
+    pub complete_wall_time_ns: u128,
+    pub batch_size: usize,
+    pub concurrency: usize,
+    pub teacher_forced_positions: usize,
+    #[serde(rename = "A")]
+    pub a: usize,
+    #[serde(rename = "U")]
+    pub u: usize,
+    pub process_physical_read_bytes: u64,
+    pub endpoint: TokenTextEndpointVerificationReport,
+    pub host_safety_policy: HostSafetyPolicy,
+    pub host_safety_snapshots: Vec<HostSafetySnapshot>,
+    pub accepted_tokens: usize,
+    pub performance_claim: Option<String>,
+}
+
 fn sha256_file(path: &Path) -> Result<String, String> {
     fs::read(path)
         .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
@@ -182,6 +205,21 @@ fn read_embedding_row(
         return Err("token embedding identity mismatch".to_owned());
     }
     let path = checkpoint_dir.join(&embedding.shard);
+    if let Some(result) = crate::checkpoint_catalog::active_bf16_row(
+        &path,
+        &embedding.tensor,
+        &[VOCAB, HIDDEN],
+        row.token_id,
+        HIDDEN,
+    ) {
+        let values = result?;
+        if crate::checkpoint_catalog::catalog_payloads_authenticated()
+            || bf16_hash(&values) == row.payload_sha256
+        {
+            return Ok(values);
+        }
+        return Err(format!("embedding row {} payload mismatch", row.token_id));
+    }
     let mut file =
         File::open(&path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
     let mut prefix = [0_u8; 8];
@@ -260,7 +298,7 @@ pub fn verify_token_text_endpoint_fixture(
 ) -> Result<TokenTextEndpointVerificationReport, String> {
     let total_started = Instant::now();
     let setup_started = Instant::now();
-    let mut safety = HostSafetyMonitor::start_normative(vec![
+    let mut residency = vec![
         PersistentResidencyDeclaration {
             object: "endpoint_fixture_metadata_and_hash_authority".to_owned(),
             maximum_bytes: 3 * 1024 * 1024,
@@ -273,7 +311,16 @@ pub fn verify_token_text_endpoint_fixture(
             lifetime: "replaced_at_each_layer_and_released_after_output".to_owned(),
             eviction_order: 1,
         },
-    ])?;
+    ];
+    if crate::checkpoint_catalog::catalog_payloads_authenticated() {
+        residency.push(PersistentResidencyDeclaration {
+            object: "checkpoint_catalog_headers_maps_and_bounded_working_set".to_owned(),
+            maximum_bytes: 128 * 1024 * 1024,
+            lifetime: "complete_verification".to_owned(),
+            eviction_order: 3,
+        });
+    }
+    let mut safety = HostSafetyMonitor::start_normative(residency)?;
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path)
             .map_err(|error| format!("cannot read endpoint fixture: {error}"))?,
@@ -517,13 +564,87 @@ pub fn verify_token_text_endpoint_fixture(
             + output.output_verified_payload_bytes,
         top20_token_ids_by_step: output.top20_token_ids_by_step,
         top20_cutoff_tie_counts_by_step: output.top20_cutoff_tie_counts_by_step,
-        cache_state: "uncontrolled_mixed_os_cache_no_application_tensor_cache",
+        cache_state: if crate::checkpoint_catalog::catalog_payloads_authenticated() {
+            "once_authenticated_catalog_bounded_mmap_views_madvise_dontneed"
+        } else {
+            "uncontrolled_mixed_os_cache_no_application_tensor_cache"
+        },
         setup_wall_time_ns,
         embedding_wall_time_ns,
         layer_timings,
         output_wall_time_ns,
         final_safety_wall_time_ns,
         complete_wall_time_ns,
+        host_safety_policy,
+        host_safety_snapshots,
+        accepted_tokens: 0,
+        performance_claim: None,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_catalog_token_text_endpoint(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    identity_path: &Path,
+    identity_sha256: &str,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+    implementation_commit: &str,
+) -> Result<CatalogTokenTextEndpointReport, String> {
+    if implementation_commit.len() != 40
+        || !implementation_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
+    }
+    let total_started = Instant::now();
+    let mut safety = HostSafetyMonitor::start_normative(vec![PersistentResidencyDeclaration {
+        object: "checkpoint_catalog_headers_maps_and_bounded_working_set".to_owned(),
+        maximum_bytes: 128 * 1024 * 1024,
+        lifetime: "complete_catalog_endpoint_benchmark".to_owned(),
+        eviction_order: 1,
+    }])?;
+    let catalog_open_wall_time_ns = crate::checkpoint_catalog::install_active_catalog(
+        checkpoint_dir,
+        model_lock_path,
+        identity_path,
+        identity_sha256,
+    )?;
+    safety.checkpoint("catalog_open_complete", true)?;
+    let endpoint = verify_token_text_endpoint_fixture(
+        checkpoint_dir,
+        model_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+    )?;
+    safety.checkpoint("exact_endpoint_complete", true)?;
+    let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
+    let process_physical_read_bytes = host_safety_snapshots
+        .last()
+        .ok_or("catalog endpoint safety report is empty")?
+        .process_disk_bytes_read_growth;
+    Ok(CatalogTokenTextEndpointReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_once_authenticated_catalog_two_token_endpoint_profile",
+        implementation_commit: implementation_commit.to_owned(),
+        identity_binding_sha256: identity_sha256.to_owned(),
+        catalog_open_wall_time_ns,
+        complete_wall_time_ns: total_started.elapsed().as_nanos(),
+        batch_size: 1,
+        concurrency: 1,
+        teacher_forced_positions: 2,
+        a: 0,
+        u: 0,
+        process_physical_read_bytes,
+        endpoint,
         host_safety_policy,
         host_safety_snapshots,
         accepted_tokens: 0,

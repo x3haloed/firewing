@@ -1,5 +1,6 @@
 use crate::expert::{
-    bf16_hash, from_bf16, linear_bf16, pytorch_bf16_vector_dot, sigmoid_bf16, to_bf16,
+    bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, pytorch_bf16_vector_dot, sigmoid_bf16,
+    to_bf16,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -169,6 +170,11 @@ pub(crate) fn read_tensor(
     tensor: &str,
     expected_shape: &[usize],
 ) -> Result<Vec<u16>, String> {
+    if let Some(result) =
+        crate::checkpoint_catalog::active_bf16_tensor(path, tensor, expected_shape)
+    {
+        return result;
+    }
     let mut file =
         File::open(path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
     let mut prefix = [0_u8; 8];
@@ -745,7 +751,7 @@ pub fn verify_deltanet_fixture(
             return Err(format!("DeltaNet tensor identity mismatch for {local}"));
         }
         let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &tensor.tensor, shape)?;
-        if bf16_hash(&payload) != tensor.payload_sha256 {
+        if !bf16_payload_matches(&payload, &tensor.payload_sha256) {
             return Err(format!("DeltaNet tensor payload mismatch for {local}"));
         }
         tensor_payload_bytes += payload.len() * 2;

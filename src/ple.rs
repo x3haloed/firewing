@@ -1,5 +1,7 @@
 use crate::deltanet::read_tensor;
-use crate::expert::{bf16_hash, from_bf16, linear_bf16, pytorch_bf16_vector_dot, to_bf16};
+use crate::expert::{
+    bf16_hash, bf16_payload_matches, from_bf16, linear_bf16, pytorch_bf16_vector_dot, to_bf16,
+};
 use crate::hyper_connection::grouped_rms;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -344,6 +346,15 @@ fn read_row(checkpoint_dir: &Path, lock: &ModelLock, row: &Row) -> Result<Vec<u1
     {
         return Err("PLE sparse row shard size mismatch".to_owned());
     }
+    if let Some(result) = crate::checkpoint_catalog::active_bf16_row(
+        &path,
+        &row.tensor,
+        &[2_500_012, HEAD_WIDTH],
+        row.local_row as usize,
+        HEAD_WIDTH,
+    ) {
+        return result;
+    }
     let mut file = File::open(&path).map_err(|error| error.to_string())?;
     let mut raw = [0_u8; 8];
     file.read_exact(&mut raw)
@@ -517,7 +528,7 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
             return Err(format!("PLE tensor identity mismatch for {key}"));
         }
         let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &tensor.tensor, &shape)?;
-        if bf16_hash(&payload) != tensor.payload_sha256 {
+        if !bf16_payload_matches(&payload, &tensor.payload_sha256) {
             return Err(format!("PLE tensor payload mismatch for {key}"));
         }
         dense_tensor_payload_bytes += payload.len() * 2;

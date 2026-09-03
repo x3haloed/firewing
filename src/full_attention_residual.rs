@@ -1,5 +1,5 @@
 use crate::deltanet::read_tensor;
-use crate::expert::{add_bf16, bf16_hash, from_bf16, to_bf16};
+use crate::expert::{add_bf16, bf16_hash, bf16_payload_matches, from_bf16, to_bf16};
 use crate::full_attention::{
     Capture as AttentionCapture, verify_full_attention_fixture_bytes_with_overrides,
 };
@@ -343,7 +343,7 @@ pub(crate) fn verify_full_attention_residual_fixture_bytes_with_outputs(
             return Err(format!("full-attention residual tensor mismatch for {key}"));
         }
         let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &name, &shape)?;
-        if bf16_hash(&payload) != tensor.payload_sha256 {
+        if !bf16_payload_matches(&payload, &tensor.payload_sha256) {
             return Err(format!(
                 "full-attention residual tensor payload mismatch for {key}"
             ));

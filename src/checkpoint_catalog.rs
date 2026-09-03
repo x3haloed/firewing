@@ -5,7 +5,7 @@ use crate::host_safety::{
     HostSafetyMonitor, HostSafetyPolicy, HostSafetySnapshot, PersistentResidencyDeclaration,
 };
 use crate::verify_expert_fixture;
-use memmap2::{Mmap, MmapOptions};
+use memmap2::{Mmap, MmapOptions, UncheckedAdvice};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path};
+use std::sync::OnceLock;
 use std::time::Instant;
 
 const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
@@ -23,6 +24,8 @@ const EXPERTS: usize = 512;
 const SHARDS: usize = 131;
 const TENSORS: usize = 1658;
 const MEASUREMENTS: usize = 30;
+
+static ACTIVE_CATALOG: OnceLock<CheckpointCatalog> = OnceLock::new();
 
 #[derive(Deserialize)]
 struct IdentityBinding {
@@ -437,6 +440,196 @@ impl CheckpointCatalog {
         // SAFETY: alignment and exact byte length are checked; u16 accepts all bit patterns.
         Ok(unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast::<u16>(), values) })
     }
+}
+
+pub(crate) fn install_active_catalog(
+    root: &Path,
+    lock_path: &Path,
+    identity_path: &Path,
+    identity_sha256: &str,
+) -> Result<u128, String> {
+    if ACTIVE_CATALOG.get().is_some() {
+        return Err("checkpoint catalog is already installed in this process".to_owned());
+    }
+    let started = Instant::now();
+    let catalog = CheckpointCatalog::open(root, lock_path, identity_path, identity_sha256)?;
+    let elapsed = started.elapsed().as_nanos();
+    ACTIVE_CATALOG
+        .set(catalog)
+        .map_err(|_| "checkpoint catalog installation raced".to_owned())?;
+    Ok(elapsed)
+}
+
+pub(crate) fn catalog_payloads_authenticated() -> bool {
+    ACTIVE_CATALOG.get().is_some()
+}
+
+pub(crate) fn active_bf16_tensor(
+    path: &Path,
+    name: &str,
+    expected_shape: &[usize],
+) -> Option<Result<Vec<u16>, String>> {
+    let catalog = ACTIVE_CATALOG.get()?;
+    Some((|| {
+        let requested_shard = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or("catalog tensor path has no UTF-8 file name")?;
+        if catalog.weight_map.get(name).map(String::as_str) != Some(requested_shard) {
+            return Err(format!("catalog shard mismatch for {name}"));
+        }
+        let shard = catalog
+            .shards
+            .get(requested_shard)
+            .ok_or("mapped shard absent")?;
+        let metadata = shard
+            .tensors
+            .get(name)
+            .ok_or_else(|| format!("tensor absent from shard: {name}"))?;
+        if metadata.dtype != "BF16" || metadata.shape != expected_shape {
+            return Err(format!("catalog shape mismatch for {name}"));
+        }
+        let start = shard.payload_start + metadata.start;
+        let len = metadata.end - metadata.start;
+        let values = shard.mapping[start..start + len]
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        // SAFETY: the source slice is no longer borrowed after collection and
+        // the read-only file mapping remains valid if Darwin evicts its pages.
+        unsafe {
+            shard
+                .mapping
+                .unchecked_advise_range(UncheckedAdvice::DontNeed, start, len)
+        }
+        .map_err(|error| format!("cannot release mapped tensor {name}: {error}"))?;
+        Ok(values)
+    })())
+}
+
+pub(crate) fn active_bf16_expert(
+    path: &Path,
+    name: &str,
+    expert: usize,
+    experts: usize,
+    rows: usize,
+    columns: usize,
+) -> Option<Result<Vec<u16>, String>> {
+    let catalog = ACTIVE_CATALOG.get()?;
+    Some((|| {
+        if experts != EXPERTS || expert >= experts {
+            return Err(format!("catalog expert count mismatch for {name}"));
+        }
+        let requested_shard = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or("catalog expert path has no UTF-8 file name")?;
+        if catalog.weight_map.get(name).map(String::as_str) != Some(requested_shard) {
+            return Err(format!("catalog shard mismatch for {name}"));
+        }
+        let shard = catalog
+            .shards
+            .get(requested_shard)
+            .ok_or("mapped shard absent")?;
+        let metadata = shard
+            .tensors
+            .get(name)
+            .ok_or_else(|| format!("tensor absent from shard: {name}"))?;
+        if metadata.dtype != "BF16" || metadata.shape != [experts, rows, columns] {
+            return Err(format!("catalog expert shape mismatch for {name}"));
+        }
+        let expert_bytes = rows
+            .checked_mul(columns)
+            .and_then(|value| value.checked_mul(2))
+            .ok_or("catalog expert size overflow")?;
+        let start = shard
+            .payload_start
+            .checked_add(metadata.start)
+            .and_then(|value| value.checked_add(expert * expert_bytes))
+            .ok_or("catalog expert offset overflow")?;
+        let end = start
+            .checked_add(expert_bytes)
+            .ok_or("catalog expert end overflow")?;
+        let bytes = shard
+            .mapping
+            .get(start..end)
+            .ok_or("catalog expert outside tensor")?;
+        let values = bytes
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        // SAFETY: the source slice is no longer borrowed after collection and
+        // the read-only file mapping remains valid if Darwin evicts its pages.
+        unsafe {
+            shard
+                .mapping
+                .unchecked_advise_range(UncheckedAdvice::DontNeed, start, expert_bytes)
+        }
+        .map_err(|error| format!("cannot release mapped expert {name}: {error}"))?;
+        Ok(values)
+    })())
+}
+
+pub(crate) fn active_bf16_row(
+    path: &Path,
+    name: &str,
+    expected_shape: &[usize],
+    row: usize,
+    columns: usize,
+) -> Option<Result<Vec<u16>, String>> {
+    let catalog = ACTIVE_CATALOG.get()?;
+    Some((|| {
+        let requested_shard = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or("catalog row path has no UTF-8 file name")?;
+        if catalog.weight_map.get(name).map(String::as_str) != Some(requested_shard) {
+            return Err(format!("catalog shard mismatch for {name}"));
+        }
+        let shard = catalog
+            .shards
+            .get(requested_shard)
+            .ok_or("mapped shard absent")?;
+        let metadata = shard
+            .tensors
+            .get(name)
+            .ok_or_else(|| format!("tensor absent from shard: {name}"))?;
+        if metadata.dtype != "BF16"
+            || metadata.shape != expected_shape
+            || expected_shape.last() != Some(&columns)
+        {
+            return Err(format!("catalog row shape mismatch for {name}"));
+        }
+        let relative_start = row
+            .checked_mul(columns)
+            .and_then(|value| value.checked_mul(2))
+            .ok_or("catalog row offset overflow")?;
+        let relative_end = relative_start
+            .checked_add(columns * 2)
+            .ok_or("catalog row end overflow")?;
+        let bytes = shard
+            .mapping
+            .get(
+                shard.payload_start + metadata.start + relative_start
+                    ..shard.payload_start + metadata.start + relative_end,
+            )
+            .ok_or("catalog row outside tensor")?;
+        let values = bytes
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        // SAFETY: the source slice is no longer borrowed after collection and
+        // the read-only file mapping remains valid if Darwin evicts its pages.
+        unsafe {
+            shard.mapping.unchecked_advise_range(
+                UncheckedAdvice::DontNeed,
+                shard.payload_start + metadata.start + relative_start,
+                columns * 2,
+            )
+        }
+        .map_err(|error| format!("cannot release mapped row {name}: {error}"))?;
+        Ok(values)
+    })())
 }
 
 #[derive(Deserialize)]

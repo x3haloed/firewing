@@ -75,7 +75,8 @@ pub use ple_attention_residual::{
 pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
 pub use text_output::{TextOutputVerificationReport, verify_text_output_fixture};
 pub use token_text_endpoint::{
-    EndpointLayerTiming, TokenTextEndpointVerificationReport, verify_token_text_endpoint_fixture,
+    CatalogTokenTextEndpointReport, EndpointLayerTiming, TokenTextEndpointVerificationReport,
+    benchmark_catalog_token_text_endpoint, verify_token_text_endpoint_fixture,
 };
 
 #[derive(Debug, Deserialize)]

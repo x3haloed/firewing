@@ -332,6 +332,12 @@ pub(crate) fn bf16_hash(values: &[u16]) -> String {
     format!("{:x}", Sha256::digest(bf16_bytes(values)))
 }
 
+pub(crate) fn bf16_payload_matches(values: &[u16], expected_sha256: &str) -> bool {
+    is_hash(expected_sha256)
+        && (crate::checkpoint_catalog::catalog_payloads_authenticated()
+            || bf16_hash(values) == expected_sha256)
+}
+
 pub(crate) fn make_hidden(size: usize, spec: &InputSpec) -> Result<Vec<u16>, String> {
     if spec.modulus <= 0 || spec.divisor <= 0 || spec.sparse_stride == 0 {
         return Err("invalid expert input specification".to_owned());
@@ -361,6 +367,11 @@ pub(crate) fn read_expert_slice(
     rows: usize,
     columns: usize,
 ) -> Result<Vec<u16>, String> {
+    if let Some(result) =
+        crate::checkpoint_catalog::active_bf16_expert(path, tensor, expert, experts, rows, columns)
+    {
+        return result;
+    }
     if expert >= experts {
         return Err("expert index is out of range".to_owned());
     }
@@ -436,6 +447,11 @@ fn read_tensor_2d(
     rows: usize,
     columns: usize,
 ) -> Result<Vec<u16>, String> {
+    if let Some(result) =
+        crate::checkpoint_catalog::active_bf16_tensor(path, tensor, &[rows, columns])
+    {
+        return result;
+    }
     let mut file = File::open(path).map_err(|error| error.to_string())?;
     let mut raw = [0_u8; 8];
     file.read_exact(&mut raw)
