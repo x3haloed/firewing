@@ -1,0 +1,361 @@
+{
+  "case": {
+    "name": "layer_0_two_token_attention_residual",
+    "steps": [
+      {
+        "captures": {
+          "attention_output": {
+            "dtype": "BF16",
+            "sha256": "4ced0b846b6eceb91ac58a2e271329ed35ac55b7f1c6b97f3644243a8e7cff9a",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "composed_output": {
+            "dtype": "BF16",
+            "sha256": "58968e6d3bb2a1ac1922ae414b6fbc91bdbda470751097fde0b92d562ffe4436",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "convolution_state": {
+            "dtype": "BF16",
+            "sha256": "d783adee99ce87caa12616a1a606d6c6e6197d8b94d29036726f9bf62d86b03d",
+            "shape": [
+              1,
+              10240,
+              4
+            ]
+          },
+          "hyper_input": {
+            "dtype": "BF16",
+            "sha256": "c489ffdc9ee671cbb4051446efe43dee9b603cefdc0e65c4d5bd464b46b54496",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "injection_products": {
+            "dtype": "BF16",
+            "sha256": "70d9a6c60396e14a42a798a33d5c4e57d36944a6d0d346f089e0ee0e85f34261",
+            "shape": [
+              1,
+              1,
+              4,
+              2560
+            ]
+          },
+          "injection_weights": {
+            "dtype": "BF16",
+            "sha256": "a6ac814198654f269e7155d8d209a8073eb9fac2da2ca2d8c76a5eac943a23cf",
+            "shape": [
+              1,
+              1,
+              4
+            ]
+          },
+          "mixed_input": {
+            "dtype": "BF16",
+            "sha256": "5a5feb1857e91ff52f2820fc83aa49fda84fcc466750efdc60ffd7b07730927c",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "recurrent_state": {
+            "dtype": "F32",
+            "sha256": "e2edadd40da41d6b88e3ab757b3bbdffea6a2d5c947a07e370222d0803471f0c",
+            "shape": [
+              1,
+              48,
+              128,
+              128
+            ]
+          }
+        },
+        "input_spec": {
+          "add": 17,
+          "center": 131,
+          "divisor": 128,
+          "modulus": 263,
+          "multiplier": 43,
+          "sparse_stride": 1
+        },
+        "mode": "initial_chunk",
+        "ordinal": 0
+      },
+      {
+        "captures": {
+          "attention_output": {
+            "dtype": "BF16",
+            "sha256": "0e843c4d473f3a41962571e16fd715e4fbf6352562c45cbe2cafea3eb02f95c1",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "composed_output": {
+            "dtype": "BF16",
+            "sha256": "7b7e418c83f92bbd0efab7557dd8ac3e9197f3f1ca214b605df43ef2969053af",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "convolution_state": {
+            "dtype": "BF16",
+            "sha256": "7eb080dedddbb051a245a088cf3bbb6253f892432d798fac35f33173d4292a7e",
+            "shape": [
+              1,
+              10240,
+              4
+            ]
+          },
+          "hyper_input": {
+            "dtype": "BF16",
+            "sha256": "e71d992f70223de04c09bc3998318362c061c7655d1f26ab23e8a1644ffb125d",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "injection_products": {
+            "dtype": "BF16",
+            "sha256": "2a082fa4fd4d2dda178dc82e884aa4fa71c37150f2eaa311b7490c64fd7c20ad",
+            "shape": [
+              1,
+              1,
+              4,
+              2560
+            ]
+          },
+          "injection_weights": {
+            "dtype": "BF16",
+            "sha256": "ad5dbf6212cb69f9e5a5305c6b1aeb66033dda6a8a68b77e1185b1b4704378e9",
+            "shape": [
+              1,
+              1,
+              4
+            ]
+          },
+          "mixed_input": {
+            "dtype": "BF16",
+            "sha256": "865aec3fbc3245b05428d7ec404afba0e7ee2d964be13a6f0b0d243dea36a3e4",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "recurrent_state": {
+            "dtype": "F32",
+            "sha256": "aac49285aa05ece34fa5fa52f7ed661170916c679306c66d7a211110bf0d3ea3",
+            "shape": [
+              1,
+              48,
+              128,
+              128
+            ]
+          }
+        },
+        "input_spec": {
+          "add": 29,
+          "center": 138,
+          "divisor": 128,
+          "modulus": 277,
+          "multiplier": 61,
+          "sparse_stride": 1
+        },
+        "mode": "cached_recurrent",
+        "ordinal": 1
+      }
+    ],
+    "tensors": {
+      "attn_hyper_connection.block_inject_weight": {
+        "dtype": "BF16",
+        "payload_sha256": "97548dcae39b501c2958bb607d3954b484fce8abe4ae758e8bb09e988d37abc9",
+        "shape": [
+          4,
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.block_inject_weight.weight"
+      },
+      "attn_hyper_connection.hc_norm": {
+        "dtype": "BF16",
+        "payload_sha256": "0a3213d5fbfe4043a4800e3ca12cd05c3e7ced745f5aca03fc67ada75d169f98",
+        "shape": [
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.hc_norm.weight"
+      },
+      "attn_hyper_connection.input_mix_weight_down": {
+        "dtype": "BF16",
+        "payload_sha256": "0cf47e5bf283e8974c8d24bb3dfc1aef536b7d0daff9ac69f9ae8f214e6aed6a",
+        "shape": [
+          320,
+          10240
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.input_mix_weight_down.weight"
+      },
+      "attn_hyper_connection.input_mix_weight_up": {
+        "dtype": "BF16",
+        "payload_sha256": "6e87eb16e95e4e24cb83f3852d4200bdff7da87d8e8989022fe8012b88c2f978",
+        "shape": [
+          10240,
+          320
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.attn_hyper_connection.input_mix_weight_up.weight"
+      },
+      "linear_attn.A_log": {
+        "dtype": "BF16",
+        "payload_sha256": "70321a473849317d44b1d1f3a97b85dffb29212f0311cf271ba99ee385a69aa5",
+        "shape": [
+          48
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.A_log"
+      },
+      "linear_attn.conv1d.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "03ed6a7d743e9f51badcc42abbf17a1c078472ca00960da23eb9774370e7c3de",
+        "shape": [
+          10240,
+          1,
+          4
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.conv1d.weight"
+      },
+      "linear_attn.dt_bias": {
+        "dtype": "BF16",
+        "payload_sha256": "e7e2aaccdf79b62e05bc72c88fe044ac389bcb61b9d70cbf9d93956919dfefb9",
+        "shape": [
+          48
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.dt_bias"
+      },
+      "linear_attn.in_proj_a.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "ec10ca960d290d70340b9434f0b985ec04f063611a2c5a3953d2fe49ba1411ec",
+        "shape": [
+          48,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_a.weight"
+      },
+      "linear_attn.in_proj_b.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "62c86d7c3add11380399b53389e2206a310501fa5fd20a0e07aab76424c8dbf8",
+        "shape": [
+          48,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_b.weight"
+      },
+      "linear_attn.in_proj_qkv.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "888098eea25ace0873f7af3fb8a923060016296e7ccddd27a532fe650af1e795",
+        "shape": [
+          10240,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_qkv.weight"
+      },
+      "linear_attn.in_proj_z.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "6b00c7036d08bb999e29bc9177f7373fe8f5774fe244a116d680ef4079f370c4",
+        "shape": [
+          6144,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_z.weight"
+      },
+      "linear_attn.norm.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "ba3568fc54135876bd054177a12d0742fd3fbab5689633a775d0740c834725c2",
+        "shape": [
+          128
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.norm.weight"
+      },
+      "linear_attn.out_proj.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "61faf46f03e25a68c83cd45860b97bb50d834b30a200474b1a4d3de1aae5bcfe",
+        "shape": [
+          2560,
+          6144
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.out_proj.weight"
+      }
+    }
+  },
+  "configuration": {
+    "boundary_dtype": "BF16",
+    "hc_count": 4,
+    "hidden_size": 2560,
+    "layer": 0,
+    "layer_type": "linear_attention",
+    "ple_applied": false,
+    "recurrent_state_dtype": "F32"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "deltanet_fixture_sha256": "d2cb94f6a6d08896cf836efe84f8a5effa9eb17603f077e44cf9ee9bbcc3c93f",
+    "hyper_fixture_sha256": "3615d35c75ed25fc7e81f5b82712017a1948260e3fe7f4b0e7cc8c92ead65503",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_layer0_attention_residual_cached_decode"
+}

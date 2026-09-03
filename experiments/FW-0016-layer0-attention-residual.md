@@ -29,6 +29,8 @@ do not prove their dtype boundaries, state ownership, or layout compose.
 - Model lock SHA-256:
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
 - Baseline commit: `06e5a4c`
+- Frozen fixture SHA-256:
+  `d4f19fd28cc0a56fbbbb64cdfd494b8a9ff886f397d95a45b21a26a959c7427e`
 - Hyper-connection fixture SHA-256:
   `3615d35c75ed25fc7e81f5b82712017a1948260e3fe7f4b0e7cc8c92ead65503`
 - DeltaNet fixture SHA-256:

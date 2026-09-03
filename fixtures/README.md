@@ -59,3 +59,8 @@ hashes, never checkpoint-derived payload bytes.
 layer-0 Gated DeltaNet calls to real weights and exact projection,
 depthwise-convolution, recurrent-state, gated-normalization, and output hashes.
 It exercises initial-state construction followed by cached single-token decode.
+
+`attention_residual/qwen3_8_flash_next_layer0.json` composes the real attention
+hyper-connection and Gated DeltaNet across two consecutive layer-0 calls. It
+stores only exact tensor and capture hashes for the four-stream input, mixed
+attention input, cache states, injection products, and composed residual.
