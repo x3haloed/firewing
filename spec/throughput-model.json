@@ -581,7 +581,7 @@
       "performance_claim": null
     },
     "sequential_q2_mixed_representation_cache_oracle": {
-      "status": "fw_0053_offline_bound_direct_physical_instantiation_rejected_by_fw_0054_safety",
+      "status": "fw_0053_offline_bound_reversed_by_fw_0056_shared_fabric_floor",
       "implementation_commit": "5f69eee3ca1db5c4b7285a376a9c9b95f3325f60",
       "raw_report_sha256": "a61d498af5512c3fcbdc3447d8217383ddacf39361cdea553a41a79d9a10cb3f",
       "mixed_representation_capacity_bytes": 4260902888,
@@ -627,7 +627,7 @@
       "performance_claim": null
     },
     "sequential_q2_mixed_cache_capacity_frontier": {
-      "status": "fw_0055_375gb_rejected_400gb_razor_thin_offline_survivor",
+      "status": "fw_0055_375gb_rejected_400gb_survivor_reversed_by_fw_0056",
       "implementation_commit": "6bae8dcf7bfb87625f3c6e35787553aa9431489d",
       "capacity_4000000000_report_sha256": "7c9136e878cefa5c1689285b167b25f3ffd340a808ea3282f0caae84946c100f",
       "capacity_4000000000_optimistic_accepted_tps": 4.134964001142989,
@@ -645,9 +645,30 @@
       "A": 4,
       "sum_equivalent_U": 2.995833333333333,
       "performance_claim": null
+    },
+    "materialized_mixed_cache_unified_memory_floor": {
+      "status": "fw_0056_reject_materialized_mixed_cache_representation",
+      "implementation_commit": "4bee6582c675cab7697dad9904b72cc744e746dd",
+      "raw_report_sha256": "f4d6964c87266af64e5774268b5fbfa1168f7230fcccb824a63f14299f64aa41",
+      "granted_fabric_bytes_per_second": 68250000000,
+      "implied_apple_m1_fabric_bytes_per_second": 66666666666.66667,
+      "granted_on_chip_cache_bytes_per_row_transition": 1000000000,
+      "granted_cross_row_cache_reuse_bytes": 3000000000,
+      "fw_0053_adjusted_mandatory_fabric_bytes": 68734265775,
+      "fw_0053_minimum_wall_seconds": 1.0070954692307692,
+      "fw_0053_maximum_accepted_tps": 3.971818086973666,
+      "fw_0055_4gb_adjusted_mandatory_fabric_bytes": 70274159369,
+      "fw_0055_4gb_minimum_wall_seconds": 1.0296580127326007,
+      "fw_0055_4gb_maximum_accepted_tps": 3.8847849970928054,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 4,
+      "A": 4,
+      "sum_equivalent_U": 2.995833333333333,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0055_capacity_frontier_fixed_work_lower_bound_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded two-token native text-to-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch under favorable overlap. FW-0037 through FW-0043 establish two exact sequential width-two MTP transactions and reject width four on that prefix. FW-0044 rejects raw-BF16 q2 residency; FW-0045 through FW-0048 establish parallel lossless BF16 byte-shuffle compression. FW-0049 measures transformed overlap above 4 TPS, FW-0050 supplies a capacity-respecting offline schedule, and FW-0051 physically replays its misses at 4.286 median TPS while granting hit traffic free. FW-0052 reduces exact resident routed compute to a 151.906-ms 48-layer projection. FW-0053 repairs the cache representation ledger: a mixed compressed/decoded offline schedule charges 1,109 decodes and still bounds at 4.483 TPS, leaving 107.656 ms for fixed work. FW-0054 stops its 4.259-GB physical instantiation before timing when swap grows by 733.741 MB. FW-0055 proves capacities at or below 3.75 GB cannot reach four TPS even in the favorable model; 4.00 GB survives with only 32.640 ms before all omitted fixed work. Charge that fixed-work floor before another residency allocation. None of these bounds is endpoint TPS."
+  "status": "fw_0056_materialized_cache_rejected_exact_compressed_execution_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded two-token native text-to-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch under favorable overlap. FW-0037 through FW-0043 establish two exact sequential width-two MTP transactions and reject width four on that prefix. FW-0044 rejects raw-BF16 q2 residency; FW-0045 through FW-0048 establish parallel lossless BF16 byte-shuffle compression. FW-0049 measures transformed overlap above 4 TPS, FW-0050 supplies a capacity-respecting offline schedule, and FW-0051 physically replays its misses at 4.286 median TPS while granting hit traffic free. FW-0052 reduces exact resident routed compute to a 151.906-ms 48-layer projection. FW-0053's mixed materialized-BF16 cache survives only while physical, decode, and Metal resources are modeled independently. FW-0054 stops its physical installation on swap growth, and FW-0055 brackets its viable capacity above 3.75 GB. FW-0056 then reverses the branch: after charging the shared unified-memory fabric, even the full-budget schedule is bounded below four TPS under impossible-favorable bandwidth and on-chip reuse grants. Exact compressed-weight execution or a stronger exact representation is next. None of these bounds is endpoint TPS."
 }

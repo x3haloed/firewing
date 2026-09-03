@@ -514,6 +514,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   bound for fixed matrices and work before another multi-gigabyte allocation.
   See
   [`experiments/FW-0055-mixed-cache-capacity-frontier.md`](experiments/FW-0055-mixed-cache-capacity-frontier.md).
+- FW-0056 reverses FW-0053's materialized mixed-cache survivor after charging
+  the unified-memory fabric shared by fixed matrices, routed weights, compressed
+  decoder inputs, and decoded BF16 writes. Even at a granted 68.25 GB/s and
+  after subtracting an impossible 1-GB on-chip cache at each row transition,
+  the original 4.261-GB schedule needs at least 1.007095 s for `A=4`, or at
+  most 3.971818 TPS. FW-0055's 4.00-GB point reaches only 3.884785 TPS. Do not
+  build a causal or physical materialized-BF16 cache from these schedules.
+  Exact compressed-weight execution or a stronger representation remains a
+  distinct branch. See
+  [`experiments/FW-0056-materialized-cache-unified-memory-floor.md`](experiments/FW-0056-materialized-cache-unified-memory-floor.md).
 
 ## Prediction errors
 
@@ -542,10 +552,13 @@ These unresolved distinctions can still change the next decision:
   mixed compressed/decoded offline schedule that still bounds at 4.483 TPS.
   FW-0054 then rejects its direct 4.259-GB physical instantiation under the
   host-safety gate before timing because swap grew during installation.
-  FW-0055 proves capacities at or below 3.75 GB too slow even ideally and leaves
-  4.00 GB with only 32.640 ms of free fixed-work headroom. Safe residency above
-  that performance threshold, causality, and full endpoint work remain
-  unresolved.
+  FW-0055 proves capacities at or below 3.75 GB too slow even ideally. FW-0056
+  then closes the remaining 4.00--4.261-GB materialized-BF16 branch by charging
+  its shared unified-memory traffic: both schedules fall below four TPS under
+  impossible-favorable bandwidth and on-chip reuse grants. Causal policy is no
+  longer the next question for that representation. Exact compressed-weight
+  execution, stronger exact coding, production route distribution, and full
+  endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
@@ -560,16 +573,6 @@ These unresolved distinctions can still change the next decision:
   unpaced exact physical refill takes 1,063 ms storage-only. Uncertain: how
   much of the discrepancy comes from removal of hash pacing versus the actual
   endpoint extent order. Evidence: the FW-0036 receipt and experiment record.
-- Expected: FW-0053's 4.259-GB mixed cache and 98.530-MB Metal runner would
-  install without swap growth on the 16-GiB target host.
-  Observed: FW-0054 stopped at their combined installation boundary after
-  733,741,056 bytes of swap growth, with a 4,409,634,304-byte process physical
-  footprint and 34% system-free memory.
-  Uncertain: whether the safe cache ceiling is intrinsic to this target's
-  protected shared state or shifts materially with target-compliant background
-  occupancy, and whether it intersects FW-0055's performance requirement above
-  3.75 GB.
-  Evidence: the FW-0054 failure receipt plus FW-0055's 3.75/4.00-GB frontier.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

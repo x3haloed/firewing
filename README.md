@@ -343,6 +343,16 @@ target/release/firewing bench-executable-cache-overlap \
   /Users/chad/Models/firewing/evidence/FW-0053/executable-cache-5f69eee.json \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Favorable unified-memory byte floor for materialized mixed caching
+# (analytical rejection, not endpoint TPS)
+.venv/bin/python tools/analyze_materialized_memory_floor.py \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1-manifest-6271f3d.json \
+  /Users/chad/Models/firewing/evidence/FW-0034/exact-residency-oracle-2fd14bc5.json \
+  /Users/chad/Models/firewing/evidence/FW-0053/executable-cache-5f69eee.json \
+  /Users/chad/Models/firewing/evidence/FW-0055/executable-cache-4000000000-6bae8dc.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
