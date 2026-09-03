@@ -219,6 +219,21 @@ pub fn verify_full_attention_residual_fixture(
     full_attention_fixture_path: &Path,
     fixture_path: &Path,
 ) -> Result<FullAttentionResidualVerificationReport, String> {
+    verify_full_attention_residual_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        full_attention_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
+}
+
+pub(crate) fn verify_full_attention_residual_fixture_with_outputs(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    full_attention_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<(FullAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
     )
@@ -363,6 +378,7 @@ pub fn verify_full_attention_residual_fixture(
         Some(&attention_captures),
         Some(&hidden_overrides),
     )?;
+    let mut composed_outputs = Vec::with_capacity(2);
     for ordinal in 0..2 {
         let case = &fixture.cases[ordinal];
         let injection = injection_weights[ordinal]
@@ -385,9 +401,10 @@ pub fn verify_full_attention_residual_fixture(
             .map(|(preserved, injected)| add_bf16(*preserved, *injected))
             .collect::<Vec<_>>();
         require_bf16(case, "composed_output", &[1, 1, HC_HIDDEN], &composed)?;
+        composed_outputs.push(composed);
     }
 
-    Ok(FullAttentionResidualVerificationReport {
+    let report = FullAttentionResidualVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_layer3_full_attention_residual_verification",
         model: fixture.model,
@@ -405,7 +422,8 @@ pub fn verify_full_attention_residual_fixture(
         synthetic_cache_bytes: attention_report.synthetic_cache_bytes,
         accepted_tokens: 0,
         performance_claim: None,
-    })
+    };
+    Ok((report, composed_outputs))
 }
 
 #[cfg(test)]

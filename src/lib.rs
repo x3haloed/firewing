@@ -6,6 +6,7 @@ use tokenizers::Tokenizer;
 
 mod attention_residual;
 mod decoder_layer;
+mod decoder_layer3;
 mod deltanet;
 mod expert;
 mod expert_acquisition;
@@ -20,6 +21,7 @@ pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,
 };
 pub use decoder_layer::{DecoderLayerVerificationReport, verify_decoder_layer_fixture};
+pub use decoder_layer3::{DecoderLayer3VerificationReport, verify_decoder_layer3_fixture};
 pub use deltanet::{DeltaNetVerificationReport, verify_deltanet_fixture};
 pub use expert::{
     ExpertVerificationReport, MixtureVerificationReport, SparseMoeVerificationReport,

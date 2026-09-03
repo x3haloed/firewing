@@ -1,9 +1,10 @@
-use crate::attention_residual::verify_attention_residual_fixture_with_outputs;
+use crate::decoder_layer::route;
 use crate::deltanet::read_tensor;
 use crate::expert::{
     add_bf16, bf16_hash, from_bf16, linear_bf16, read_expert_slice, sigmoid_bf16, swiglu_bf16,
     to_bf16,
 };
+use crate::full_attention_residual::verify_full_attention_residual_fixture_with_outputs;
 use crate::hyper_connection::run_hyper_connection;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -12,6 +13,7 @@ use std::fs;
 use std::path::Path;
 
 const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
+const LAYER: usize = 3;
 const HIDDEN: usize = 2560;
 const HC_COUNT: usize = 4;
 const HC_HIDDEN: usize = HIDDEN * HC_COUNT;
@@ -27,7 +29,9 @@ struct Fixture {
     revision: String,
     reference: Reference,
     configuration: Configuration,
-    case: Case,
+    tensors: BTreeMap<String, Tensor>,
+    expert_banks: BTreeMap<String, Tensor>,
+    steps: Vec<Step>,
 }
 
 #[derive(Deserialize)]
@@ -38,15 +42,14 @@ struct Reference {
     config_sha256: String,
     tensor_index_sha256: String,
     model_lock_sha256: String,
-    attention_fixture_sha256: String,
-    sparse_moe_fixture_sha256: String,
+    full_attention_fixture_sha256: String,
+    attention_residual_fixture_sha256: String,
 }
 
 #[derive(Deserialize)]
 struct Configuration {
     layer: usize,
     layer_type: String,
-    ple_applied: bool,
     hidden_size: usize,
     hc_count: usize,
     num_experts: usize,
@@ -55,14 +58,6 @@ struct Configuration {
     shared_intermediate_size: usize,
     boundary_dtype: String,
     router_softmax_dtype: String,
-}
-
-#[derive(Deserialize)]
-struct Case {
-    name: String,
-    tensors: BTreeMap<String, Tensor>,
-    expert_banks: BTreeMap<String, Tensor>,
-    steps: Vec<Step>,
 }
 
 #[derive(Deserialize)]
@@ -117,7 +112,7 @@ struct LockedFile {
 }
 
 #[derive(Debug, Serialize)]
-pub struct DecoderLayerVerificationReport {
+pub struct DecoderLayer3VerificationReport {
     pub schema_version: u32,
     pub semantic: &'static str,
     pub model: String,
@@ -128,7 +123,7 @@ pub struct DecoderLayerVerificationReport {
     pub exact_weighted_expert_hashes: usize,
     pub dense_tensors_verified: usize,
     pub unique_experts_verified: usize,
-    pub attention_tensor_payload_bytes: usize,
+    pub attention_residual_tensor_payload_bytes: usize,
     pub dense_tensor_payload_bytes: usize,
     pub selected_expert_payload_bytes: usize,
     pub total_verified_payload_bytes: usize,
@@ -142,16 +137,16 @@ fn is_hash(value: &str) -> bool {
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
-    let bytes =
-        fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    fs::read(path)
+        .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
+        .map_err(|error| format!("cannot read {}: {error}", path.display()))
 }
 
 fn require_capture(step: &Step, name: &str, shape: &[usize], values: &[u16]) -> Result<(), String> {
     let expected = step
         .captures
         .get(name)
-        .ok_or_else(|| format!("missing decoder-layer capture {name}"))?;
+        .ok_or_else(|| format!("missing layer-3 decoder capture {name}"))?;
     let actual = bf16_hash(values);
     if expected.dtype != "BF16"
         || expected.shape != shape
@@ -159,70 +154,64 @@ fn require_capture(step: &Step, name: &str, shape: &[usize], values: &[u16]) -> 
         || expected.sha256 != actual
     {
         return Err(format!(
-            "decoder-layer capture mismatch at step {} {name}: expected {}, got {actual}",
+            "layer-3 decoder capture mismatch at step {} {name}: expected {}, got {actual}",
             step.ordinal, expected.sha256
         ));
     }
     Ok(())
 }
 
-fn expected_dense() -> Vec<(&'static str, &'static str, Vec<usize>, &'static str)> {
-    vec![
+fn expected_dense() -> Vec<(String, String, Vec<usize>, String)> {
+    let hyper = [
+        ("hc_norm", vec![HC_HIDDEN]),
+        ("input_mix_weight_down", vec![320, HC_HIDDEN]),
+        ("input_mix_weight_up", vec![HC_HIDDEN, 320]),
+        ("block_inject_weight", vec![HC_COUNT, HC_HIDDEN]),
+    ];
+    let mut expected = hyper
+        .into_iter()
+        .map(|(local, shape)| {
+            (
+                format!("mlp_hyper_connection.{local}"),
+                format!("model.language_model.layers.{LAYER}.mlp_hyper_connection.{local}.weight"),
+                shape,
+                local.to_owned(),
+            )
+        })
+        .collect::<Vec<_>>();
+    expected.extend([
         (
-            "mlp_hyper_connection.hc_norm",
-            "model.language_model.layers.0.mlp_hyper_connection.hc_norm.weight",
-            vec![HC_HIDDEN],
-            "hc_norm",
-        ),
-        (
-            "mlp_hyper_connection.input_mix_weight_down",
-            "model.language_model.layers.0.mlp_hyper_connection.input_mix_weight_down.weight",
-            vec![320, HC_HIDDEN],
-            "input_mix_weight_down",
-        ),
-        (
-            "mlp_hyper_connection.input_mix_weight_up",
-            "model.language_model.layers.0.mlp_hyper_connection.input_mix_weight_up.weight",
-            vec![HC_HIDDEN, 320],
-            "input_mix_weight_up",
-        ),
-        (
-            "mlp_hyper_connection.block_inject_weight",
-            "model.language_model.layers.0.mlp_hyper_connection.block_inject_weight.weight",
-            vec![HC_COUNT, HC_HIDDEN],
-            "block_inject_weight",
-        ),
-        (
-            "router",
-            "model.language_model.layers.0.mlp.gate.weight",
+            "router".to_owned(),
+            format!("model.language_model.layers.{LAYER}.mlp.gate.weight"),
             vec![EXPERTS, HIDDEN],
-            "router",
+            "router".to_owned(),
         ),
         (
-            "shared_gate_weight",
-            "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight",
+            "shared_gate_weight".to_owned(),
+            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.gate_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
-            "shared_gate_weight",
+            "shared_gate_weight".to_owned(),
         ),
         (
-            "shared_up_weight",
-            "model.language_model.layers.0.mlp.shared_expert.up_proj.weight",
+            "shared_up_weight".to_owned(),
+            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.up_proj.weight"),
             vec![INTERMEDIATE, HIDDEN],
-            "shared_up_weight",
+            "shared_up_weight".to_owned(),
         ),
         (
-            "shared_down_weight",
-            "model.language_model.layers.0.mlp.shared_expert.down_proj.weight",
+            "shared_down_weight".to_owned(),
+            format!("model.language_model.layers.{LAYER}.mlp.shared_expert.down_proj.weight"),
             vec![HIDDEN, INTERMEDIATE],
-            "shared_down_weight",
+            "shared_down_weight".to_owned(),
         ),
         (
-            "shared_expert_gate_weight",
-            "model.language_model.layers.0.mlp.shared_expert_gate.weight",
+            "shared_expert_gate_weight".to_owned(),
+            format!("model.language_model.layers.{LAYER}.mlp.shared_expert_gate.weight"),
             vec![1, HIDDEN],
-            "shared_expert_gate_weight",
+            "shared_expert_gate_weight".to_owned(),
         ),
-    ]
+    ]);
+    expected
 }
 
 fn require_locked_tensor(
@@ -230,11 +219,11 @@ fn require_locked_tensor(
     lock: &ModelLock,
     tensor: &Tensor,
 ) -> Result<(), String> {
-    let records: Vec<_> = lock
+    let records = lock
         .files
         .iter()
         .filter(|entry| entry.path == tensor.shard)
-        .collect();
+        .collect::<Vec<_>>();
     if tensor.dtype != "BF16"
         || !is_hash(&tensor.shard_sha256)
         || records.len() != 1
@@ -246,69 +235,34 @@ fn require_locked_tensor(
             != tensor.shard_bytes
     {
         return Err(format!(
-            "decoder-layer tensor lock mismatch for {}",
+            "layer-3 decoder tensor lock mismatch for {}",
             tensor.tensor
         ));
     }
     Ok(())
 }
 
-pub(crate) fn route(logits: &[u16]) -> Result<(Vec<usize>, Vec<u16>), String> {
-    let mut indices: Vec<_> = (0..logits.len()).collect();
-    indices.sort_by(|left, right| {
-        from_bf16(logits[*right])
-            .total_cmp(&from_bf16(logits[*left]))
-            .then(left.cmp(right))
-    });
-    if from_bf16(logits[indices[TOP_K - 1]]) == from_bf16(logits[indices[TOP_K]]) {
-        return Err("decoder-layer router has an unsupported top-k boundary tie".to_owned());
-    }
-    indices.truncate(TOP_K);
-
-    let values: Vec<_> = logits.iter().map(|value| from_bf16(*value)).collect();
-    let maximum = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let exponentials: Vec<_> = values
-        .iter()
-        .map(|value| (*value - maximum).exp())
-        .collect();
-    let denominator: f32 = exponentials.iter().sum();
-    let probabilities: Vec<_> = exponentials
-        .iter()
-        .map(|value| value / denominator)
-        .collect();
-    let selected_sum: f32 = indices.iter().map(|index| probabilities[*index]).sum();
-    let scores = indices
-        .iter()
-        .map(|index| to_bf16(probabilities[*index] / selected_sum))
-        .collect();
-    Ok((indices, scores))
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn verify_decoder_layer_fixture(
+pub fn verify_decoder_layer3_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
-    hyper_fixture_path: &Path,
-    deltanet_fixture_path: &Path,
-    attention_fixture_path: &Path,
-    sparse_moe_fixture_path: &Path,
+    full_attention_fixture_path: &Path,
+    attention_residual_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<DecoderLayerVerificationReport, String> {
-    let fixture: Fixture =
-        serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
-            .map_err(|error| format!("malformed decoder-layer fixture: {error}"))?;
+) -> Result<DecoderLayer3VerificationReport, String> {
+    let fixture: Fixture = serde_json::from_slice(
+        &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
+    )
+    .map_err(|error| format!("malformed layer-3 decoder fixture: {error}"))?;
     let config = &fixture.configuration;
-    let case = &fixture.case;
     if fixture.schema_version != 1
-        || fixture.semantic != "qwen3_8_flash_next_layer0_complete_cached_decoder"
+        || fixture.semantic != "qwen3_8_flash_next_layer3_complete_decoder"
         || fixture.model != MODEL
         || fixture.reference.implementation != "source_derived_huggingface_transformers_qwen4_exp"
         || fixture.reference.transformers_version != "5.16.1"
         || fixture.reference.source
             != "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward"
-        || config.layer != 0
-        || config.layer_type != "linear_attention"
-        || config.ple_applied
+        || config.layer != LAYER
+        || config.layer_type != "full_attention"
         || config.hidden_size != HIDDEN
         || config.hc_count != HC_COUNT
         || config.num_experts != EXPERTS
@@ -317,100 +271,105 @@ pub fn verify_decoder_layer_fixture(
         || config.shared_intermediate_size != INTERMEDIATE
         || config.boundary_dtype != "BF16"
         || config.router_softmax_dtype != "F32"
-        || case.name != "layer_0_two_token_complete_decoder"
-        || case.tensors.len() != 9
-        || case.expert_banks.len() != 2
-        || case.steps.len() != 2
+        || fixture.tensors.len() != 9
+        || fixture.expert_banks.len() != 2
+        || fixture.steps.len() != 2
     {
-        return Err("decoder-layer fixture identity or configuration is unsupported".to_owned());
+        return Err("layer-3 decoder fixture identity or configuration is unsupported".to_owned());
     }
     if sha256_file(model_lock_path)? != fixture.reference.model_lock_sha256
         || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
         || sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
             != fixture.reference.tensor_index_sha256
-        || sha256_file(attention_fixture_path)? != fixture.reference.attention_fixture_sha256
-        || sha256_file(sparse_moe_fixture_path)? != fixture.reference.sparse_moe_fixture_sha256
+        || sha256_file(full_attention_fixture_path)?
+            != fixture.reference.full_attention_fixture_sha256
+        || sha256_file(attention_residual_fixture_path)?
+            != fixture.reference.attention_residual_fixture_sha256
     {
-        return Err("decoder-layer reference identity mismatch".to_owned());
+        return Err("layer-3 decoder reference identity mismatch".to_owned());
     }
-    let lock: ModelLock =
-        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
-            .map_err(|error| error.to_string())?;
+    let lock: ModelLock = serde_json::from_slice(
+        &fs::read(model_lock_path).map_err(|error| format!("cannot read model lock: {error}"))?,
+    )
+    .map_err(|error| format!("malformed model lock: {error}"))?;
     if lock.model != fixture.model || lock.revision != fixture.revision {
-        return Err("decoder-layer model lock mismatch".to_owned());
+        return Err("layer-3 decoder model lock mismatch".to_owned());
     }
-
-    let (attention_report, post_attention) = verify_attention_residual_fixture_with_outputs(
+    let (attention_report, post_attention) = verify_full_attention_residual_fixture_with_outputs(
         checkpoint_dir,
         model_lock_path,
-        hyper_fixture_path,
-        deltanet_fixture_path,
-        attention_fixture_path,
+        full_attention_fixture_path,
+        attention_residual_fixture_path,
     )?;
 
     let mut dense = BTreeMap::new();
     let mut hyper_weights = BTreeMap::new();
-    let mut dense_tensor_payload_bytes = 0;
+    let mut dense_bytes = 0;
     for (key, name, shape, local) in expected_dense() {
-        let tensor = case
+        let tensor = fixture
             .tensors
-            .get(key)
-            .ok_or_else(|| format!("missing decoder-layer tensor {key}"))?;
+            .get(&key)
+            .ok_or_else(|| format!("missing layer-3 decoder tensor {key}"))?;
         if tensor.tensor != name || tensor.shape != shape {
-            return Err(format!("decoder-layer tensor identity mismatch for {key}"));
+            return Err(format!(
+                "layer-3 decoder tensor identity mismatch for {key}"
+            ));
         }
         require_locked_tensor(checkpoint_dir, &lock, tensor)?;
-        let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &tensor.tensor, &shape)?;
+        let payload = read_tensor(&checkpoint_dir.join(&tensor.shard), &name, &shape)?;
         if tensor
             .payload_sha256
             .as_deref()
             .is_none_or(|hash| !is_hash(hash) || bf16_hash(&payload) != hash)
         {
-            return Err(format!("decoder-layer tensor payload mismatch for {key}"));
+            return Err(format!("layer-3 decoder tensor payload mismatch for {key}"));
         }
-        dense_tensor_payload_bytes += payload.len() * 2;
+        dense_bytes += payload.len() * 2;
         if key.starts_with("mlp_hyper_connection.") {
-            hyper_weights.insert(local.to_owned(), payload);
+            hyper_weights.insert(local, payload);
         } else {
-            dense.insert(local.to_owned(), payload);
+            dense.insert(local, payload);
         }
     }
 
-    let gate_up_bank = case
+    let gate_up_bank = fixture
         .expert_banks
         .get("gate_up")
         .ok_or("missing gate-up bank")?;
-    let down_bank = case.expert_banks.get("down").ok_or("missing down bank")?;
-    if gate_up_bank.tensor != "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    let down_bank = fixture
+        .expert_banks
+        .get("down")
+        .ok_or("missing down bank")?;
+    if gate_up_bank.tensor != "model.language_model.layers.3.mlp.experts.gate_up_proj"
         || gate_up_bank.shape != [EXPERTS, INTERMEDIATE * 2, HIDDEN]
         || gate_up_bank.payload_sha256.is_some()
-        || down_bank.tensor != "model.language_model.layers.0.mlp.experts.down_proj"
+        || down_bank.tensor != "model.language_model.layers.3.mlp.experts.down_proj"
         || down_bank.shape != [EXPERTS, HIDDEN, INTERMEDIATE]
         || down_bank.payload_sha256.is_some()
     {
-        return Err("decoder-layer expert bank identity mismatch".to_owned());
+        return Err("layer-3 decoder expert bank identity mismatch".to_owned());
     }
     require_locked_tensor(checkpoint_dir, &lock, gate_up_bank)?;
     require_locked_tensor(checkpoint_dir, &lock, down_bank)?;
 
     let mut unique_experts = BTreeSet::new();
     let mut selected_experts_by_step = Vec::new();
-    for (ordinal, (step, post_attention)) in case.steps.iter().zip(post_attention).enumerate() {
+    for (ordinal, (step, post)) in fixture.steps.iter().zip(post_attention).enumerate() {
         if step.ordinal != ordinal
             || step.mode
                 != if ordinal == 0 {
-                    "initial_chunk"
+                    "initial"
                 } else {
-                    "cached_recurrent"
+                    "active_qsa_pruning"
                 }
             || step.selected_experts.len() != TOP_K
             || step.experts.len() != TOP_K
             || step.captures.len() != 16
         {
-            return Err(format!("decoder-layer step {ordinal} metadata mismatch"));
+            return Err(format!("layer-3 decoder step {ordinal} metadata mismatch"));
         }
-        require_capture(step, "post_attention", &[1, 1, HC_HIDDEN], &post_attention)?;
-        let hyper = run_hyper_connection(&post_attention, &hyper_weights)?;
+        require_capture(step, "post_attention", &[1, 1, HC_HIDDEN], &post)?;
+        let hyper = run_hyper_connection(&post, &hyper_weights)?;
         require_capture(step, "mlp_input", &[1, 1, HIDDEN], &hyper.mixed)?;
         require_capture(
             step,
@@ -418,22 +377,18 @@ pub fn verify_decoder_layer_fixture(
             &[1, 1, HC_COUNT],
             &hyper.injection_weights,
         )?;
-
         let logits = linear_bf16(&dense["router"], &hyper.mixed, EXPERTS, HIDDEN);
         require_capture(step, "router_logits", &[1, 1, EXPERTS], &logits)?;
         let (selection, scores) = route(&logits)?;
         if selection != step.selected_experts {
-            return Err(format!(
-                "decoder-layer route mismatch at step {ordinal}: expected {:?}, got {selection:?}",
-                step.selected_experts
-            ));
+            return Err(format!("layer-3 decoder route mismatch at step {ordinal}"));
         }
         require_capture(step, "selected_scores", &[1, 1, TOP_K], &scores)?;
-        let score_by_expert: BTreeMap<_, _> = selection
+        let score_by_expert = selection
             .iter()
             .copied()
             .zip(scores.iter().copied())
-            .collect();
+            .collect::<BTreeMap<_, _>>();
         let mut execution = selection.clone();
         execution.sort_unstable();
         if execution != step.expert_execution_order
@@ -445,7 +400,7 @@ pub fn verify_decoder_layer_fixture(
                 != execution
         {
             return Err(format!(
-                "decoder-layer expert order mismatch at step {ordinal}"
+                "layer-3 decoder expert order mismatch at step {ordinal}"
             ));
         }
 
@@ -459,12 +414,12 @@ pub fn verify_decoder_layer_fixture(
                 || from_bf16(score_by_expert[&entry.expert]) != entry.route_weight_bf16
             {
                 return Err(format!(
-                    "decoder-layer expert metadata mismatch for {}",
+                    "layer-3 decoder expert metadata mismatch for {}",
                     entry.expert
                 ));
             }
             unique_experts.insert(entry.expert);
-            let gate_up_weight = read_expert_slice(
+            let gate_up = read_expert_slice(
                 &checkpoint_dir.join(&gate_up_bank.shard),
                 &gate_up_bank.tensor,
                 entry.expert,
@@ -472,7 +427,7 @@ pub fn verify_decoder_layer_fixture(
                 INTERMEDIATE * 2,
                 HIDDEN,
             )?;
-            let down_weight = read_expert_slice(
+            let down = read_expert_slice(
                 &checkpoint_dir.join(&down_bank.shard),
                 &down_bank.tensor,
                 entry.expert,
@@ -480,24 +435,27 @@ pub fn verify_decoder_layer_fixture(
                 HIDDEN,
                 INTERMEDIATE,
             )?;
-            if bf16_hash(&gate_up_weight) != entry.gate_up_payload_sha256
-                || bf16_hash(&down_weight) != entry.down_payload_sha256
+            if bf16_hash(&gate_up) != entry.gate_up_payload_sha256
+                || bf16_hash(&down) != entry.down_payload_sha256
             {
                 return Err(format!(
-                    "decoder-layer expert payload mismatch for {}",
+                    "layer-3 decoder expert payload mismatch for {}",
                     entry.expert
                 ));
             }
-            let gate_up = linear_bf16(&gate_up_weight, &hyper.mixed, INTERMEDIATE * 2, HIDDEN);
-            let activated = swiglu_bf16(&gate_up[..INTERMEDIATE], &gate_up[INTERMEDIATE..]);
-            let output = linear_bf16(&down_weight, &activated, HIDDEN, INTERMEDIATE);
-            let weighted: Vec<_> = output
+            let gate_up_output = linear_bf16(&gate_up, &hyper.mixed, INTERMEDIATE * 2, HIDDEN);
+            let activated = swiglu_bf16(
+                &gate_up_output[..INTERMEDIATE],
+                &gate_up_output[INTERMEDIATE..],
+            );
+            let output = linear_bf16(&down, &activated, HIDDEN, INTERMEDIATE);
+            let weighted = output
                 .iter()
                 .map(|value| to_bf16(from_bf16(*value) * entry.route_weight_bf16))
-                .collect();
+                .collect::<Vec<_>>();
             if bf16_hash(&weighted) != entry.weighted_down_bf16_sha256 {
                 return Err(format!(
-                    "decoder-layer weighted expert mismatch for {}",
+                    "layer-3 decoder weighted expert mismatch for {}",
                     entry.expert
                 ));
             }
@@ -529,10 +487,10 @@ pub fn verify_decoder_layer_fixture(
         let shared_gate_logit =
             linear_bf16(&dense["shared_expert_gate_weight"], &hyper.mixed, 1, HIDDEN);
         let shared_gate_sigmoid = [sigmoid_bf16(shared_gate_logit[0])];
-        let gated_shared: Vec<_> = shared_down
+        let gated_shared = shared_down
             .iter()
             .map(|value| to_bf16(from_bf16(*value) * from_bf16(shared_gate_sigmoid[0])))
-            .collect();
+            .collect::<Vec<_>>();
         require_capture(step, "shared_gate", &[INTERMEDIATE], &shared_gate)?;
         require_capture(step, "shared_up", &[INTERMEDIATE], &shared_up)?;
         require_capture(step, "shared_swiglu", &[INTERMEDIATE], &shared_swiglu)?;
@@ -540,13 +498,13 @@ pub fn verify_decoder_layer_fixture(
         require_capture(step, "shared_gate_logit", &[1], &shared_gate_logit)?;
         require_capture(step, "shared_gate_sigmoid", &[1], &shared_gate_sigmoid)?;
         require_capture(step, "gated_shared", &[HIDDEN], &gated_shared)?;
-        let moe_output: Vec<_> = routed
+        let moe_output = routed
             .iter()
             .zip(&gated_shared)
             .map(|(left, right)| add_bf16(*left, *right))
-            .collect();
+            .collect::<Vec<_>>();
         require_capture(step, "moe_output", &[1, 1, HIDDEN], &moe_output)?;
-        let injection_products: Vec<_> = hyper
+        let injection = hyper
             .injection_weights
             .iter()
             .flat_map(|weight| {
@@ -554,41 +512,39 @@ pub fn verify_decoder_layer_fixture(
                     .iter()
                     .map(|value| to_bf16(from_bf16(*value) * from_bf16(*weight)))
             })
-            .collect();
+            .collect::<Vec<_>>();
         require_capture(
             step,
             "mlp_injection_products",
             &[1, 1, HC_COUNT, HIDDEN],
-            &injection_products,
+            &injection,
         )?;
-        let layer_output: Vec<_> = post_attention
+        let output = post
             .iter()
-            .zip(&injection_products)
+            .zip(&injection)
             .map(|(left, right)| add_bf16(*left, *right))
-            .collect();
-        require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &layer_output)?;
+            .collect::<Vec<_>>();
+        require_capture(step, "layer_output", &[1, 1, HC_HIDDEN], &output)?;
         selected_experts_by_step.push(selection);
     }
 
-    let selected_expert_payload_bytes = unique_experts.len() * 9_830_400;
-    let total_verified_payload_bytes = attention_report.tensor_payload_bytes
-        + dense_tensor_payload_bytes
-        + selected_expert_payload_bytes;
-    Ok(DecoderLayerVerificationReport {
+    let selected_expert_bytes = unique_experts.len() * 9_830_400;
+    let parent_bytes = attention_report.total_verified_payload_bytes;
+    Ok(DecoderLayer3VerificationReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer0_complete_cached_decoder_verification",
+        semantic: "qwen3_8_flash_next_layer3_complete_decoder_verification",
         model: fixture.model,
         revision: fixture.revision,
-        layer: 0,
+        layer: LAYER,
         steps_verified: 2,
         exact_bf16_capture_hashes: 32,
         exact_weighted_expert_hashes: 20,
         dense_tensors_verified: 9,
         unique_experts_verified: unique_experts.len(),
-        attention_tensor_payload_bytes: attention_report.tensor_payload_bytes,
-        dense_tensor_payload_bytes,
-        selected_expert_payload_bytes,
-        total_verified_payload_bytes,
+        attention_residual_tensor_payload_bytes: parent_bytes,
+        dense_tensor_payload_bytes: dense_bytes,
+        selected_expert_payload_bytes: selected_expert_bytes,
+        total_verified_payload_bytes: parent_bytes + dense_bytes + selected_expert_bytes,
         selected_experts_by_step,
         accepted_tokens: 0,
         performance_claim: None,
@@ -600,11 +556,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn route_fails_closed_on_unknown_topk_tie_semantics() {
-        let logits = vec![to_bf16(0.0); EXPERTS];
-        assert_eq!(
-            route(&logits).unwrap_err(),
-            "decoder-layer router has an unsupported top-k boundary tie"
-        );
+    fn layer3_fixture_routes_are_disjoint() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../fixtures/decoder_layer/qwen3_8_flash_next_layer3.json"
+        ))
+        .unwrap();
+        let first = fixture.steps[0]
+            .selected_experts
+            .iter()
+            .collect::<BTreeSet<_>>();
+        let second = fixture.steps[1]
+            .selected_experts
+            .iter()
+            .collect::<BTreeSet<_>>();
+        assert!(first.is_disjoint(&second));
     }
 }
