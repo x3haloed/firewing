@@ -1119,21 +1119,25 @@ fn run_trial(
     let physical_bytes = results.iter().map(|result| result.physical_bytes).sum();
     let source_bytes = results.iter().map(|result| result.source_bytes).sum();
     let frames = results.iter().map(|result| result.frames).sum();
-    if compressed_bytes
-        != misses
-            .iter()
-            .map(|record| record.compressed_bytes)
-            .sum::<usize>()
-        || physical_bytes
-            != misses
-                .iter()
-                .map(|record| record.physical_bytes)
-                .sum::<usize>()
+    let expected_compressed = misses
+        .iter()
+        .map(|record| record.compressed_bytes)
+        .sum::<usize>();
+    let expected_physical = misses
+        .iter()
+        .map(|record| record.physical_bytes)
+        .sum::<usize>();
+    let expected_source = misses.len() * EXPERT_BYTES;
+    if compressed_bytes != expected_compressed
+        || physical_bytes != expected_physical
         || source_bytes != misses.len() * EXPERT_BYTES
         || frames != misses.len()
         || disk_bytes != physical_bytes as u64
     {
-        return Err("compressed-overlap timed ledger mismatch".to_owned());
+        return Err(format!(
+            "compressed-overlap timed ledger mismatch: compressed={compressed_bytes}/{expected_compressed} physical={physical_bytes}/{expected_physical} source={source_bytes}/{expected_source} frames={frames}/{} disk={disk_bytes}/{physical_bytes}",
+            misses.len()
+        ));
     }
     Ok(CompressedOverlapTrial {
         mode: if overlap && inverse_shuffle {
