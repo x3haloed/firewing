@@ -73,3 +73,9 @@ layer residual.
 `ple/qwen3_8_flash_next_layer1_decode.json` binds two real sparse n-gram
 lookups to layer 1's projections, grouped gating, token-context cache, dilated
 depthwise-convolution cache, and final BF16 PLE injection output.
+
+`full_attention/qwen3_8_flash_next_layer3.json` binds layer 3's real full
+attention and QSA indexer weights to an empty-cache token and a deterministic
+2,080-token synthetic cache. The long case forces an unambiguous 512-of-520
+block selection while retaining the current tail token, and freezes exact
+projection, partial-RoPE, cache, selection, attention, gate, and output hashes.

@@ -15,10 +15,13 @@ KV repetition, query gating, and KV/indexer cache updates?
 
 The hypothesis is that two cases cover the distinct semantics without a large
 prefill: a one-token initial call validates empty-cache construction, and one
-decode token over a deterministic 2,052-position synthetic cache crosses QSA's
+decode token over a deterministic 2,080-position synthetic cache crosses QSA's
 actual pruning threshold. With compression ratio four and token budget 2,048,
-the long case forms 513 complete blocks; QSA must select 512 blocks and exclude
-one complete four-token block while retaining the current tail token.
+the long case forms 520 complete blocks; QSA must select 512 blocks and exclude
+eight complete four-token blocks while retaining the current tail token. The
+extra blocks keep the top-k boundary out of the indexer's exact-zero ReLU tail;
+a 2,052-position draft produced three tied zero-score blocks at a one-block
+exclusion boundary and was rejected rather than made tie-dependent.
 
 ## Frozen authority and baseline
 
@@ -41,8 +44,8 @@ four 128-wide indexer query heads, and one indexer key head.
 
 Case 1 starts from empty `DynamicCache` and one visible token at position zero.
 Case 2 preloads independently specified deterministic BF16 raw-indexer, rotated
-key, and value caches for positions 0 through 2,051, then evaluates one current
-token at position 2,052 with an all-visible causal row. Run the isolated official
+key, and value caches for positions 0 through 2,079, then evaluates one current
+token at position 2,080 with an all-visible causal row. Run the isolated official
 module and a source-derived explicit path against separate caches and require
 exact agreement.
 
@@ -74,7 +77,7 @@ TPS are zero because this is a stateful component correctness fixture.
   payload hashes; deterministic cache regeneration; explicit-versus-official
   agreement; and deterministic fixture regeneration.
 - Correctness: every declared BF16, F32, integer, and boolean capture matches;
-  the long case selects exactly 512 of 513 complete blocks, excludes four
+  the long case selects exactly 512 of 520 complete blocks, excludes 32
   tokens, and retains the current tail.
 - State: raw indexer keys, rotated main keys, and values append exactly one
   position without aliasing or confusing their coordinate systems.
