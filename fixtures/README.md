@@ -69,3 +69,7 @@ attention input, cache states, injection products, and composed residual.
 through the independently parameterized MLP hyper-connection, actual dynamic
 top-10 routes, selected routed experts, shared expert, and final four-stream
 layer residual.
+
+`ple/qwen3_8_flash_next_layer1_decode.json` binds two real sparse n-gram
+lookups to layer 1's projections, grouped gating, token-context cache, dilated
+depthwise-convolution cache, and final BF16 PLE injection output.
