@@ -64,21 +64,28 @@ def block_fp8_weight(
 
 
 def block_int8_weight(
-    weight: torch.Tensor, block: int = DEFAULT_BLOCK
+    weight: torch.Tensor, block: int | tuple[int, int] = DEFAULT_BLOCK
 ) -> tuple[torch.Tensor, torch.Tensor, int]:
+    block_rows, block_columns = (block, block) if isinstance(block, int) else block
     if (
         weight.dtype != torch.bfloat16
         or weight.ndim != 2
-        or block <= 0
-        or weight.shape[0] % block
-        or weight.shape[1] % block
+        or block_rows <= 0
+        or block_columns <= 0
+        or weight.shape[0] % block_rows
+        or weight.shape[1] % block_columns
         or not torch.isfinite(weight.float()).all()
     ):
         raise common.AnalysisError("block-INT8 weight must be finite aligned BF16 matrix")
     rows, columns = weight.shape
     blocks = (
         weight.float()
-        .reshape(rows // block, block, columns // block, block)
+        .reshape(
+            rows // block_rows,
+            block_rows,
+            columns // block_columns,
+            block_columns,
+        )
         .permute(0, 2, 1, 3)
         .contiguous()
     )
@@ -114,6 +121,8 @@ def analyze(
     implementation_commit: str,
     weight_format: str = "block_fp8",
     block_size: int = DEFAULT_BLOCK,
+    block_rows: int | None = None,
+    block_columns: int | None = None,
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -153,6 +162,8 @@ def analyze(
     artifact_bytes = 0
     exact_baseline_hashes = 0
     if weight_format == "block_fp8":
+        if block_rows is not None or block_columns is not None:
+            raise common.AnalysisError("rectangular override is supported only for INT8")
         quantize = lambda weight: block_fp8_weight(weight, block_size)
         mode = (
             "modified_block_fp8_weight_only"
@@ -163,14 +174,25 @@ def analyze(
             f"e4m3fn_per_{block_size}x{block_size}_absmax_f32_scale"
         )
     elif weight_format == "block_int8":
-        quantize = lambda weight: block_int8_weight(weight, block_size)
+        if (block_rows is None) != (block_columns is None):
+            raise common.AnalysisError("both rectangular INT8 block dimensions are required")
+        shape = (
+            (block_size, block_size)
+            if block_rows is None or block_columns is None
+            else (block_rows, block_columns)
+        )
+        quantize = lambda weight: block_int8_weight(weight, shape)
         mode = (
             "modified_block_int8_weight_only"
-            if block_size == DEFAULT_BLOCK
-            else f"modified_block{block_size}_int8_weight_only"
+            if shape == (DEFAULT_BLOCK, DEFAULT_BLOCK)
+            else (
+                f"modified_block{shape[0]}_int8_weight_only"
+                if shape[0] == shape[1]
+                else f"modified_block{shape[0]}x{shape[1]}_int8_weight_only"
+            )
         )
         format_description = (
-            f"symmetric_int8_per_{block_size}x{block_size}_absmax_f32_scale"
+            f"symmetric_int8_per_{shape[0]}x{shape[1]}_absmax_f32_scale"
         )
     else:
         raise common.AnalysisError("unknown modified block weight format")
@@ -231,7 +253,12 @@ def analyze(
         "model_lock_sha256": MODEL_LOCK_SHA256,
         "mixture_fixture_sha256": MIXTURE_SHA256,
         "layer": 0,
-        "block_size": block_size,
+        "block_size": block_size if block_rows is None else None,
+        "block_shape": (
+            list(shape)
+            if weight_format == "block_int8"
+            else [block_size, block_size]
+        ),
         "experts": expert_rows,
         "exact_baseline_hashes": exact_baseline_hashes + 1,
         "weight_format": format_description,
@@ -285,6 +312,8 @@ def main() -> int:
     parser.add_argument(
         "--block-size", type=int, choices=(4, 8, 16, 32, 128), default=DEFAULT_BLOCK
     )
+    parser.add_argument("--block-rows", type=int)
+    parser.add_argument("--block-columns", type=int)
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -293,6 +322,8 @@ def main() -> int:
         args.implementation_commit,
         args.weight_format,
         args.block_size,
+        args.block_rows,
+        args.block_columns,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))

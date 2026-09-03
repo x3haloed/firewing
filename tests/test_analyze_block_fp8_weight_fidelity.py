@@ -66,6 +66,13 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertEqual(bytes4, weight.numel() * 5 // 4)
         self.assertEqual(bytes2, weight.numel() * 2)
 
+    def test_rectangular_int8_grid_preserves_scale_ledger(self) -> None:
+        weight = torch.full((128, 128), 2.0, dtype=torch.bfloat16)
+        decoded, scales, artifact_bytes = block_int8_weight(weight, (1, 16))
+        self.assertTrue(torch.equal(decoded, weight))
+        self.assertEqual(tuple(scales.shape), (128, 8))
+        self.assertEqual(artifact_bytes, weight.numel() * 5 // 4)
+
 
 if __name__ == "__main__":
     unittest.main()
