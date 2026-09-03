@@ -252,6 +252,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   ratio as an impossibility bound or accepted TPS. Accelerated BF16 projection
   is now the measured next priority. See
   [`experiments/FW-0030-token-endpoint-causal-profile.md`](experiments/FW-0030-token-endpoint-causal-profile.md).
+- FW-0031 corrects FW-0030's coarse causal interpretation. A Metal kernel that
+  reproduces Firewing's 32-accumulator PyTorch-aarch64 reduction is bit-identical
+  across 33 executions of real layer-0 expert 376 and improves complete warm
+  expert arithmetic from 3.546 to 1.540 ms, or 2.301836x. Yet re-reading and
+  hashing the same warm 9.830 MB payload takes 31.064 ms. Therefore the outer
+  decoder/attention timing buckets primarily expose acquisition and integrity
+  overhead, not slow arithmetic alone. Retain Metal as a validated primitive,
+  but first move checkpoint identity out of the per-use hot path through a
+  once-authenticated bounded tensor catalog. See
+  [`experiments/FW-0031-exact-metal-bf16-expert.md`](experiments/FW-0031-exact-metal-bf16-expert.md).
 
 ## Prediction errors
 

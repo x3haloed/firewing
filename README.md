@@ -155,6 +155,15 @@ cargo run --release -- verify-token-text-endpoint \
   fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
   fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
   fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json
+
+# Exact real-expert Metal BF16 GEMV probe (component timing, not TPS)
+cargo run --release -- bench-metal-bf16-gemv \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  fixtures/router/qwen3_8_flash_next_real.json \
+  fixtures/expert/qwen3_8_flash_next_real.json \
+  kernels/bf16_gemv.metal \
+  IMPLEMENTATION_COMMIT
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
