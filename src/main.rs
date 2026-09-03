@@ -1,11 +1,13 @@
-use firewing::{verify_ngram_fixture, verify_ngram_rows, verify_tokenizer_fixture};
+use firewing::{
+    benchmark_ngram_transport, verify_ngram_fixture, verify_ngram_rows, verify_tokenizer_fixture,
+};
 use std::env;
 use std::fs;
 use std::path::Path;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]"
+        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -36,6 +38,17 @@ fn main() {
             )
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(6),
+        ),
+        Some("bench-ngram-transport") if (7..=8).contains(&args.len()) => (
+            benchmark_ngram_transport(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                &args[6],
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(7),
         ),
         _ => usage(),
     };

@@ -7,7 +7,9 @@ use tokenizers::Tokenizer;
 mod ngram;
 
 pub use ngram::{
-    NGramRowVerificationReport, NGramVerificationReport, verify_ngram_fixture, verify_ngram_rows,
+    NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
+    NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
+    verify_ngram_rows,
 };
 
 #[derive(Debug, Deserialize)]

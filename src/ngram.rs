@@ -4,7 +4,9 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
+use std::os::unix::fs::FileExt;
 use std::path::Path;
+use std::time::Instant;
 
 const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
 const SEMANTIC: &str = "qwen3_8_flash_next_ngram_addresses";
@@ -150,6 +152,138 @@ pub struct NGramRowVerificationReport {
     pub row_bytes: usize,
     pub accepted_tokens: usize,
     pub performance_claim: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NGramTransportTrial {
+    pub transport: &'static str,
+    pub ordinal: usize,
+    pub wall_ms: f64,
+    pub logical_bytes: usize,
+    pub widened_bytes: usize,
+    pub pread_calls: usize,
+    pub process_disk_bytes_read: u64,
+    pub stream_sha256: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NGramTransportSummary {
+    pub transport: &'static str,
+    pub samples: usize,
+    pub wall_ms_p10: f64,
+    pub wall_ms_median: f64,
+    pub wall_ms_p90: f64,
+    pub disk_bytes_median: u64,
+    pub logical_bytes_per_trial: usize,
+    pub widened_bytes_per_trial: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NGramTransportBenchmarkReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub commit: String,
+    pub hardware: &'static str,
+    pub checkpoint_storage: &'static str,
+    pub page_bytes: usize,
+    pub row_bytes: usize,
+    pub rows_per_trial: usize,
+    pub warmups_per_transport: usize,
+    pub measurements_per_transport: usize,
+    pub initial_cache_state: &'static str,
+    pub trials: Vec<NGramTransportTrial>,
+    pub summaries: Vec<NGramTransportSummary>,
+    pub batch_size: usize,
+    pub concurrency: usize,
+    pub accepted_tokens: usize,
+    #[serde(rename = "A")]
+    pub accepted_per_verification: usize,
+    #[serde(rename = "U")]
+    pub expert_union: usize,
+    pub performance_claim: Option<String>,
+}
+
+#[derive(Clone)]
+struct SparseRequest {
+    shard: String,
+    absolute_offset: u64,
+    expected_sha256: String,
+}
+
+#[derive(Clone, Copy)]
+struct AlignedReadPlan {
+    physical_offset: u64,
+    physical_bytes: usize,
+    logical_offset: usize,
+}
+
+struct AlignedBuffer {
+    pointer: *mut u8,
+    capacity: usize,
+}
+
+impl AlignedBuffer {
+    fn new(capacity: usize, alignment: usize) -> Result<Self, String> {
+        let mut pointer = std::ptr::null_mut();
+        // SAFETY: posix_memalign initializes `pointer` on success; both values
+        // are nonzero powers/multiples fixed by the validated read plan.
+        let result = unsafe { libc::posix_memalign(&mut pointer, alignment, capacity) };
+        if result != 0 || pointer.is_null() {
+            return Err(format!("aligned allocation failed with {result}"));
+        }
+        Ok(Self {
+            pointer: pointer.cast(),
+            capacity,
+        })
+    }
+
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        // SAFETY: the allocation is live, exclusive, and exactly `capacity` bytes.
+        unsafe { std::slice::from_raw_parts_mut(self.pointer, self.capacity) }
+    }
+}
+
+impl Drop for AlignedBuffer {
+    fn drop(&mut self) {
+        // SAFETY: this pointer came from posix_memalign and is freed exactly once.
+        unsafe { libc::free(self.pointer.cast()) };
+    }
+}
+
+#[repr(C)]
+#[derive(Default)]
+struct RusageInfoV2 {
+    uuid: [u8; 16],
+    user_time: u64,
+    system_time: u64,
+    pkg_idle_wkups: u64,
+    interrupt_wkups: u64,
+    pageins: u64,
+    wired_size: u64,
+    resident_size: u64,
+    phys_footprint: u64,
+    proc_start_abstime: u64,
+    proc_exit_abstime: u64,
+    child_user_time: u64,
+    child_system_time: u64,
+    child_pkg_idle_wkups: u64,
+    child_interrupt_wkups: u64,
+    child_pageins: u64,
+    child_elapsed_abstime: u64,
+    diskio_bytesread: u64,
+    diskio_byteswritten: u64,
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "proc")]
+unsafe extern "C" {
+    fn proc_pid_rusage(
+        pid: libc::c_int,
+        flavor: libc::c_int,
+        buffer: *mut libc::c_void,
+    ) -> libc::c_int;
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
@@ -778,6 +912,344 @@ pub fn verify_ngram_rows(
     })
 }
 
+#[cfg(target_os = "macos")]
+fn process_disk_bytes_read() -> Result<u64, String> {
+    let mut usage = RusageInfoV2::default();
+    // SAFETY: `usage` has Darwin's rusage_info_v2 layout and is exclusively borrowed.
+    let result = unsafe {
+        proc_pid_rusage(
+            std::process::id() as libc::c_int,
+            2,
+            (&mut usage as *mut RusageInfoV2).cast(),
+        )
+    };
+    if result != 0 {
+        return Err(format!("proc_pid_rusage failed with {result}"));
+    }
+    Ok(usage.diskio_bytesread)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn process_disk_bytes_read() -> Result<u64, String> {
+    Err("Darwin process disk counters are required".to_owned())
+}
+
+fn aligned_read_plan(
+    offset: u64,
+    logical_bytes: usize,
+    file_bytes: u64,
+    page_bytes: usize,
+) -> Result<AlignedReadPlan, String> {
+    if logical_bytes == 0 || !page_bytes.is_power_of_two() {
+        return Err("invalid aligned sparse read parameters".to_owned());
+    }
+    let logical_end = offset
+        .checked_add(logical_bytes as u64)
+        .ok_or_else(|| "aligned sparse read range overflow".to_owned())?;
+    if logical_end > file_bytes {
+        return Err("aligned sparse read exceeds checkpoint shard".to_owned());
+    }
+    let mask = page_bytes as u64 - 1;
+    let physical_offset = offset & !mask;
+    let physical_end = logical_end
+        .checked_add(mask)
+        .map(|end| end & !mask)
+        .ok_or_else(|| "aligned sparse read rounding overflow".to_owned())?
+        .min(file_bytes);
+    Ok(AlignedReadPlan {
+        physical_offset,
+        physical_bytes: usize::try_from(physical_end - physical_offset)
+            .map_err(|_| "aligned sparse read length does not fit usize".to_owned())?,
+        logical_offset: usize::try_from(offset - physical_offset)
+            .map_err(|_| "aligned sparse logical offset does not fit usize".to_owned())?,
+    })
+}
+
+fn read_exact_at(file: &File, mut destination: &mut [u8], mut offset: u64) -> Result<(), String> {
+    while !destination.is_empty() {
+        let count = file
+            .read_at(destination, offset)
+            .map_err(|error| format!("pread failed: {error}"))?;
+        if count == 0 {
+            return Err("pread reached EOF before completing request".to_owned());
+        }
+        offset = offset
+            .checked_add(count as u64)
+            .ok_or_else(|| "pread offset overflow".to_owned())?;
+        destination = &mut destination[count..];
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn set_uncached(file: &File) -> Result<(), String> {
+    use std::os::fd::AsRawFd;
+    let descriptor = file.as_raw_fd();
+    // SAFETY: fcntl receives a live descriptor and Darwin's documented flags.
+    if unsafe { libc::fcntl(descriptor, libc::F_NOCACHE, 1) } == -1
+        || unsafe { libc::fcntl(descriptor, libc::F_RDAHEAD, 0) } == -1
+    {
+        return Err(format!(
+            "uncached transport fcntl failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_uncached(_file: &File) -> Result<(), String> {
+    Err("Darwin F_NOCACHE transport is required".to_owned())
+}
+
+fn quantile_f64(values: &[f64], fraction: f64) -> f64 {
+    let mut ordered = values.to_vec();
+    ordered.sort_by(f64::total_cmp);
+    ordered[((ordered.len() - 1) as f64 * fraction).round() as usize]
+}
+
+fn median_u64(values: &[u64]) -> u64 {
+    let mut ordered = values.to_vec();
+    ordered.sort_unstable();
+    ordered[ordered.len() / 2]
+}
+
+fn run_transport_trial(
+    checkpoint_dir: &Path,
+    requests: &[SparseRequest],
+    row_bytes: usize,
+    page_bytes: usize,
+    uncached: bool,
+    ordinal: usize,
+) -> Result<NGramTransportTrial, String> {
+    let mut handles = BTreeMap::new();
+    for request in requests {
+        if !handles.contains_key(&request.shard) {
+            let path = checkpoint_dir.join(&request.shard);
+            let file = File::open(&path)
+                .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+            if uncached {
+                set_uncached(&file)?;
+            }
+            handles.insert(request.shard.clone(), file);
+        }
+    }
+    let plans = if uncached {
+        requests
+            .iter()
+            .map(|request| {
+                let file = &handles[&request.shard];
+                aligned_read_plan(
+                    request.absolute_offset,
+                    row_bytes,
+                    file.metadata().map_err(|error| error.to_string())?.len(),
+                    page_bytes,
+                )
+            })
+            .collect::<Result<Vec<_>, String>>()?
+    } else {
+        Vec::new()
+    };
+    let maximum_widened = plans
+        .iter()
+        .map(|plan| plan.physical_bytes)
+        .max()
+        .unwrap_or(row_bytes);
+    let mut aligned_buffer = AlignedBuffer::new(maximum_widened, page_bytes)?;
+    let mut exact_buffer = vec![0_u8; row_bytes];
+    let disk_before = process_disk_bytes_read()?;
+    let started = Instant::now();
+    let mut stream_digest = Sha256::new();
+    let mut widened_bytes = 0_usize;
+    for (index, request) in requests.iter().enumerate() {
+        let row = if uncached {
+            let plan = plans[index];
+            let buffer = &mut aligned_buffer.bytes_mut()[..plan.physical_bytes];
+            read_exact_at(&handles[&request.shard], buffer, plan.physical_offset)?;
+            widened_bytes = widened_bytes
+                .checked_add(plan.physical_bytes)
+                .ok_or_else(|| "widened byte count overflow".to_owned())?;
+            &buffer[plan.logical_offset..plan.logical_offset + row_bytes]
+        } else {
+            read_exact_at(
+                &handles[&request.shard],
+                &mut exact_buffer,
+                request.absolute_offset,
+            )?;
+            exact_buffer.as_slice()
+        };
+        let row_hash = format!("{:x}", Sha256::digest(row));
+        if row_hash != request.expected_sha256 {
+            return Err(format!("transport row hash mismatch at request {index}"));
+        }
+        stream_digest.update(row);
+    }
+    let wall_ms = started.elapsed().as_secs_f64() * 1000.0;
+    let disk_after = process_disk_bytes_read()?;
+    let process_disk_bytes_read = disk_after
+        .checked_sub(disk_before)
+        .ok_or_else(|| "process disk byte counter moved backwards".to_owned())?;
+    Ok(NGramTransportTrial {
+        transport: if uncached {
+            "page_aligned_f_nocache_f_rdahead_zero"
+        } else {
+            "cacheable_exact_pread"
+        },
+        ordinal,
+        wall_ms,
+        logical_bytes: requests.len() * row_bytes,
+        widened_bytes: if uncached {
+            widened_bytes
+        } else {
+            requests.len() * row_bytes
+        },
+        pread_calls: requests.len(),
+        process_disk_bytes_read,
+        stream_sha256: format!("{:x}", stream_digest.finalize()),
+    })
+}
+
+pub fn benchmark_ngram_transport(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    address_fixture_path: &Path,
+    row_fixture_path: &Path,
+    commit: &str,
+) -> Result<NGramTransportBenchmarkReport, String> {
+    const PAGE_BYTES: usize = 16 * 1024;
+    const WARMUPS: usize = 5;
+    const MEASUREMENTS: usize = 30;
+    if !require_hex(commit, 40) {
+        return Err("benchmark commit must be exactly 40 hexadecimal characters".to_owned());
+    }
+    verify_ngram_rows(
+        checkpoint_dir,
+        model_lock_path,
+        address_fixture_path,
+        row_fixture_path,
+    )?;
+    let address: NGramFixture =
+        serde_json::from_slice(&fs::read(address_fixture_path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed n-gram address fixture: {error}"))?;
+    let rows: RowHashFixture =
+        serde_json::from_slice(&fs::read(row_fixture_path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed n-gram row fixture: {error}"))?;
+    let mut payload_starts = BTreeMap::new();
+    for part in &address.table_parts {
+        if !payload_starts.contains_key(&part.shard) {
+            let mut file =
+                File::open(checkpoint_dir.join(&part.shard)).map_err(|error| error.to_string())?;
+            let mut raw = [0_u8; 8];
+            file.read_exact(&mut raw)
+                .map_err(|error| error.to_string())?;
+            payload_starts.insert(part.shard.clone(), 8 + u64::from_le_bytes(raw));
+        }
+    }
+    let mut requests = Vec::new();
+    for (address_case, row_case) in address.cases.iter().zip(&rows.cases) {
+        for ((global_rows, physical_rows), hashes) in address_case
+            .global_rows
+            .iter()
+            .zip(&address_case.physical_rows)
+            .zip(&row_case.row_sha256)
+        {
+            for ((global_row, physical), expected_sha256) in
+                global_rows.iter().zip(physical_rows).zip(hashes)
+            {
+                let part = &address.table_parts[physical.shard as usize];
+                if global_row
+                    != &(physical.shard * address.configuration.rows_per_shard + physical.row)
+                {
+                    return Err("benchmark request physical address mismatch".to_owned());
+                }
+                let absolute_offset = payload_starts[&part.shard]
+                    .checked_add(part.data_offsets[0])
+                    .and_then(|offset| {
+                        offset.checked_add(physical.row as u64 * rows.row_bytes as u64)
+                    })
+                    .ok_or_else(|| "benchmark request byte offset overflow".to_owned())?;
+                requests.push(SparseRequest {
+                    shard: part.shard.clone(),
+                    absolute_offset,
+                    expected_sha256: expected_sha256.clone(),
+                });
+            }
+        }
+    }
+
+    let mut trials = Vec::new();
+    for &uncached in &[false, true] {
+        for ordinal in 0..WARMUPS {
+            run_transport_trial(
+                checkpoint_dir,
+                &requests,
+                rows.row_bytes,
+                PAGE_BYTES,
+                uncached,
+                ordinal,
+            )?;
+        }
+        for ordinal in 0..MEASUREMENTS {
+            trials.push(run_transport_trial(
+                checkpoint_dir,
+                &requests,
+                rows.row_bytes,
+                PAGE_BYTES,
+                uncached,
+                ordinal,
+            )?);
+        }
+    }
+    let mut summaries = Vec::new();
+    for transport in [
+        "cacheable_exact_pread",
+        "page_aligned_f_nocache_f_rdahead_zero",
+    ] {
+        let matching: Vec<_> = trials
+            .iter()
+            .filter(|trial| trial.transport == transport)
+            .collect();
+        let walls: Vec<_> = matching.iter().map(|trial| trial.wall_ms).collect();
+        let disks: Vec<_> = matching
+            .iter()
+            .map(|trial| trial.process_disk_bytes_read)
+            .collect();
+        summaries.push(NGramTransportSummary {
+            transport,
+            samples: matching.len(),
+            wall_ms_p10: quantile_f64(&walls, 0.1),
+            wall_ms_median: quantile_f64(&walls, 0.5),
+            wall_ms_p90: quantile_f64(&walls, 0.9),
+            disk_bytes_median: median_u64(&disks),
+            logical_bytes_per_trial: matching[0].logical_bytes,
+            widened_bytes_per_trial: matching[0].widened_bytes,
+        });
+    }
+    Ok(NGramTransportBenchmarkReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_ngram_sparse_transport_diagnostic",
+        model: rows.model,
+        revision: rows.revision,
+        commit: commit.to_owned(),
+        hardware: "Apple M1 Mac mini Macmini9,1 16 GiB",
+        checkpoint_storage: "internal_ssd",
+        page_bytes: PAGE_BYTES,
+        row_bytes: rows.row_bytes,
+        rows_per_trial: requests.len(),
+        warmups_per_transport: WARMUPS,
+        measurements_per_transport: MEASUREMENTS,
+        initial_cache_state: "cache-influenced after identity verification; F_NOCACHE trials bypass file cache",
+        trials,
+        summaries,
+        batch_size: 1,
+        concurrency: 1,
+        accepted_tokens: 0,
+        accepted_per_verification: 0,
+        expert_union: 0,
+        performance_claim: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -884,5 +1356,14 @@ mod tests {
             read_sparse_row(&mut cursor, 3, 3, 3, 4),
             Err("sparse row request is out of bounds".to_owned())
         );
+    }
+
+    #[test]
+    fn uncached_plan_contains_cross_page_row() {
+        let plan = aligned_read_plan(16_384 - 100, 320, 1_000_000, 16_384)
+            .expect("cross-page row must have a valid plan");
+        assert_eq!(plan.physical_offset, 0);
+        assert_eq!(plan.physical_bytes, 32_768);
+        assert_eq!(plan.logical_offset, 16_284);
     }
 }
