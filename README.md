@@ -413,6 +413,18 @@ target/release/firewing bench-executable-cache-overlap \
   --weight-format block_uint8_affine \
   --block-rows ROWS \
   --block-columns COLUMNS
+
+# Affine-UINT8 plus weight-error-selected exact residual groups (not TPS)
+.venv/bin/python tools/analyze_block_fp8_weight_fidelity.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON \
+  --weight-format block_uint8_affine_exact_groups \
+  --block-rows 4 \
+  --block-columns 4 \
+  --exact-group-bps BPS
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

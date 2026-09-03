@@ -601,6 +601,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   Layer 24 token state 1 is worst for every topology. Do not build an affine
   bank or kernel. See
   [`experiments/FW-0069-modified-affine-uint8-real-layer-frontier.md`](experiments/FW-0069-modified-affine-uint8-real-layer-frontier.md).
+- FW-0070 adds sparse exact residual groups to affine 4x4 UINT8. All 0.25%--4%
+  points pass layer 0, but output error is non-monotonic under raw weight-error
+  ranking. The strongest 4% point reaches 0.8829% mixture error at 70.125% of
+  BF16 bytes, only a 2.9% improvement over its affine control. Advance 4% to
+  the real-layer gate before any kernel. See
+  [`experiments/FW-0070-modified-affine-uint8-exact-groups.md`](experiments/FW-0070-modified-affine-uint8-exact-groups.md).
 
 ## Prediction errors
 
@@ -650,7 +656,8 @@ These unresolved distinctions can still change the next decision:
   FW-0067's affine UINT8 zero-point representation survives layer 0 and awaits
   a complete topology frontier after selected 8x2 fails FW-0068. FW-0069
   completes that frontier and rejects every remaining topology; affine UINT8
-  is closed at this rung.
+  without correction is closed at this rung. FW-0070's 4% exact-group residual
+  form is a separate conditional candidate awaiting deeper validation.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
