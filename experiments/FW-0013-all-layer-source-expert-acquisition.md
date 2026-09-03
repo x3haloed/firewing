@@ -28,6 +28,8 @@ MTP amortization, or Firewing 4 as a whole.
 - Model lock SHA-256:
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
 - Baseline commit: `4e08302ac24cdbdd577afe8a8702589cd7913dc4`
+- Frozen acquisition fixture SHA-256:
+  `06847b6729503e47bfc87eccc35099327bd92370e421a141c370178c921aea08`
 - Semantic references: Transformers 5.16.1 top-10 router; FW-0009 router
   precision; FW-0010 bounded expert tensor layout
 - Transport references: FW-0008 and Prismwing's bounded `pread`, Darwin

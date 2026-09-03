@@ -43,3 +43,9 @@ final BF16 mixture hash without embedding checkpoint-derived payloads.
 scalar sigmoid gate to that routed mixture. It stores four shared tensor hashes
 and nine exact capture hashes through the final combined BF16 block output;
 all checkpoint-derived payloads remain external.
+
+`expert_acquisition/qwen3_8_flash_next_all_layers.json` freezes one
+deterministic top-10 route for every text layer and the 960 exact gate/up and
+down source extents selected by those routes. It commits absolute offsets,
+logical sizes, and payload hashes—not weight bytes—for the 4,718,592,000-byte
+FW-0013 transport trace.
