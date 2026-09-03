@@ -139,6 +139,15 @@ FW-0039's `A=0`, `U=0` limitation only for this one transaction.
 
 Do not claim that `A/U=0.275466` predicts endpoint TPS. It omits all fixed work,
 uses one favorable prompt location, and includes no physical SSD measurement.
-The next cheap falsification step is to continue from anchor 2526 for several
-transactions, preserving mismatches and rollback, to learn whether acceptance
-and expert reuse persist before building a timed full-path loop.
+
+Width two is also analytically too narrow to provide `A/U > 1` under this
+ledger. Even impossible-perfect target route reuse still requires ten expert
+rows at each of 48 target layers plus ten rows from the distinct live MTP bank:
+`U >= 490/(48*2) = 5.1041667`. Since `A <= 2`, the impossible-best width-two
+bound is only `A/U <= 0.3918367`. Do not optimize or time this width as a
+candidate endpoint.
+
+The next cheap falsification step is recursive MTP at width four or wider,
+starting from exact anchor 2526 and preserving mismatches and rollback. Measure
+whether acceptance and target-route reuse grow fast enough before building a
+timed full-path loop.

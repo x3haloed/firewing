@@ -347,8 +347,11 @@ runtime passing every target gate, including reproducible batch-one decode at
   yields emitted `[264,2526]`, `A=2`, both proposal rows retained, and zero
   rollback. Exact target route unions contribute 687 expert rows and the
   distinct live MTP bank contributes ten, giving `U=697/(48*2)=7.260417` and
-  `A/U=0.275466`. This is one favorable correctness/economics observation, not
-  endpoint TPS; sequential acceptance and physical SSD behavior remain next.
+  `A/U=0.275466`. Width two cannot reach `A/U>1` even with perfect target-route
+  reuse: its mandatory 490 expert rows give `U>=5.104167` and
+  impossible-best `A/U<=0.391837`. This is one favorable correctness
+  observation, not endpoint TPS; recursive width four or wider and physical
+  SSD behavior remain next.
   See
   [`experiments/FW-0040-first-complete-mtp-transaction.md`](experiments/FW-0040-first-complete-mtp-transaction.md).
 
