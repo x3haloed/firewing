@@ -53,6 +53,7 @@ def build_fixture(
     ple_fixture_path: Path,
     *,
     _return_outputs: bool = False,
+    _hidden_overrides: list[torch.Tensor] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -66,12 +67,13 @@ def build_fixture(
         ngram_fixture_path,
         ngram_row_fixture_path,
         _return_outputs=True,
+        _hidden_overrides=_hidden_overrides,
     )
     if not isinstance(ple_result, tuple):
         raise AssertionError("PLE execution outputs were not returned")
     regenerated_ple, ple_outputs = ple_result
     committed_ple = json.loads(ple_fixture_path.read_text(encoding="utf-8"))
-    if regenerated_ple != committed_ple:
+    if _hidden_overrides is None and regenerated_ple != committed_ple:
         raise ValueError("regenerated PLE parent disagrees with committed fixture")
 
     config_path = checkpoint_dir / "config.json"
@@ -114,16 +116,19 @@ def build_fixture(
         zip(regenerated_ple["case"]["steps"], ple_outputs, strict=True)
     ):
         # The parent generator already froze and checked this deterministic input.
-        from_input = torch.arange(HC_HIDDEN, dtype=torch.int64)
         spec = ple_step["input_spec"]
-        hidden = (
-            ((from_input * spec["multiplier"] + spec["add"]) % spec["modulus"] - spec["center"])
-            .to(torch.float32)
-            .div(spec["divisor"])
-            .to(torch.bfloat16)
-            .reshape(1, 1, HC_HIDDEN)
-            .contiguous()
-        )
+        if _hidden_overrides is None:
+            from_input = torch.arange(HC_HIDDEN, dtype=torch.int64)
+            hidden = (
+                ((from_input * spec["multiplier"] + spec["add"]) % spec["modulus"] - spec["center"])
+                .to(torch.float32)
+                .div(spec["divisor"])
+                .to(torch.bfloat16)
+                .reshape(1, 1, HC_HIDDEN)
+                .contiguous()
+            )
+        else:
+            hidden = _hidden_overrides[ordinal]
         post_ple = (hidden + ple_output).contiguous()
         with torch.no_grad():
             mixed_input, official_hyper_input, injection_weights = hyper(post_ple)

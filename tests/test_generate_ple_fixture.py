@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 
-from tools.generate_ple_fixture import CONV_STATE, grouped_rms
+from tools.generate_ple_fixture import CONV_STATE, HC_HIDDEN, grouped_rms
 
 
 class PleFixtureTests(unittest.TestCase):
@@ -40,6 +40,11 @@ class PleFixtureTests(unittest.TestCase):
         second = torch.full((1, 4, 1), 2.0, dtype=torch.bfloat16)
         state = torch.cat([state, second], dim=-1)[..., -CONV_STATE:]
         self.assertEqual(state[0, 0, -2:].tolist(), [1.0, 2.0])
+
+    def test_accumulated_hidden_override_contract_is_full_four_stream_bf16(self) -> None:
+        value = torch.zeros((1, 1, HC_HIDDEN), dtype=torch.bfloat16).contiguous()
+        self.assertEqual(list(value.shape), [1, 1, 10240])
+        self.assertTrue(value.is_contiguous())
 
 
 if __name__ == "__main__":

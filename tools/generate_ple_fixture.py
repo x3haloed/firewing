@@ -132,6 +132,7 @@ def build_fixture(
     ngram_row_fixture_path: Path,
     *,
     _return_outputs: bool = False,
+    _hidden_overrides: list[torch.Tensor] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -196,6 +197,16 @@ def build_fixture(
     payload_starts: dict[str, int] = {}
     steps = []
     outputs = []
+    if _hidden_overrides is not None and (
+        len(_hidden_overrides) != len(TOKENS)
+        or any(
+            value.dtype != torch.bfloat16
+            or list(value.shape) != [1, 1, HC_HIDDEN]
+            or not value.is_contiguous()
+            for value in _hidden_overrides
+        )
+    ):
+        raise ValueError("unsupported PLE hidden-state overrides")
     try:
         for ordinal, (token, input_spec) in enumerate(zip(TOKENS, INPUT_SPECS, strict=True)):
             rows = reference_addresses(
@@ -210,7 +221,11 @@ def build_fixture(
             embedding, row_records = selected_embedding(
                 checkpoint_dir, address, rows, handles, payload_starts
             )
-            hidden = make_hyper_input(input_spec)
+            hidden = (
+                make_hyper_input(input_spec)
+                if _hidden_overrides is None
+                else _hidden_overrides[ordinal]
+            )
             key_projection = F.linear(embedding, tensors["key_proj"]).contiguous()
             key_normed = grouped_rms(key_projection, tensors["norm_key"])
             value = F.linear(embedding, tensors["value_proj"]).contiguous()
