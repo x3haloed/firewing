@@ -216,18 +216,31 @@ def validate_compute_receipt(receipt: dict[str, Any]) -> int:
     return receipt["candidate_median_wall_time_ns"]
 
 
+def resolve_capacity(manifest_capacity_bytes: int, override_bytes: int | None) -> int:
+    capacity_bytes = (
+        manifest_capacity_bytes if override_bytes is None else override_bytes
+    )
+    if capacity_bytes <= 0 or capacity_bytes > manifest_capacity_bytes:
+        raise lossless.AnalysisError(
+            "mixed-cache capacity must be positive and no larger than the manifest budget"
+        )
+    return capacity_bytes
+
+
 def analyze(
     manifest_path: Path,
     fw0051_path: Path,
     fw0052_path: Path,
     implementation_commit: str,
+    capacity_bytes_override: int | None = None,
 ) -> dict[str, Any]:
     lossless.require_clean_commit(implementation_commit)
     lossless.require_hash(manifest_path, MANIFEST_SHA256)
     lossless.require_hash(fw0051_path, FW0051_SHA256)
     lossless.require_hash(fw0052_path, FW0052_SHA256)
     manifest = lossless.read_json(manifest_path)
-    records, events, capacity_bytes = validate_manifest(manifest)
+    records, events, manifest_capacity_bytes = validate_manifest(manifest)
+    capacity_bytes = resolve_capacity(manifest_capacity_bytes, capacity_bytes_override)
     if (
         manifest.get("source_bytes_per_expert") != SOURCE_BYTES_PER_EXPERT
         or len(events) != EVENTS
@@ -358,7 +371,7 @@ def analyze(
         "compressed_retention_intervals": len(compressed_hits),
         "decoded_retention_intervals": len(decoded_hits),
         "misses": len(misses),
-        "source_manifest_compressed_cache_budget_bytes": capacity_bytes,
+        "source_manifest_compressed_cache_budget_bytes": manifest_capacity_bytes,
         "mixed_representation_capacity_bytes": capacity_bytes,
         "free_initial_compressed_frames": initial_compressed,
         "free_initial_decoded_frames": initial_decoded,
@@ -407,12 +420,18 @@ def main() -> None:
     parser.add_argument("fw0052_receipt", type=Path)
     parser.add_argument("implementation_commit")
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--capacity-bytes",
+        type=int,
+        help="smaller mixed-representation capacity to test; defaults to the manifest budget",
+    )
     args = parser.parse_args()
     report = analyze(
         args.manifest,
         args.fw0051_receipt,
         args.fw0052_receipt,
         args.implementation_commit,
+        args.capacity_bytes,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

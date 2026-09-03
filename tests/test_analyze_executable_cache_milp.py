@@ -3,11 +3,19 @@ from __future__ import annotations
 import itertools
 import unittest
 
-from tools.analyze_executable_cache_milp import solve_retention
+from tools.analyze_executable_cache_milp import resolve_capacity, solve_retention
+from tools.analyze_q2_lossless_experts import AnalysisError
 from tools.analyze_sequential_cache_milp import Record, build_intervals
 
 
 class ExecutableCacheMilpTests(unittest.TestCase):
+    def test_capacity_override_can_only_reduce_manifest_budget(self) -> None:
+        self.assertEqual(resolve_capacity(100, None), 100)
+        self.assertEqual(resolve_capacity(100, 75), 75)
+        for invalid in (0, -1, 101):
+            with self.assertRaises(AnalysisError):
+                resolve_capacity(100, invalid)
+
     def test_mixed_cache_solver_matches_exhaustive_tiny_oracle(self) -> None:
         records = {
             "a": Record("a", compressed_bytes=3, physical_bytes=4),
