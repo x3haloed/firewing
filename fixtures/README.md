@@ -141,3 +141,11 @@ sparse real embedding rows, repeats each row across four hyper streams, walks
 all 48 layers with independent sequential caches and dynamic routes, and
 continues through the final mixer and complete LM head. The 2.1 MiB fixture is
 hash-only: no embedding, activation, expert, or logit payload is committed.
+
+`mtp/qwen3_8_flash_next_input_fusion.json` binds SGLang's source-published
+Qwen4-Exp MTP boundary to four real checkpoint tensors. It distinguishes the
+single 10,240-wide target-hidden RMSNorm from per-stream normalization, applies
+the shared hidden projection independently to all four 2,560-wide hyper
+streams, applies the separate embedding projection, and freezes seven exact
+BF16 hashes through the fused draft input. It contains no checkpoint-derived
+weight or activation payloads and makes no acceptance or performance claim.

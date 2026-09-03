@@ -127,6 +127,11 @@ brew install sleef
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --model-lock spec/model.lock.json \
   --output fixtures/sparse_moe/qwen3_8_flash_next_layer0.json
+.venv/bin/python tools/generate_mtp_input_fusion_fixture.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --model-lock spec/model.lock.json \
+  --source-lock spec/sglang-qwen4-exp-mtp.lock.json \
+  --output fixtures/mtp/qwen3_8_flash_next_input_fusion.json
 
 cargo test
 cargo run --release -- verify-tokenizer \
@@ -157,6 +162,13 @@ cargo run --release -- verify-sparse-moe \
   fixtures/expert/qwen3_8_flash_next_real.json \
   fixtures/mixture/qwen3_8_flash_next_real.json \
   fixtures/sparse_moe/qwen3_8_flash_next_layer0.json
+
+# Source-pinned real-weight MTP input fusion (component verification, not TPS)
+cargo run --release -- verify-mtp-input-fusion \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  spec/sglang-qwen4-exp-mtp.lock.json \
+  fixtures/mtp/qwen3_8_flash_next_input_fusion.json
 
 # Bounded exact tokenizer-to-logits replay (slow; reads selected experts across all 48 layers)
 cargo run --release -- verify-token-text-endpoint \

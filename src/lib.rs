@@ -22,6 +22,7 @@ mod host_safety;
 mod hyper_connection;
 mod metal_bf16;
 mod metal_moe;
+mod mtp;
 mod ngram;
 mod overlap_bound;
 mod ple;
@@ -66,6 +67,7 @@ pub use host_safety::{HostSafetyPolicy, HostSafetySnapshot, PersistentResidencyD
 pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
 pub use metal_bf16::{MetalBf16GemvReport, benchmark_metal_bf16_gemv};
 pub use metal_moe::{MetalTop10MoeReport, benchmark_metal_top10_moe};
+pub use mtp::{MtpInputFusionVerificationReport, verify_mtp_input_fusion_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,

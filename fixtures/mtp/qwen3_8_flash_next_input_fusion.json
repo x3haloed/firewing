@@ -1,0 +1,100 @@
+{
+  "case": {
+    "expected_bf16_sha256": {
+      "embedding": "28698ae778ea64e8d52b6df9e20614426c084e3d2b8bc2da1b1ca547829388de",
+      "embedding_normed": "3484cac68259a0a7512f7b5438635411800f2530b0851e032714f99e8e10975e",
+      "embedding_projected": "62c3810736cef5ac3302f57db70f4c52a5af4e0238a5b2d45458ab576749d8ec",
+      "fused_hidden": "3446fbd125c391df5b02825e4dc633320bce73ce072adf7c892f6c7eba7d3e2e",
+      "target_hidden": "c489ffdc9ee671cbb4051446efe43dee9b603cefdc0e65c4d5bd464b46b54496",
+      "target_hidden_normed": "d34b8f18a094a1aa607729edb52dc434ac837dca3b5e72020d67e1382c2bda88",
+      "target_hidden_projected": "e910b77de96f16575c3b88c68211903909006990b01871d7856c6547828dcba1"
+    },
+    "input_specs": {
+      "embedding": {
+        "add": 7,
+        "center": 125,
+        "divisor": 128,
+        "modulus": 251,
+        "multiplier": 29
+      },
+      "target_hidden": {
+        "add": 17,
+        "center": 131,
+        "divisor": 128,
+        "modulus": 263,
+        "multiplier": 43
+      }
+    },
+    "name": "real_mtp_four_stream_input_fusion",
+    "tensors": {
+      "fc_embedding": {
+        "payload_sha256": "241d6e87ded317a61b1aeb3ca4e28c53f1caba09ad5be66092e91fe5e3e14751",
+        "shape": [
+          2560,
+          2560
+        ],
+        "shard": "model-00120-of-00131.safetensors",
+        "shard_bytes": 1948519840,
+        "shard_sha256": "6a13f7374f7998ce5413fd1a94a2796f10a389ac4ba0da073e80fa91eca1b40e",
+        "tensor": "mtp.fc_embedding.weight"
+      },
+      "fc_hidden": {
+        "payload_sha256": "97c8e427ad0177e2c713ed24a397d815b523eda15ef453f1ae6463f6c70a8f96",
+        "shape": [
+          2560,
+          2560
+        ],
+        "shard": "model-00124-of-00131.safetensors",
+        "shard_bytes": 1729707128,
+        "shard_sha256": "bf22358402faf83962759e05b13480151b138d03203d30f04524f8d53e498c7c",
+        "tensor": "mtp.fc_hidden.weight"
+      },
+      "pre_fc_norm_embedding": {
+        "payload_sha256": "04c4a570850e06f2d8913da8220d54d4c7f87db6eb6d45480b938e8ba41d6a86",
+        "shape": [
+          2560
+        ],
+        "shard": "model-00114-of-00131.safetensors",
+        "shard_bytes": 1832523512,
+        "shard_sha256": "b8d004974b91dad16757c9ad6be6682756e17843c7026e441f2a075de33ab4f5",
+        "tensor": "mtp.pre_fc_norm_embedding.weight"
+      },
+      "pre_fc_norm_hidden": {
+        "payload_sha256": "b933b44559879449b1baf2af8385c5c237347307e3fd452394870cb53e6eab6d",
+        "shape": [
+          10240
+        ],
+        "shard": "model-00118-of-00131.safetensors",
+        "shard_bytes": 1716620424,
+        "shard_sha256": "ffe5cc04b3c2bdfeaba652267ecce7f9ded512646840effe6dd1908f65a299b4",
+        "tensor": "mtp.pre_fc_norm_hidden.weight"
+      }
+    }
+  },
+  "configuration": {
+    "boundary_dtype": "BF16",
+    "hc_count": 4,
+    "hidden_size": 2560,
+    "mtp_layer_types": [
+      "full_attention"
+    ],
+    "mtp_num_hidden_layers": 1,
+    "mtp_use_dedicated_embeddings": false,
+    "rms_norm_eps": 1e-06,
+    "target_hidden_size": 10240
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "implementation": "sglang_qwen4_exp_mtp_source_derived",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "python/sglang/srt/models/qwen4_exp_mtp.py:Qwen4ExpForCausalLMMTP._fuse_residual_linear_shared",
+    "source_lock_sha256": "8160eed0480d8a5bacad0803569f2031626dde26a87eff2b79e62058f7699282",
+    "source_sha256": "2b2ec09230875279a75ae651a1d9e1d88999bc89748e9d0cb6b4a768ffc0e54e",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_mtp_input_fusion"
+}

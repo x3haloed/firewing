@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/sgl-project/sglang",
+  "pull_request": "https://github.com/sgl-project/sglang/pull/36497",
+  "commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+  "role": "source-derived Qwen4-Exp MTP architecture and inference semantics",
+  "files": [
+    {
+      "path": "python/sglang/srt/models/qwen4_exp_mtp.py",
+      "git_blob": "5f0becb2bdf032fdc07b37441aa90d5aea61c250",
+      "sha256": "2b2ec09230875279a75ae651a1d9e1d88999bc89748e9d0cb6b4a768ffc0e54e",
+      "authority": [
+        "Qwen4ExpForCausalLMMTP construction",
+        "four-stream target-hidden and next-token-embedding fusion",
+        "one full-attention MTP layer",
+        "shared target LM head"
+      ]
+    },
+    {
+      "path": "python/sglang/srt/models/qwen4_exp.py",
+      "git_blob": "93b552ee1c2101ca780ccb642cc33167b54b62ef",
+      "sha256": "f406977eb2373937393241f453477867f7dc943bd4839216db8fe66fa9f921d8",
+      "authority": [
+        "Qwen4-Exp decoder and hyper-connection semantics",
+        "pre-final-mixer four-stream target hidden-state handoff",
+        "MTP full-attention and QSA construction"
+      ]
+    },
+    {
+      "path": "python/sglang/srt/models/qwen3_5_mtp.py",
+      "git_blob": "feac0250b5ecb9ebbe3827b093435a4218b13925",
+      "sha256": "263695710ffe8fd80a973e5fcda47fac4bd516a355ec87eaa968430b8ac75953",
+      "authority": [
+        "inherited MTP checkpoint-loading contract",
+        "non-dedicated embedding and head behavior"
+      ]
+    }
+  ],
+  "limitations": [
+    "This source lock does not prove SGLang output correctness or Apple M1 performance.",
+    "Generic speculative scheduling, verification, acceptance, and rollback remain separately unpinned.",
+    "The pull request was not a tagged SGLang release at the pinned commit."
+  ]
+}

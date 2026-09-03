@@ -7,10 +7,10 @@ use firewing::{
     verify_decoder_layer_fixture, verify_decoder_layer1_fixture, verify_decoder_layer3_fixture,
     verify_deltanet_fixture, verify_expert_fixture, verify_full_attention_fixture,
     verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
-    verify_mixture_fixture, verify_ngram_fixture, verify_ngram_rows,
-    verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
-    verify_sparse_moe_fixture, verify_text_output_fixture, verify_token_text_endpoint_fixture,
-    verify_tokenizer_fixture,
+    verify_mixture_fixture, verify_mtp_input_fusion_fixture, verify_ngram_fixture,
+    verify_ngram_rows, verify_ple_attention_residual_fixture, verify_ple_fixture,
+    verify_router_fixture, verify_sparse_moe_fixture, verify_text_output_fixture,
+    verify_token_text_endpoint_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -28,6 +28,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing verify-token-text-endpoint CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-mtp-input-fusion CHECKPOINT_DIR MODEL_LOCK SOURCE_LOCK FIXTURE_JSON [REPORT_JSON]"
     );
     eprintln!(
         "  firewing bench-metal-bf16-gemv CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE KERNEL_METAL IMPLEMENTATION_COMMIT [REPORT_JSON]"
@@ -66,6 +69,16 @@ fn main() {
         ),
         Some("verify-ngram-rows") if (6..=7).contains(&args.len()) => (
             verify_ngram_rows(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(6),
+        ),
+        Some("verify-mtp-input-fusion") if (6..=7).contains(&args.len()) => (
+            verify_mtp_input_fusion_fixture(
                 Path::new(&args[2]),
                 Path::new(&args[3]),
                 Path::new(&args[4]),
