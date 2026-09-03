@@ -11,10 +11,12 @@ not a results log. Executed work receives a stable `FW-NNNN` record under
 **Question:** What exactly must reside, stream, execute, and remain available for
 each modality?
 
-Begin without downloading tensor payloads. Pin the Hugging Face revision and
-retrieve repository metadata, configuration, tokenizer/processor manifests,
-chat template, generation configuration, license, safetensors index, and every
-shard header using bounded range reads. Produce a tensor census grouped into:
+Reuse an existing `hf download --local-dir` tree when present; never start a
+duplicate acquisition merely to inspect it. Pin the Hugging Face revision and
+read repository metadata, configuration, tokenizer/processor manifests, chat
+template, generation configuration, license, local tree metadata, and each
+locally completed shard header. If no download exists, bounded remote header
+reads are permitted. Produce a tensor census grouped into:
 
 - routed experts by layer and projection;
 - attention, routers, norms, embeddings, LM head, MTP, and gated residual;

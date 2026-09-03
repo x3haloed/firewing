@@ -1,0 +1,244 @@
+{
+  "chat_cases": [
+    {
+      "messages": [
+        {
+          "content": "You are concise.",
+          "role": "system"
+        },
+        {
+          "content": "Say hello to Firewing.",
+          "role": "user"
+        }
+      ],
+      "name": "simple_no_thinking",
+      "options": {
+        "add_generation_prompt": true,
+        "enable_thinking": false
+      },
+      "rendered": "<|im_start|>system\nYou are concise.<|im_end|>\n<|im_start|>user\nSay hello to Firewing.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "rendered_utf8_sha256": "582d419eaa5db448b80328cdd8f8da4f6979780e6d0b0a8e11e188698b7f17aa",
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        2523,
+        513,
+        61446,
+        13,
+        248046,
+        198,
+        248045,
+        846,
+        198,
+        44240,
+        23066,
+        310,
+        6438,
+        22856,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271
+      ]
+    },
+    {
+      "messages": [
+        {
+          "content": "What is 2 + 2?",
+          "role": "user"
+        }
+      ],
+      "name": "simple_thinking",
+      "options": {
+        "add_generation_prompt": true,
+        "enable_thinking": true
+      },
+      "rendered": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nWhat is 2 + 2?<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "rendered_utf8_sha256": "1071765cbdcbaa63df3d0daefe5396a3dcb57ea719804465c83a93167dd8cf0a",
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        24342,
+        286,
+        4879,
+        369,
+        716,
+        310,
+        830,
+        11553,
+        13,
+        5044,
+        1683,
+        15060,
+        1472,
+        279,
+        3274,
+        11,
+        9307,
+        1328,
+        30800,
+        11,
+        2814,
+        47675,
+        25605,
+        11,
+        321,
+        60445,
+        55404,
+        11,
+        27224,
+        11,
+        321,
+        30246,
+        303,
+        279,
+        1534,
+        4087,
+        13,
+        248046,
+        198,
+        248045,
+        846,
+        198,
+        3710,
+        369,
+        220,
+        17,
+        478,
+        220,
+        17,
+        30,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        198
+      ]
+    },
+    {
+      "messages": [
+        {
+          "content": "Return one word.",
+          "role": "user"
+        },
+        {
+          "content": "Done",
+          "role": "assistant"
+        }
+      ],
+      "name": "completed_turn",
+      "options": {
+        "add_generation_prompt": false,
+        "enable_thinking": false
+      },
+      "rendered": "<|im_start|>user\nReturn one word.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nDone<|im_end|>\n",
+      "rendered_utf8_sha256": "56f8920e4ea7339dc052731f4885c53ba33e2d67d556f236ecd863fe575825bb",
+      "token_ids": [
+        248045,
+        846,
+        198,
+        5423,
+        799,
+        3299,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271,
+        16936,
+        248046,
+        198
+      ]
+    }
+  ],
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "raw_cases": [
+    {
+      "add_special_tokens": false,
+      "name": "ascii",
+      "text": "Firewing",
+      "token_ids": [
+        16207,
+        22856
+      ]
+    },
+    {
+      "add_special_tokens": false,
+      "name": "whitespace",
+      "text": " leading\nline\tend ",
+      "token_ids": [
+        6187,
+        198,
+        1021,
+        6050,
+        220
+      ]
+    },
+    {
+      "add_special_tokens": false,
+      "name": "multilingual",
+      "text": "Hello, 世界 — مرحبا — Привет 👋",
+      "token_ids": [
+        9419,
+        11,
+        220,
+        96748,
+        1892,
+        164422,
+        150027,
+        1892,
+        239029,
+        59720,
+        233
+      ]
+    },
+    {
+      "add_special_tokens": false,
+      "name": "special-looking-text",
+      "text": "literal <|im_start|> marker",
+      "token_ids": [
+        34600,
+        220,
+        248045,
+        10811
+      ]
+    }
+  ],
+  "reference": {
+    "chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+    "implementation": "huggingface_transformers",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_config_sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27",
+    "tokenizer_json_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_tokenizer_and_chat_template",
+  "special_tokens": {
+    "audio_bos_token": "<|audio_start|>",
+    "audio_eos_token": "<|audio_end|>",
+    "audio_token": "<|audio_pad|>",
+    "eos_token": "<|im_end|>",
+    "image_token": "<|image_pad|>",
+    "pad_token": "<|endoftext|>",
+    "video_token": "<|video_pad|>",
+    "vision_bos_token": "<|vision_start|>",
+    "vision_eos_token": "<|vision_end|>"
+  }
+}

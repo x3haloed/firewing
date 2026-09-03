@@ -1,0 +1,7 @@
+# Executable semantic reference for Qwen4-Exp configuration, tokenization, and
+# deterministic tiny fixtures. The full checkpoint is not expected to fit in
+# the Python reference runtime on the qualifying 16 GiB host.
+transformers==5.16.1
+torch==2.14.0
+torchvision==0.29.0
+pillow==12.2.0

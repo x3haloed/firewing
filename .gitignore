@@ -11,7 +11,7 @@ target/
 .swiftpm/
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 
 # Credentials and provider captures before redaction
 secrets/

@@ -34,6 +34,8 @@ satisfy the primary target. See [RED_LINES.md](RED_LINES.md).
 - [RED_LINES.md](RED_LINES.md) — shortcuts that do not count.
 - [LEARNINGS.md](LEARNINGS.md) — durable evidence, reversals, and deductions.
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) — experiment and promotion discipline.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — checkpoint-derived component
+  and traffic ledger.
 - [docs/VALIDATION_PROTOCOL.md](docs/VALIDATION_PROTOCOL.md) — fidelity and
   performance methodology.
 - [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) — active staged research plan.
@@ -42,6 +44,65 @@ satisfy the primary target. See [RED_LINES.md](RED_LINES.md).
   reversed experiments.
 - [spec/throughput-model.json](spec/throughput-model.json) — machine-readable
   measured constants and provenance.
+
+## Checkpoint workflow
+
+The pinned checkpoint is installed and SHA-256 verified at
+`/Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d`. A
+metadata-only census does not contact the network or read tensor payload bytes:
+
+```shell
+python3 tools/checkpoint_census.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --output /Users/chad/Models/firewing/evidence/FW-0001/source-census.json \
+  --model-lock /Users/chad/Models/firewing/evidence/FW-0001/model-lock.json
+```
+
+Before a future installation, rerun that command with `--require-complete` and
+check the destination parent with a declared reserve:
+
+```shell
+python3 tools/checkpoint_capacity.py \
+  /Users/chad/Models/firewing/checkpoints \
+  --model-lock /Users/chad/Models/firewing/evidence/FW-0001/model-lock.json \
+  --reserve-bytes 0 \
+  --output /Users/chad/Models/firewing/evidence/FW-0001/capacity.json
+```
+
+Verify every copied byte against the final lock. This deliberately reads the
+full checkpoint and should not run concurrently with a download:
+
+```shell
+python3 tools/checkpoint_verify.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --model-lock /Users/chad/Models/firewing/evidence/FW-0001/model-lock.json \
+  --output /Users/chad/Models/firewing/evidence/FW-0001/copy-verification.json
+```
+
+The census is not a payload-integrity or performance result. The verifier is
+not an endpoint benchmark.
+
+## Development
+
+The initial executable reference and native tokenizer slice are reproducible
+with:
+
+```shell
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-reference.txt
+.venv/bin/python tools/generate_tokenizer_fixtures.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --output fixtures/tokenizer/qwen3_8_flash_next.json
+
+cargo test
+cargo run --release -- verify-tokenizer \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  fixtures/tokenizer/qwen3_8_flash_next.json
+```
+
+Transformers is a fixture authority, not the qualifying runtime. The native
+implementation remains responsible for every Qwen4-Exp semantic and all final
+performance accounting.
 
 ## Licensing
 

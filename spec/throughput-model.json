@@ -8,8 +8,39 @@
     "checkpoint_storage": "internal_ssd",
     "companion_hardware_allowed": false
   },
-  "measured_constants": {},
+  "measured_constants": {
+    "source_inventory": {
+      "status": "complete_internal_copy_sha256_verified",
+      "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+      "expected_file_count": 144,
+      "expected_total_bytes": 360023351514,
+      "expected_weight_shard_count": 131,
+      "expected_weight_shard_bytes": 360000192888,
+      "tree_manifest_sha256": "6042846bc80da9b7946c9b5814d791e899ac162c8cf4ae5a35985dcbee180542",
+      "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+      "final_census_sha256": "043b5b45edd1f4aeb628a66b00fec60c035204c30a48d34d0a95f3e10d0bd937",
+      "verification_receipt_sha256": "b6a0a6f5590ec4a4455f3f19aeb59edd722f7e854a170feaa0f10e35354ac45d",
+      "completed_weight_shards_observed": 131,
+      "completed_weight_shard_bytes_observed": 360000192888,
+      "parsed_tensor_count_observed": 1658,
+      "parsed_parameter_count_observed": 179999981459,
+      "parsed_tensor_bytes_observed": 359999963128,
+      "accepted_tokens": 0,
+      "performance_claim": null
+    },
+    "source_byte_ledger": {
+      "routed_expert_bank_bytes": 241591910400,
+      "routed_expert_bytes_per_expert": 9830400,
+      "routed_expert_bytes_per_ordinary_token_before_cache": 4718592000,
+      "ordinary_fixed_matrix_bytes_before_residency": 8623999000,
+      "ngram_embedding_bank_bytes": 102400491520,
+      "ngram_useful_bf16_bytes_per_token": 5120,
+      "status": "checkpoint_derived_not_measured_io_or_endpoint_tps",
+      "accepted_tokens": 0,
+      "performance_claim": null
+    }
+  },
   "planning_hypotheses": {},
-  "status": "empty_until_fw_0001",
-  "provenance": "Initial schema only; contains no measurements or performance claims."
+  "status": "fw_0001_complete_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No performance claim."
 }
