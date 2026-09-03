@@ -141,6 +141,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   resolves the remaining text attention variant, not a complete layer 3,
   accumulated multi-layer parity, endpoint behavior, or TPS. See
   [`experiments/FW-0019-layer3-full-attention-qsa.md`](experiments/FW-0019-layer3-full-attention-qsa.md).
+- FW-0020 composes layer 3's four-stream attention hyper-connection and
+  full-attention/QSA path exactly through the decoder residual for empty and
+  2,080-position caches. Its hyper-mixed query discriminates a four-head QSA
+  reduction ambiguity hidden by FW-0019: PyTorch sums the post-ReLU heads
+  sequentially in F32 rather than with a balanced pair tree. The native path
+  matches all 72 captures and authenticates 116,102,656 tensor bytes. This
+  establishes the complete attention half of a full-attention decoder layer,
+  not its MLP/MoE half, accumulated layers, or endpoint TPS. See
+  [`experiments/FW-0020-layer3-full-attention-residual.md`](experiments/FW-0020-layer3-full-attention-residual.md).
 
 ## Prediction errors
 

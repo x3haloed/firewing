@@ -1,7 +1,7 @@
 # FW-0020 - Layer-3 full-attention residual composition
 
-- Status: in progress
-- Disposition: reference fixture passed; native composition pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0014, FW-0019
 - Exactness: L0 bit-identical component semantics
@@ -93,10 +93,30 @@ hyper-connection output. The fixture binds 13 real tensors and 36 captures per
 case, including the 10,240-wide injection products and composed residual. Its
 SHA-256 is
 `21c7dbf9b34af540ef424044a797a880674752574a820d727759ff1a9ea51035`.
-All 40 Python tests pass. Native composition remains pending.
+All 40 Python tests pass.
+
+At commit `d457ddf`, the release-mode native verifier exactly matched 62 BF16,
+two F32, six int64, and two boolean captures across both cases. It
+authenticated the four hyper-connection and nine attention tensors totaling
+116,102,656 bytes, regenerated 4,796,928 cache bytes, and matched the mixed
+attention inputs, active QSA selection, all cache states, attention outputs,
+four injection products, and composed 10,240-wide residuals. The external
+receipt is
+`/Users/chad/Models/firewing/evidence/FW-0020/full-attention-residual.json`,
+SHA-256
+`190965aa9e9554c81e210a59a9aa623199fa2a08559cf35a5a598e82c5b64d86`.
+
+The hyper-mixed long case exposed an ambiguity that FW-0019's direct input did
+not: PyTorch's four-head ReLU score reduction uses sequential F32 addition,
+`(((h0 + h1) + h2) + h3)`, rather than a balanced pair tree. FW-0019 happened
+to round identically under both orders. A discriminating unit test now freezes
+the sequential topology, and both FW-0019 and FW-0020 pass after the repair.
+The final suite has 40 Python and 31 Rust tests; Clippy passes with warnings
+denied.
 
 ## Decision
 
-Continue by extracting FW-0019's exact attention execution into a reusable
-native case runner, then compose it with layer 3's hyper-connection. No
-performance default follows from reference composition.
+Pass as a correctness repair. Layer 3's complete attention half now has exact
+native wrapper composition under both empty-cache and genuinely active QSA
+conditions. Proceed to its MLP/MoE half and complete decoder-layer parity. No
+performance default or endpoint claim follows from component composition.
