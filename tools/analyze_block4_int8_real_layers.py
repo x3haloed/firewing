@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Screen block-4 INT8 on authenticated early, middle, and late real layers."""
+"""Screen compact INT8 topology on authenticated early, middle, and late layers."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ ROOT = Path(__file__).parents[1]
 MODEL_LOCK_SHA256 = "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444"
 ACCUMULATED_FIXTURE_SHA256 = "6ed2e16da1e64fb8001c26608d7972f4910190f74768055b5778dc7891ebf525"
 SELECTED_LAYERS = (4, 24, 46)
-BLOCK_SIZE = 4
+DEFAULT_BLOCK_SHAPE = (4, 4)
 
 
 def quantized_mixture(
@@ -46,6 +46,7 @@ def quantized_mixture(
     gate_up_name: str,
     down_name: str,
     reference_mixture: torch.Tensor,
+    block_shape: tuple[int, int] = DEFAULT_BLOCK_SHAPE,
 ) -> dict[str, Any]:
     if (
         hidden.dtype != torch.bfloat16
@@ -54,7 +55,9 @@ def quantized_mixture(
         or len(selection) != len(set(selection))
         or reference_mixture.dtype != torch.bfloat16
     ):
-        raise common.AnalysisError("block-4 real-layer mixture authority mismatch")
+        raise common.AnalysisError("INT8 real-layer mixture authority mismatch")
+    if len(block_shape) != 2 or block_shape[0] * block_shape[1] != 16:
+        raise common.AnalysisError("INT8 real-layer scale topology must cover 16 weights")
     score_by_expert = dict(zip(selection, scores, strict=True))
     contributions = []
     expert_rows = []
@@ -65,8 +68,12 @@ def quantized_mixture(
         down = down_file.get_slice(down_name)[expert].contiguous()
         route_weight = torch.tensor(score_by_expert[expert], dtype=torch.bfloat16)
         reference = expert_forward(hidden, gate_up, down, route_weight)["weighted_down"]
-        quantized_gate_up, gate_scales, gate_bytes = block_int8_weight(gate_up, BLOCK_SIZE)
-        quantized_down, down_scales, down_bytes = block_int8_weight(down, BLOCK_SIZE)
+        quantized_gate_up, gate_scales, gate_bytes = block_int8_weight(
+            gate_up, block_shape
+        )
+        quantized_down, down_scales, down_bytes = block_int8_weight(
+            down, block_shape
+        )
         candidate = expert_forward(
             hidden, quantized_gate_up, quantized_down, route_weight
         )["weighted_down"]
@@ -98,12 +105,17 @@ def analyze(
     checkpoint_dir: Path,
     model_lock_path: Path,
     implementation_commit: str,
+    block_rows: int = DEFAULT_BLOCK_SHAPE[0],
+    block_columns: int = DEFAULT_BLOCK_SHAPE[1],
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
     accumulated_path = ROOT / "fixtures/accumulated/qwen3_8_flash_next_layers4_47.json"
     common.require_hash(accumulated_path, ACCUMULATED_FIXTURE_SHA256)
     observations: list[dict[str, Any]] = []
+    block_shape = (block_rows, block_columns)
+    if block_rows * block_columns != 16:
+        raise common.AnalysisError("INT8 real-layer scale topology must cover 16 weights")
 
     def observe(**values: Any) -> None:
         layer = values["layer"]
@@ -118,6 +130,7 @@ def analyze(
             values["gate_up_name"],
             values["down_name"],
             values["reference_mixture"],
+            block_shape,
         )
         observations.append(
             {"layer": layer, "ordinal": values["ordinal"], **result}
@@ -149,22 +162,31 @@ def analyze(
         raise common.AnalysisError("regenerated accumulated authority disagrees")
     expected_pairs = [(layer, ordinal) for layer in SELECTED_LAYERS for ordinal in range(2)]
     if [(row["layer"], row["ordinal"]) for row in observations] != expected_pairs:
-        raise common.AnalysisError("block-4 real-layer observation coverage mismatch")
+        raise common.AnalysisError("INT8 real-layer observation coverage mismatch")
     maximum_mixture = max(row["mixture"]["relative_l2"] for row in observations)
     maximum_expert = max(
         row["maximum_expert_weighted_down_relative_l2"] for row in observations
     )
     passes = maximum_mixture <= 0.01 and maximum_expert <= 0.02
+    topology_tag = (
+        "block4"
+        if block_shape == DEFAULT_BLOCK_SHAPE
+        else f"block{block_rows}x{block_columns}"
+    )
     return {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_modified_block4_int8_source_accumulated_real_layer_screen",
-        "mode": "modified_block4_int8_weight_only",
+        "semantic": (
+            f"qwen3_8_flash_next_modified_{topology_tag}_int8_"
+            "source_accumulated_real_layer_screen"
+        ),
+        "mode": f"modified_{topology_tag}_int8_weight_only",
         "implementation_commit": implementation_commit,
         "model": common.MODEL,
         "revision": common.REVISION,
         "model_lock_sha256": MODEL_LOCK_SHA256,
         "accumulated_fixture_sha256": ACCUMULATED_FIXTURE_SHA256,
         "selected_layers": list(SELECTED_LAYERS),
+        "block_shape": [block_rows, block_columns],
         "observations": observations,
         "maximum_mixture_relative_l2": maximum_mixture,
         "maximum_expert_weighted_down_relative_l2": maximum_expert,
@@ -173,7 +195,7 @@ def analyze(
             "each_expert_weighted_down_relative_l2_maximum": 0.02,
         },
         "passes_continuation_gates": passes,
-        "decision": f"{'continue' if passes else 'reject'}_modified_block4_int8_weight_only",
+        "decision": f"{'continue' if passes else 'reject'}_modified_{topology_tag}_int8_weight_only",
         "limitations": [
             "six source-accumulated real layer-local inputs only",
             "source routes are held fixed",
@@ -191,9 +213,15 @@ def main() -> int:
     parser.add_argument("model_lock", type=Path)
     parser.add_argument("implementation_commit")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--block-rows", type=int, default=DEFAULT_BLOCK_SHAPE[0])
+    parser.add_argument("--block-columns", type=int, default=DEFAULT_BLOCK_SHAPE[1])
     args = parser.parse_args()
     report = analyze(
-        args.checkpoint_dir, args.model_lock, args.implementation_commit
+        args.checkpoint_dir,
+        args.model_lock,
+        args.implementation_commit,
+        args.block_rows,
+        args.block_columns,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))
