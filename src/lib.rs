@@ -70,8 +70,9 @@ pub use metal_bf16::{MetalBf16GemvReport, benchmark_metal_bf16_gemv};
 pub use metal_moe::{MetalTop10MoeReport, benchmark_metal_top10_moe};
 pub use mtp::{
     MtpCausalPrefillVerificationReport, MtpInputFusionVerificationReport,
-    MtpProposalVerificationReport, verify_mtp_causal_prefill_fixture,
-    verify_mtp_input_fusion_fixture, verify_mtp_proposal_fixture,
+    MtpProposalVerificationReport, MtpRecursiveVerificationReport,
+    verify_mtp_causal_prefill_fixture, verify_mtp_input_fusion_fixture,
+    verify_mtp_proposal_fixture, verify_mtp_recursive_fixture,
 };
 pub use mtp_transaction::{MtpTransactionVerificationReport, verify_mtp_transaction_fixture};
 pub use ngram::{

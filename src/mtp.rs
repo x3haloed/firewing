@@ -25,6 +25,8 @@ const VOCAB: usize = 248_320;
 const EAGLE_WORKER_SHA256: &str =
     "9a66d31868385646b9fb9f78053730f55d2e885e72382a8c8dc6db9f07709271";
 const EAGLE_UTILS_SHA256: &str = "87e9dc749e94f5899140457393389397840a2258978c021fd3ac490e9da4c053";
+const EAGLE_WORKER_COMMON_SHA256: &str =
+    "7d5bc17da41ad34230dfd76da34024496983eae5453f8b1c650a9f5f924e4934";
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -237,6 +239,90 @@ pub struct MtpCausalPrefillVerificationReport {
     pub proposal_token_id: usize,
     pub target_endpoint: TokenTextEndpointVerificationReport,
     pub fusion_steps_verified: usize,
+    pub exact_fusion_capture_hashes: usize,
+    pub exact_bf16_capture_hashes: usize,
+    pub exact_f32_capture_hashes: usize,
+    pub exact_i64_capture_hashes: usize,
+    pub dense_tensors_verified: usize,
+    pub unique_experts_verified: usize,
+    pub total_verified_payload_bytes: usize,
+    pub selected_experts_by_step: Vec<Vec<usize>>,
+    pub top20_token_ids_by_step: Vec<Vec<usize>>,
+    pub accepted_tokens: usize,
+    #[serde(rename = "A")]
+    pub accepted_per_transaction: usize,
+    #[serde(rename = "U")]
+    pub expert_union: usize,
+    pub performance_claim: Option<String>,
+}
+
+type CausalPrefillExecution = (
+    MtpCausalPrefillVerificationReport,
+    Vec<Vec<u16>>,
+    Vec<Vec<u16>>,
+    Vec<Vec<u16>>,
+);
+
+#[derive(Deserialize)]
+struct RecursiveSeedFixture {
+    schema_version: u32,
+    semantic: String,
+    model: String,
+    revision: String,
+    reference: RecursiveSeedReference,
+    configuration: RecursiveSeedConfiguration,
+    embedding: CausalEmbedding,
+    tensors: BTreeMap<String, Tensor>,
+    steps: Vec<RecursiveFusionStep>,
+}
+
+#[derive(Deserialize)]
+struct RecursiveSeedReference {
+    implementation: String,
+    commit: String,
+    mtp_source_lock_sha256: String,
+    scheduler_source_lock_sha256: String,
+    recursive_source_lock_sha256: String,
+    endpoint_fixture_sha256: String,
+    fusion_fixture_sha256: String,
+    model_lock_sha256: String,
+    tensor_index_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct RecursiveSeedConfiguration {
+    target_input_token_ids: Vec<usize>,
+    target_next_token_id: usize,
+    mtp_input_token_ids: Vec<usize>,
+    mtp_positions: Vec<usize>,
+    prefill_positions: usize,
+    recursive_positions: usize,
+    cache_mode: String,
+    boundary_dtype: String,
+}
+
+#[derive(Deserialize)]
+struct RecursiveFusionStep {
+    ordinal: usize,
+    mtp_input_token_id: usize,
+    hidden_source_kind: String,
+    hidden_source_ordinal: usize,
+    captures: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MtpRecursiveVerificationReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub source_commit: String,
+    pub target_input_token_ids: Vec<usize>,
+    pub target_next_token_id: usize,
+    pub mtp_input_token_ids: Vec<usize>,
+    pub proposal_token_ids: Vec<usize>,
+    pub fusion_steps_verified: usize,
+    pub recurrent_hidden_links_verified: usize,
     pub exact_fusion_capture_hashes: usize,
     pub exact_bf16_capture_hashes: usize,
     pub exact_f32_capture_hashes: usize,
@@ -882,7 +968,7 @@ fn read_embedding_row_from_record(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mtp_causal_prefill_fixture(
+fn verify_mtp_causal_prefill_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     mtp_source_lock_path: &Path,
@@ -897,7 +983,7 @@ pub fn verify_mtp_causal_prefill_fixture(
     attention_fixture_path: &Path,
     decoder_fixture_path: &Path,
     output_fixture_path: &Path,
-) -> Result<MtpCausalPrefillVerificationReport, String> {
+) -> Result<CausalPrefillExecution, String> {
     let seed: CausalSeedFixture = serde_json::from_slice(
         &fs::read(seed_fixture_path)
             .map_err(|error| format!("cannot read causal MTP seed fixture: {error}"))?,
@@ -1170,7 +1256,7 @@ pub fn verify_mtp_causal_prefill_fixture(
         .and_then(|value| value.checked_add(output_report.output_verified_payload_bytes))
         .ok_or("causal MTP payload byte count overflow")?;
 
-    Ok(MtpCausalPrefillVerificationReport {
+    let report = MtpCausalPrefillVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_target_derived_mtp_prefill_verification",
         model: seed.model,
@@ -1184,6 +1270,446 @@ pub fn verify_mtp_causal_prefill_fixture(
         fusion_steps_verified: 2,
         exact_fusion_capture_hashes: 14,
         exact_bf16_capture_hashes: 14
+            + attention_report.exact_bf16_capture_hashes
+            + decoder_report.exact_bf16_capture_hashes,
+        exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
+        exact_i64_capture_hashes: attention_report.exact_i64_capture_hashes,
+        dense_tensors_verified: seed.tensors.len()
+            + attention_report.dense_tensors_verified
+            + decoder_report.dense_tensors_verified,
+        unique_experts_verified: decoder_report.unique_experts_verified,
+        total_verified_payload_bytes,
+        selected_experts_by_step: decoder_report.selected_experts_by_step,
+        top20_token_ids_by_step: output_report.top20_token_ids_by_step,
+        accepted_tokens: 0,
+        accepted_per_transaction: 0,
+        expert_union: 0,
+        performance_claim: None,
+    };
+    Ok((report, target_hiddens, fused_hiddens, decoder_outputs))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_mtp_causal_prefill_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    mtp_source_lock_path: &Path,
+    scheduler_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    endpoint_fixture_path: &Path,
+    fusion_fixture_path: &Path,
+    seed_fixture_path: &Path,
+    attention_fixture_path: &Path,
+    decoder_fixture_path: &Path,
+    output_fixture_path: &Path,
+) -> Result<MtpCausalPrefillVerificationReport, String> {
+    verify_mtp_causal_prefill_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        mtp_source_lock_path,
+        scheduler_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        endpoint_fixture_path,
+        fusion_fixture_path,
+        seed_fixture_path,
+        attention_fixture_path,
+        decoder_fixture_path,
+        output_fixture_path,
+    )
+    .map(|(report, _, _, _)| report)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn verify_recursive_fusion_step(
+    checkpoint_dir: &Path,
+    lock: &ModelLock,
+    embedding_record: &CausalEmbedding,
+    tensors: &BTreeMap<String, Vec<u16>>,
+    step: &RecursiveFusionStep,
+    expected_ordinal: usize,
+    expected_token: usize,
+    expected_kind: &str,
+    expected_source_ordinal: usize,
+    source_hidden: &[u16],
+) -> Result<Vec<u16>, String> {
+    if step.ordinal != expected_ordinal
+        || step.mtp_input_token_id != expected_token
+        || step.hidden_source_kind != expected_kind
+        || step.hidden_source_ordinal != expected_source_ordinal
+        || step.captures.len() != 7
+        || source_hidden.len() != HC_HIDDEN
+    {
+        return Err(format!(
+            "recursive MTP fusion metadata mismatch at step {expected_ordinal}"
+        ));
+    }
+    let embedding =
+        read_embedding_row_from_record(checkpoint_dir, lock, embedding_record, expected_token)?;
+    require_capture(&step.captures, "embedding", &embedding)?;
+    require_capture(&step.captures, "source_hidden", source_hidden)?;
+    let embedding_normed = rms_norm(&embedding, &tensors["pre_fc_norm_embedding"], 1.0e-6)?;
+    let source_hidden_normed = rms_norm(source_hidden, &tensors["pre_fc_norm_hidden"], 1.0e-6)?;
+    require_capture(&step.captures, "embedding_normed", &embedding_normed)?;
+    require_capture(
+        &step.captures,
+        "source_hidden_normed",
+        &source_hidden_normed,
+    )?;
+    let embedding_projected =
+        linear_bf16(&tensors["fc_embedding"], &embedding_normed, HIDDEN, HIDDEN);
+    let mut source_hidden_projected = Vec::with_capacity(HC_HIDDEN);
+    for stream in source_hidden_normed.chunks_exact(HIDDEN) {
+        source_hidden_projected.extend(linear_bf16(&tensors["fc_hidden"], stream, HIDDEN, HIDDEN));
+    }
+    require_capture(&step.captures, "embedding_projected", &embedding_projected)?;
+    require_capture(
+        &step.captures,
+        "source_hidden_projected",
+        &source_hidden_projected,
+    )?;
+    let fused = source_hidden_projected
+        .chunks_exact(HIDDEN)
+        .flat_map(|stream| {
+            stream
+                .iter()
+                .zip(&embedding_projected)
+                .map(|(hidden, embedding)| to_bf16(from_bf16(*hidden) + from_bf16(*embedding)))
+        })
+        .collect::<Vec<_>>();
+    require_capture(&step.captures, "fused_hidden", &fused)?;
+    Ok(fused)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_mtp_recursive_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    mtp_source_lock_path: &Path,
+    scheduler_lock_path: &Path,
+    recursive_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    endpoint_fixture_path: &Path,
+    fusion_fixture_path: &Path,
+    causal_seed_fixture_path: &Path,
+    causal_attention_fixture_path: &Path,
+    causal_decoder_fixture_path: &Path,
+    causal_output_fixture_path: &Path,
+    recursive_seed_fixture_path: &Path,
+    recursive_attention_fixture_path: &Path,
+    recursive_decoder_fixture_path: &Path,
+    recursive_output_fixture_path: &Path,
+) -> Result<MtpRecursiveVerificationReport, String> {
+    let recursive_lock: SourceLock =
+        serde_json::from_slice(&fs::read(recursive_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    let worker = recursive_lock
+        .files
+        .iter()
+        .find(|file| file.path == "python/sglang/srt/speculative/eagle_worker_v2.py")
+        .ok_or("recursive EAGLE lock lacks worker")?;
+    let common = recursive_lock
+        .files
+        .iter()
+        .find(|file| file.path == "python/sglang/srt/speculative/eagle_worker_common.py")
+        .ok_or("recursive EAGLE lock lacks common worker")?;
+    if recursive_lock.schema_version != 1
+        || recursive_lock.repository != "https://github.com/sgl-project/sglang"
+        || recursive_lock.pull_request != "https://github.com/sgl-project/sglang/pull/36497"
+        || recursive_lock.commit != SGLANG_COMMIT
+        || recursive_lock.files.len() != 2
+        || worker.git_blob != "93fdd61761c4f976305d7af4e4aecd65430e0539"
+        || worker.sha256 != EAGLE_WORKER_SHA256
+        || common.git_blob != "91ce8a1476955e5ed57951aa92ff66f1e5a47a7b"
+        || common.sha256 != EAGLE_WORKER_COMMON_SHA256
+    {
+        return Err("unsupported recursive EAGLE source authority".to_owned());
+    }
+    let seed: RecursiveSeedFixture = serde_json::from_slice(
+        &fs::read(recursive_seed_fixture_path).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let config = &seed.configuration;
+    if seed.schema_version != 1
+        || seed.semantic != "qwen3_8_flash_next_recursive_mtp_fusion"
+        || seed.model != MODEL
+        || seed.revision != REVISION
+        || seed.reference.implementation != "sglang_topk1_recursive_eagle_and_qwen4_exp_mtp_fusion"
+        || seed.reference.commit != SGLANG_COMMIT
+        || seed.reference.mtp_source_lock_sha256 != sha256_file(mtp_source_lock_path)?
+        || seed.reference.scheduler_source_lock_sha256 != sha256_file(scheduler_lock_path)?
+        || seed.reference.recursive_source_lock_sha256 != sha256_file(recursive_lock_path)?
+        || seed.reference.endpoint_fixture_sha256 != sha256_file(endpoint_fixture_path)?
+        || seed.reference.fusion_fixture_sha256 != sha256_file(fusion_fixture_path)?
+        || seed.reference.model_lock_sha256 != sha256_file(model_lock_path)?
+        || seed.reference.tensor_index_sha256
+            != sha256_file(&checkpoint_dir.join("model.safetensors.index.json"))?
+        || config.target_input_token_ids != [16_207, 22_856]
+        || config.target_next_token_id != 369
+        || config.mtp_input_token_ids != [22_856, 369, 264, 220]
+        || config.mtp_positions != [0, 1, 2, 3]
+        || config.prefill_positions != 2
+        || config.recursive_positions != 2
+        || config.cache_mode != "sequential_mtp_prefill_then_recursive_decode"
+        || config.boundary_dtype != "BF16"
+        || seed.steps.len() != 4
+    {
+        return Err("recursive MTP seed identity or configuration mismatch".to_owned());
+    }
+
+    let (causal, target_hiddens, causal_fused, causal_decoder_outputs) =
+        verify_mtp_causal_prefill_fixture_with_outputs(
+            checkpoint_dir,
+            model_lock_path,
+            mtp_source_lock_path,
+            scheduler_lock_path,
+            tokenizer_fixture_path,
+            ngram_fixture_path,
+            ngram_row_fixture_path,
+            ple_fixture_path,
+            endpoint_fixture_path,
+            fusion_fixture_path,
+            causal_seed_fixture_path,
+            causal_attention_fixture_path,
+            causal_decoder_fixture_path,
+            causal_output_fixture_path,
+        )?;
+    let lock: ModelLock =
+        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    let expected_tensors = [
+        (
+            "pre_fc_norm_embedding",
+            "mtp.pre_fc_norm_embedding.weight",
+            vec![HIDDEN],
+        ),
+        (
+            "pre_fc_norm_hidden",
+            "mtp.pre_fc_norm_hidden.weight",
+            vec![HC_HIDDEN],
+        ),
+        (
+            "fc_embedding",
+            "mtp.fc_embedding.weight",
+            vec![HIDDEN, HIDDEN],
+        ),
+        ("fc_hidden", "mtp.fc_hidden.weight", vec![HIDDEN, HIDDEN]),
+    ];
+    let mut tensors = BTreeMap::new();
+    let mut fusion_payload_bytes = 0_usize;
+    for (key, name, shape) in expected_tensors {
+        let record = seed
+            .tensors
+            .get(key)
+            .ok_or_else(|| format!("recursive MTP tensor missing: {key}"))?;
+        let locked = lock
+            .files
+            .iter()
+            .find(|file| file.path == record.shard)
+            .ok_or_else(|| format!("recursive MTP shard missing: {key}"))?;
+        if record.tensor != name
+            || record.shape != shape
+            || locked.size != record.shard_bytes
+            || locked.lfs_sha256.as_deref() != Some(record.shard_sha256.as_str())
+        {
+            return Err(format!("recursive MTP tensor identity mismatch: {key}"));
+        }
+        let values = read_tensor(&checkpoint_dir.join(&record.shard), name, &shape)?;
+        if !bf16_payload_matches(&values, &record.payload_sha256) {
+            return Err(format!("recursive MTP tensor payload mismatch: {key}"));
+        }
+        fusion_payload_bytes += values.len() * 2;
+        tensors.insert(key.to_owned(), values);
+    }
+
+    let attention_bytes =
+        fs::read(recursive_attention_fixture_path).map_err(|error| error.to_string())?;
+    let decoder_bytes =
+        fs::read(recursive_decoder_fixture_path).map_err(|error| error.to_string())?;
+    let output_value: Value = serde_json::from_slice(
+        &fs::read(recursive_output_fixture_path).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let attention_value: Value =
+        serde_json::from_slice(&attention_bytes).map_err(|error| error.to_string())?;
+    let decoder_value: Value =
+        serde_json::from_slice(&decoder_bytes).map_err(|error| error.to_string())?;
+    let seed_hash = sha256_file(recursive_seed_fixture_path)?;
+    let recursive_lock_hash = sha256_file(recursive_lock_path)?;
+    let endpoint_hash = sha256_file(endpoint_fixture_path)?;
+    for component in [&attention_value, &decoder_value, &output_value] {
+        if reference_hash(component, "recursive_source_lock_sha256")? != recursive_lock_hash
+            || reference_hash(component, "recursive_seed_fixture_sha256")? != seed_hash
+            || reference_hash(component, "endpoint_fixture_sha256")? != endpoint_hash
+        {
+            return Err("recursive MTP component authority mismatch".to_owned());
+        }
+    }
+    if attention_value.get("semantic").and_then(Value::as_str)
+        != Some("qwen3_8_flash_next_recursive_mtp_attention")
+        || decoder_value.get("semantic").and_then(Value::as_str)
+            != Some("qwen3_8_flash_next_recursive_mtp_decoder")
+        || output_value.get("semantic").and_then(Value::as_str)
+            != Some("qwen3_8_flash_next_recursive_mtp_logits")
+        || reference_hash(&decoder_value, "attention_residual_fixture_sha256")?
+            != sha256_file(recursive_attention_fixture_path)?
+        || reference_hash(&output_value, "decoder_fixture_sha256")?
+            != sha256_file(recursive_decoder_fixture_path)?
+    {
+        return Err("recursive MTP component chain mismatch".to_owned());
+    }
+
+    let modes = [
+        "mtp_prefill_initial",
+        "mtp_prefill_cached",
+        "mtp_recursive_cached",
+        "mtp_recursive_cached",
+    ];
+    let mut fused = Vec::with_capacity(4);
+    for ordinal in 0..2 {
+        fused.push(verify_recursive_fusion_step(
+            checkpoint_dir,
+            &lock,
+            &seed.embedding,
+            &tensors,
+            &seed.steps[ordinal],
+            ordinal,
+            config.mtp_input_token_ids[ordinal],
+            "target_endpoint",
+            ordinal,
+            &target_hiddens[ordinal],
+        )?);
+        if fused[ordinal] != causal_fused[ordinal] {
+            return Err(format!(
+                "recursive MTP prefill differs from causal authority at step {ordinal}"
+            ));
+        }
+    }
+
+    let mut final_attention_report = None;
+    let mut final_decoder_report = None;
+    let mut final_decoder_outputs = Vec::new();
+    for count in 2..=4 {
+        let mut prefix_attention_value = attention_value.clone();
+        let mut prefix_decoder_value = decoder_value.clone();
+        prefix_attention_value["cases"]
+            .as_array_mut()
+            .ok_or("recursive attention cases missing")?
+            .truncate(count);
+        prefix_decoder_value["steps"]
+            .as_array_mut()
+            .ok_or("recursive decoder steps missing")?
+            .truncate(count);
+        let prefix_attention =
+            serde_json::to_vec(&prefix_attention_value).map_err(|error| error.to_string())?;
+        let prefix_decoder =
+            serde_json::to_vec(&prefix_decoder_value).map_err(|error| error.to_string())?;
+        let past_lengths = (0..count).collect::<Vec<_>>();
+        let (attention_report, post_attention) =
+            verify_full_attention_residual_fixture_bytes_with_prefix(
+                checkpoint_dir,
+                model_lock_path,
+                &prefix_attention,
+                "qwen3_8_flash_next_recursive_mtp_attention",
+                "qwen3_8_flash_next_recursive_mtp_attention_verification",
+                0,
+                &past_lengths,
+                &modes[..count],
+                true,
+                None,
+                Some(&fused),
+                "mtp.layers.0",
+            )?;
+        let (decoder_report, decoder_outputs) = verify_decoder_mlp_fixture_bytes_with_prefix(
+            checkpoint_dir,
+            model_lock_path,
+            &prefix_decoder,
+            0,
+            "full_attention",
+            "qwen3_8_flash_next_recursive_mtp_decoder",
+            "qwen3_8_flash_next_recursive_mtp_decoder_verification",
+            &modes[..count],
+            attention_report.total_verified_payload_bytes,
+            post_attention,
+            "mtp.layers.0",
+        )?;
+        if count == 2 && decoder_outputs != causal_decoder_outputs {
+            return Err("recursive MTP prefix differs from causal decoder authority".to_owned());
+        }
+        if count < 4 {
+            let ordinal = count;
+            let next_fused = verify_recursive_fusion_step(
+                checkpoint_dir,
+                &lock,
+                &seed.embedding,
+                &tensors,
+                &seed.steps[ordinal],
+                ordinal,
+                config.mtp_input_token_ids[ordinal],
+                "draft_decoder",
+                ordinal - 1,
+                &decoder_outputs[ordinal - 1],
+            )?;
+            fused.push(next_fused);
+        }
+        final_attention_report = Some(attention_report);
+        final_decoder_report = Some(decoder_report);
+        final_decoder_outputs = decoder_outputs;
+    }
+    let attention_report = final_attention_report.ok_or("recursive attention report missing")?;
+    let decoder_report = final_decoder_report.ok_or("recursive decoder report missing")?;
+    let output_report = verify_embedded_text_output_fixture_with_names(
+        checkpoint_dir,
+        model_lock_path,
+        &output_value,
+        MODEL,
+        REVISION,
+        &final_decoder_outputs,
+        "mtp.hyper_connection_mixer",
+        "lm_head.weight",
+    )?;
+    let proposal_token_ids = std::iter::once(config.target_next_token_id)
+        .chain(
+            output_report
+                .top20_token_ids_by_step
+                .iter()
+                .skip(1)
+                .map(|tokens| tokens[0]),
+        )
+        .collect::<Vec<_>>();
+    if proposal_token_ids != [369, 264, 220, 17] {
+        return Err("recursive MTP proposal identity mismatch".to_owned());
+    }
+    let total_verified_payload_bytes = causal
+        .target_endpoint
+        .total_verified_payload_bytes
+        .checked_add(fusion_payload_bytes)
+        .and_then(|value| value.checked_add(4 * HIDDEN * 2))
+        .and_then(|value| value.checked_add(decoder_report.total_verified_payload_bytes))
+        .and_then(|value| value.checked_add(output_report.output_verified_payload_bytes))
+        .ok_or("recursive MTP payload byte count overflow")?;
+    Ok(MtpRecursiveVerificationReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_recursive_mtp_verification",
+        model: seed.model,
+        revision: seed.revision,
+        source_commit: seed.reference.commit,
+        target_input_token_ids: config.target_input_token_ids.clone(),
+        target_next_token_id: config.target_next_token_id,
+        mtp_input_token_ids: config.mtp_input_token_ids.clone(),
+        proposal_token_ids,
+        fusion_steps_verified: 4,
+        recurrent_hidden_links_verified: 2,
+        exact_fusion_capture_hashes: 28,
+        exact_bf16_capture_hashes: 28
             + attention_report.exact_bf16_capture_hashes
             + decoder_report.exact_bf16_capture_hashes,
         exact_f32_capture_hashes: attention_report.exact_f32_capture_hashes,
@@ -1282,5 +1808,33 @@ mod tests {
             serde_json::json!([22856, 369])
         );
         assert_eq!(logits["steps"][1]["top20_token_ids"][0], 264);
+    }
+
+    #[test]
+    fn recursive_fixture_links_each_recurrent_hidden_step() {
+        let seed: Value = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_recursive_seed.json"
+        ))
+        .unwrap();
+        let logits: Value = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_recursive_logits.json"
+        ))
+        .unwrap();
+        assert_eq!(
+            seed["configuration"]["mtp_input_token_ids"],
+            serde_json::json!([22_856, 369, 264, 220])
+        );
+        assert_eq!(seed["steps"][2]["hidden_source_kind"], "draft_decoder");
+        assert_eq!(seed["steps"][2]["hidden_source_ordinal"], 1);
+        assert_eq!(seed["steps"][3]["hidden_source_ordinal"], 2);
+        assert_eq!(
+            logits["steps"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|step| step["top20_token_ids"][0].as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            [290, 264, 220, 17]
+        );
     }
 }

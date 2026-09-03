@@ -482,6 +482,8 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
                 2 => "layer_1_two_token_ple",
                 3 => "layer_1_three_token_ple",
                 4 => "layer_1_four_token_ple",
+                5 => "layer_1_five_token_ple",
+                6 => "layer_1_six_token_ple",
                 _ => "unsupported",
             }
         || case.tensors.len() != 6

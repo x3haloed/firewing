@@ -178,9 +178,9 @@ def build_fixture(
             }
         )
 
-    token_count_word = {2: "two", 3: "three", 4: "four"}.get(len(steps))
+    token_count_word = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}.get(len(steps))
     if token_count_word is None:
-        raise ValueError("PLE attention fixture supports only two, three, or four token steps")
+        raise ValueError("PLE attention fixture supports only two through six token steps")
     fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,

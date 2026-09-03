@@ -289,7 +289,7 @@ fn four_stream_root(row: &[u16]) -> Result<Vec<u16>, String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn verify_token_text_endpoint_fixture_with_expected_outputs(
+pub(crate) fn verify_token_text_endpoint_fixture_with_expected_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     tokenizer_fixture_path: &Path,
@@ -412,6 +412,8 @@ fn verify_token_text_endpoint_fixture_with_expected_outputs(
         2 => "two",
         3 => "three",
         4 => "four",
+        5 => "five",
+        6 => "six",
         _ => return Err("unsupported endpoint token count".to_owned()),
     };
     let past_lengths = (0..expected_token_ids.len()).collect::<Vec<_>>();

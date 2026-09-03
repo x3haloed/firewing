@@ -317,6 +317,8 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
                 2 => "layer_1_two_token_ple_attention_residual",
                 3 => "layer_1_three_token_ple_attention_residual",
                 4 => "layer_1_four_token_ple_attention_residual",
+                5 => "layer_1_five_token_ple_attention_residual",
+                6 => "layer_1_six_token_ple_attention_residual",
                 _ => "unsupported",
             }
         || case.tensors.len() != 13

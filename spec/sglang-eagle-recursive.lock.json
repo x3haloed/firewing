@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/sgl-project/sglang",
+  "pull_request": "https://github.com/sgl-project/sglang/pull/36497",
+  "commit": "78c5024e9d9f589dcb4deb7f4ba4fb23f7e85385",
+  "role": "source-derived top-k-one recursive EAGLE draft state and cache progression",
+  "files": [
+    {
+      "path": "python/sglang/srt/speculative/eagle_worker_v2.py",
+      "git_blob": "93fdd61761c4f976305d7af4e4aecd65430e0539",
+      "sha256": "9a66d31868385646b9fb9f78053730f55d2e885e72382a8c8dc6db9f07709271",
+      "authority": [
+        "initial proposal token and carried hidden state enter draft step zero",
+        "each non-final draft iteration forwards the selected token with the carried hidden state",
+        "the resulting draft hidden state and greedy argmax seed the next iteration",
+        "draft position advances by one after each forwarded iteration"
+      ]
+    },
+    {
+      "path": "python/sglang/srt/speculative/eagle_worker_common.py",
+      "git_blob": "91ce8a1476955e5ed57951aa92ff66f1e5a47a7b",
+      "sha256": "7d5bc17da41ad34230dfd76da34024496983eae5453f8b1c650a9f5f924e4934",
+      "authority": [
+        "draft decode begins at the committed sequence length",
+        "top-k-one draft writes use contiguous per-step cache locations",
+        "the target verify vector prepends the previously authorized bonus anchor"
+      ]
+    }
+  ],
+  "limitations": [
+    "The lock establishes top-k-one chain structure only; it does not establish tree top-k greater than one.",
+    "Firewing must independently verify Qwen4-Exp fusion, recurrent hidden identity, KV progression, logits, acceptance, rollback, and hardware behavior."
+  ]
+}
