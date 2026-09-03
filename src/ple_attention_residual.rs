@@ -282,14 +282,14 @@ fn expected_tensors() -> Vec<(String, Vec<usize>, String, String)> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_ple_attention_residual_fixture(
+pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
     ngram_row_fixture_path: &Path,
     ple_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<PleAttentionResidualVerificationReport, String> {
+) -> Result<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture =
         serde_json::from_slice(&fs::read(fixture_path).map_err(|error| error.to_string())?)
             .map_err(|error| format!("malformed PLE-attention fixture: {error}"))?;
@@ -380,6 +380,7 @@ pub fn verify_ple_attention_residual_fixture(
     }
 
     let mut state = zero_deltanet_state();
+    let mut composed_outputs = Vec::with_capacity(case.steps.len());
     for (ordinal, (step, ple_output)) in case.steps.iter().zip(&ple_outputs).enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -447,27 +448,51 @@ pub fn verify_ple_attention_residual_fixture(
             .map(|(residual, injection)| to_bf16(from_bf16(*residual) + from_bf16(*injection)))
             .collect();
         require_bf16(step, "composed_output", &[1, 1, HC_HIDDEN], &composed)?;
+        composed_outputs.push(composed);
     }
 
     let ple_verified_payload_bytes = ple_report.total_verified_payload_bytes;
-    Ok(PleAttentionResidualVerificationReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_layer1_ple_attention_residual_verification",
-        model: fixture.model,
-        revision: fixture.revision,
-        layer: 1,
-        steps_verified: 2,
-        ple_rows_verified: ple_report.rows_verified,
-        tensors_verified: ple_report.dense_tensors_verified + 13,
-        exact_bf16_capture_hashes: ple_report.exact_bf16_capture_hashes + 18,
-        exact_f32_capture_hashes: 2,
-        exact_i64_capture_hashes: ple_report.exact_i64_capture_hashes,
-        ple_verified_payload_bytes,
-        attention_tensor_payload_bytes,
-        total_verified_payload_bytes: ple_verified_payload_bytes + attention_tensor_payload_bytes,
-        accepted_tokens: 0,
-        performance_claim: None,
-    })
+    Ok((
+        PleAttentionResidualVerificationReport {
+            schema_version: 1,
+            semantic: "qwen3_8_flash_next_layer1_ple_attention_residual_verification",
+            model: fixture.model,
+            revision: fixture.revision,
+            layer: 1,
+            steps_verified: 2,
+            ple_rows_verified: ple_report.rows_verified,
+            tensors_verified: ple_report.dense_tensors_verified + 13,
+            exact_bf16_capture_hashes: ple_report.exact_bf16_capture_hashes + 18,
+            exact_f32_capture_hashes: 2,
+            exact_i64_capture_hashes: ple_report.exact_i64_capture_hashes,
+            ple_verified_payload_bytes,
+            attention_tensor_payload_bytes,
+            total_verified_payload_bytes: ple_verified_payload_bytes
+                + attention_tensor_payload_bytes,
+            accepted_tokens: 0,
+            performance_claim: None,
+        },
+        composed_outputs,
+    ))
+}
+
+pub fn verify_ple_attention_residual_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<PleAttentionResidualVerificationReport, String> {
+    verify_ple_attention_residual_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]
