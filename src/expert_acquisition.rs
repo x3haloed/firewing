@@ -130,7 +130,9 @@ pub struct ExpertAcquisitionTrial {
     pub workers: usize,
     pub complete_wall_ms: f64,
     pub summed_pread_ms: f64,
+    pub maximum_worker_pread_ms: f64,
     pub summed_integrity_ms: f64,
+    pub maximum_worker_integrity_ms: f64,
     pub logical_bytes: usize,
     pub widened_bytes: usize,
     pub pread_calls: usize,
@@ -149,6 +151,7 @@ pub struct ExpertAcquisitionSummary {
     pub complete_wall_ms_p10: f64,
     pub complete_wall_ms_median: f64,
     pub complete_wall_ms_p90: f64,
+    pub maximum_worker_pread_ms_median: f64,
     pub logical_gb_per_second_median: f64,
     pub process_disk_bytes_read_median: u64,
 }
@@ -174,6 +177,9 @@ pub struct ExpertAcquisitionBenchmarkReport {
     pub worker_counts: [usize; 4],
     pub interleaved_orders: [[usize; 4]; 3],
     pub warm_prefault_wall_ms: f64,
+    pub warm_prefault_process_disk_bytes_read: u64,
+    pub resident_page_instances_after_prefault: u64,
+    pub total_selected_page_instances: u64,
     pub trials: Vec<ExpertAcquisitionTrial>,
     pub summaries: Vec<ExpertAcquisitionSummary>,
     pub batch_size: usize,
@@ -639,13 +645,21 @@ fn run_trial(
         cache_state: if cold {
             "range_invalidated_page_aligned_f_nocache_f_rdahead_zero"
         } else {
-            "prefaulted_cacheable_exact_pread"
+            "post_prefault_cacheable_exact_pread"
         },
         order_ordinal,
         workers,
         complete_wall_ms,
         summed_pread_ms: results.iter().map(|result| result.pread_ms).sum(),
+        maximum_worker_pread_ms: results
+            .iter()
+            .map(|result| result.pread_ms)
+            .fold(0.0, f64::max),
         summed_integrity_ms: results.iter().map(|result| result.integrity_ms).sum(),
+        maximum_worker_integrity_ms: results
+            .iter()
+            .map(|result| result.integrity_ms)
+            .fold(0.0, f64::max),
         logical_bytes,
         widened_bytes: results.iter().map(|result| result.widened_bytes).sum(),
         pread_calls: EXTENTS,
@@ -669,6 +683,30 @@ fn median_u64(values: &[u64]) -> u64 {
     let mut ordered = values.to_vec();
     ordered.sort_unstable();
     ordered[ordered.len() / 2]
+}
+
+fn selected_residency(checkpoint_dir: &Path, extents: &[Extent]) -> Result<(u64, u64), String> {
+    let handles = open_handles(checkpoint_dir, extents, false)?;
+    extents
+        .iter()
+        .try_fold((0_u64, 0_u64), |(resident, total), extent| {
+            let file = &handles[&extent.shard];
+            let plan = aligned_read_plan(
+                extent.absolute_offset,
+                extent.logical_bytes,
+                file.metadata().map_err(|error| error.to_string())?.len(),
+                PAGE_BYTES,
+            )?;
+            let pages = plan.physical_bytes.div_ceil(PAGE_BYTES) as u64;
+            Ok((
+                resident
+                    .checked_add(resident_pages(file, plan, PAGE_BYTES)?)
+                    .ok_or_else(|| "resident page count overflow".to_owned())?,
+                total
+                    .checked_add(pages)
+                    .ok_or_else(|| "selected page count overflow".to_owned())?,
+            ))
+        })
 }
 
 pub fn benchmark_expert_acquisition(
@@ -695,8 +733,10 @@ pub fn benchmark_expert_acquisition(
         }
     }
     let prefault_started = Instant::now();
-    let _prefault = run_trial(checkpoint_dir, &extents, 1, false, usize::MAX)?;
+    let prefault = run_trial(checkpoint_dir, &extents, 1, false, usize::MAX)?;
     let warm_prefault_wall_ms = prefault_started.elapsed().as_secs_f64() * 1000.0;
+    let (resident_page_instances_after_prefault, total_selected_page_instances) =
+        selected_residency(checkpoint_dir, &extents)?;
     for (order_ordinal, order) in ORDERS.iter().enumerate() {
         for workers in order {
             trials.push(run_trial(
@@ -711,7 +751,7 @@ pub fn benchmark_expert_acquisition(
     let mut summaries = Vec::new();
     for cache_state in [
         "range_invalidated_page_aligned_f_nocache_f_rdahead_zero",
-        "prefaulted_cacheable_exact_pread",
+        "post_prefault_cacheable_exact_pread",
     ] {
         for workers in WORKER_COUNTS {
             let matching: Vec<_> = trials
@@ -726,6 +766,10 @@ pub fn benchmark_expert_acquisition(
                 .iter()
                 .map(|trial| trial.process_disk_bytes_read)
                 .collect();
+            let maximum_worker_preads: Vec<_> = matching
+                .iter()
+                .map(|trial| trial.maximum_worker_pread_ms)
+                .collect();
             let median = quantile(&walls, 0.5);
             summaries.push(ExpertAcquisitionSummary {
                 cache_state,
@@ -734,6 +778,7 @@ pub fn benchmark_expert_acquisition(
                 complete_wall_ms_p10: quantile(&walls, 0.1),
                 complete_wall_ms_median: median,
                 complete_wall_ms_p90: quantile(&walls, 0.9),
+                maximum_worker_pread_ms_median: quantile(&maximum_worker_preads, 0.5),
                 logical_gb_per_second_median: TRACE_BYTES as f64
                     / 1_000_000_000.0
                     / (median / 1000.0),
@@ -776,6 +821,9 @@ pub fn benchmark_expert_acquisition(
         worker_counts: WORKER_COUNTS,
         interleaved_orders: ORDERS,
         warm_prefault_wall_ms,
+        warm_prefault_process_disk_bytes_read: prefault.process_disk_bytes_read,
+        resident_page_instances_after_prefault,
+        total_selected_page_instances,
         trials,
         summaries,
         batch_size: 1,
