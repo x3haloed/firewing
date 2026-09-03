@@ -120,6 +120,13 @@ fn softmax_bf16(scores: &[u16]) -> Result<Vec<u16>, String> {
         .collect())
 }
 
+fn qsa_relu_head_sum(values: [f32; INDEX_HEADS]) -> f32 {
+    values
+        .into_iter()
+        .map(|value| value.max(0.0))
+        .fold(0.0_f32, |sum, value| sum + value)
+}
+
 #[derive(Deserialize)]
 struct Fixture {
     schema_version: u32,
@@ -191,11 +198,11 @@ struct ArithmeticSpec {
     divisor: i64,
 }
 
-#[derive(Deserialize)]
-struct Capture {
-    dtype: String,
-    shape: Vec<usize>,
-    sha256: String,
+#[derive(Clone, Deserialize)]
+pub(crate) struct Capture {
+    pub(crate) dtype: String,
+    pub(crate) shape: Vec<usize>,
+    pub(crate) sha256: String,
 }
 
 #[derive(Deserialize)]
@@ -368,7 +375,18 @@ pub fn verify_full_attention_fixture(
     model_lock_path: &Path,
     fixture_path: &Path,
 ) -> Result<FullAttentionVerificationReport, String> {
-    let fixture: Fixture = serde_json::from_slice(
+    verify_full_attention_with_overrides(checkpoint_dir, model_lock_path, fixture_path, None, None)
+        .map(|(report, _)| report)
+}
+
+pub(crate) fn verify_full_attention_with_overrides(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    fixture_path: &Path,
+    capture_overrides: Option<&[BTreeMap<String, Capture>]>,
+    hidden_overrides: Option<&[Vec<u16>]>,
+) -> Result<(FullAttentionVerificationReport, Vec<Vec<u16>>), String> {
+    let mut fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
     )
     .map_err(|error| format!("malformed full-attention fixture: {error}"))?;
@@ -398,6 +416,22 @@ pub fn verify_full_attention_fixture(
         || fixture.cases.len() != 2
     {
         return Err("full-attention fixture identity or configuration is unsupported".to_owned());
+    }
+    if let Some(overrides) = capture_overrides {
+        if overrides.len() != fixture.cases.len()
+            || overrides.iter().any(|captures| captures.len() != 31)
+        {
+            return Err("full-attention capture overrides are incomplete".to_owned());
+        }
+        for (case, captures) in fixture.cases.iter_mut().zip(overrides) {
+            case.captures = captures.clone();
+        }
+    }
+    if hidden_overrides.is_some_and(|overrides| {
+        overrides.len() != fixture.cases.len()
+            || overrides.iter().any(|hidden| hidden.len() != HIDDEN)
+    }) {
+        return Err("full-attention hidden overrides are invalid".to_owned());
     }
     if sha256_file(model_lock_path)? != fixture.reference.model_lock_sha256
         || sha256_file(&checkpoint_dir.join("config.json"))? != fixture.reference.config_sha256
@@ -487,6 +521,7 @@ pub fn verify_full_attention_fixture(
         divisor: 256,
     };
     let mut synthetic_cache_bytes = 0;
+    let mut outputs = Vec::with_capacity(fixture.cases.len());
     for (ordinal, case) in fixture.cases.iter().enumerate() {
         let past = if ordinal == 0 { 0 } else { LONG_PAST };
         if case.ordinal != ordinal
@@ -504,7 +539,11 @@ pub fn verify_full_attention_fixture(
         {
             return Err(format!("full-attention case {ordinal} metadata mismatch"));
         }
-        let hidden = make_bf16(&[HIDDEN], &case.input_spec)?;
+        let hidden = if let Some(overrides) = hidden_overrides {
+            overrides[ordinal].clone()
+        } else {
+            make_bf16(&[HIDDEN], &case.input_spec)?
+        };
         require_bf16(case, "hidden_states", &[1, 1, HIDDEN], &hidden)?;
         let (position_cos, position_sin) = rope_embeddings(past + 1);
         require_bf16(case, "position_cos", &[1, past + 1, 64], &position_cos)?;
@@ -637,8 +676,12 @@ pub fn verify_full_attention_fixture(
         }
         let index_scores = (0..complete_blocks)
             .map(|block| {
-                let score = |head: usize| index_products[head * complete_blocks + block].max(0.0);
-                ((score(0) + score(1)) + (score(2) + score(3))) / (INDEX_DIM as f32).sqrt()
+                qsa_relu_head_sum([
+                    index_products[block],
+                    index_products[complete_blocks + block],
+                    index_products[2 * complete_blocks + block],
+                    index_products[3 * complete_blocks + block],
+                ]) / (INDEX_DIM as f32).sqrt()
             })
             .collect::<Vec<_>>();
         require_capture(
@@ -923,8 +966,9 @@ pub fn verify_full_attention_fixture(
             HEADS * HEAD_DIM,
         );
         require_bf16(case, "output", &[1, 1, HIDDEN], &output)?;
+        outputs.push(output);
     }
-    Ok(FullAttentionVerificationReport {
+    let report = FullAttentionVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_layer3_full_attention_qsa_verification",
         model: fixture.model,
@@ -940,7 +984,8 @@ pub fn verify_full_attention_fixture(
         synthetic_cache_bytes,
         accepted_tokens: 0,
         performance_claim: None,
-    })
+    };
+    Ok((report, outputs))
 }
 
 pub fn rms_norm_heads(
@@ -1057,6 +1102,15 @@ mod tests {
     fn qsa_selection_is_score_ordered_and_rejects_boundary_ties() {
         assert_eq!(select_qsa_blocks(&[0.25, 2.0, 1.0], 2).unwrap(), [1, 2]);
         assert!(select_qsa_blocks(&[2.0, 1.0, 1.0], 2).is_err());
+    }
+
+    #[test]
+    fn qsa_four_head_sum_uses_pytorch_sequential_order() {
+        let epsilon = f32::EPSILON / 2.0;
+        let sequential = qsa_relu_head_sum([1.0, epsilon, epsilon, epsilon]);
+        let balanced = (1.0 + epsilon) + (epsilon + epsilon);
+        assert_eq!(sequential, 1.0);
+        assert_ne!(sequential, balanced);
     }
 
     #[test]

@@ -10,6 +10,7 @@ mod deltanet;
 mod expert;
 mod expert_acquisition;
 pub mod full_attention;
+mod full_attention_residual;
 mod hyper_connection;
 mod ngram;
 mod ple;
@@ -29,6 +30,9 @@ pub use expert_acquisition::{
     benchmark_expert_acquisition,
 };
 pub use full_attention::{FullAttentionVerificationReport, verify_full_attention_fixture};
+pub use full_attention_residual::{
+    FullAttentionResidualVerificationReport, verify_full_attention_residual_fixture,
+};
 pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
