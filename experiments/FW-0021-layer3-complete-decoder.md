@@ -1,7 +1,7 @@
 # FW-0021 - Complete layer-3 full-attention decoder
 
-- Status: in progress
-- Disposition: reference fixture passed; native layer pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0017, FW-0020
 - Exactness: L0 bit-identical component semantics
@@ -93,10 +93,27 @@ distinct layer-3 expert slices. Nine ordinary tensors and both full expert-bank
 descriptors are bound to the model lock; selected expert payloads are committed
 only as hashes. Fixture SHA-256:
 `c41e5db1d9cd4678f08e3fdac82f5ce569d4e49ab2e9d4bef050b76466f1f5a9`.
-All 41 Python tests pass. Native complete-layer verification remains pending.
+All 41 Python tests pass.
+
+At commit `bd74783`, the release-mode native verifier recomputed the complete
+FW-0020 parent path, then exactly matched all 32 layer-local BF16 captures and
+all twenty selected weighted-expert hashes. It authenticated 116,102,656 bytes
+through the attention residual, 25,666,560 bytes of layer-3 MLP
+hyper/router/shared tensors, and 196,608,000 bytes from twenty distinct expert
+slices: 338,377,216 logical payload bytes total. Both dynamic routes, ascending
+expert execution order, routed mixtures, shared-expert boundaries, four MLP
+injection products, and final 10,240-wide layer outputs match.
+
+The final receipt is
+`/Users/chad/Models/firewing/evidence/FW-0021/decoder-layer3.json`, SHA-256
+`4aee8ec5ed398f15c18a4349f25ee3451744242010fd4c85c555ae3a5b59c760`.
+All 41 Python and 32 Rust tests pass, and Clippy passes with warnings denied.
+No accepted tokens, physical-I/O timing, or TPS were measured.
 
 ## Decision
 
-Continue by exposing FW-0020's composed outputs to the native MLP/MoE runner
-and verifying the twenty actual expert slices. No performance default follows
-from reference correctness.
+Pass as a correctness repair. A complete full-attention decoder layer now has
+exact native parity under empty-cache and active-QSA conditions, complementing
+FW-0017's complete linear-attention layer. Proceed to PLE-bearing layer-1
+composition and accumulated multi-layer execution. No performance default or
+endpoint claim follows from layer-local parity.

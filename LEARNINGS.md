@@ -150,6 +150,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   establishes the complete attention half of a full-attention decoder layer,
   not its MLP/MoE half, accumulated layers, or endpoint TPS. See
   [`experiments/FW-0020-layer3-full-attention-residual.md`](experiments/FW-0020-layer3-full-attention-residual.md).
+- FW-0021 exactly executes the complete real layer-3 decoder for an empty-cache
+  token and an active-QSA token over 2,080 cached positions. The actual
+  post-attention states select twenty distinct experts across the cases; all
+  32 BF16 layer captures and twenty weighted-expert hashes match while
+  338,377,216 logical payload bytes are authenticated. Together with FW-0017,
+  this establishes complete layer-local parity for both text attention
+  architectures. It does not establish PLE-bearing layer composition,
+  accumulated layers, endpoint behavior, or TPS. See
+  [`experiments/FW-0021-layer3-complete-decoder.md`](experiments/FW-0021-layer3-complete-decoder.md).
 
 ## Prediction errors
 
