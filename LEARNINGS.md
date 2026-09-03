@@ -367,6 +367,18 @@ runtime passing every target gate, including reproducible batch-one decode at
   routed-byte-leverage win; it does not estimate a production acceptance
   distribution or endpoint TPS. See
   [`experiments/FW-0041-recursive-width-four-mtp-rollback.md`](experiments/FW-0041-recursive-width-four-mtp-rollback.md).
+- FW-0042 carries FW-0041's exact correction into a second source-faithful
+  transaction. Shifted MTP inputs `[22856,369,264,2526]` produce proposal
+  `[2526,11,8581,11]`; exact target posterior `[11,45815,11,321]` again
+  mismatches at the second comparison, emits `[11,45815]`, and rolls back two
+  rows. This transaction has `A=2`, `U=1066/480=2.220833`, and
+  `A/U=0.900563`. Across both width-four transactions, aggregate `A=4`,
+  `U=2279/480=4.747917`, and `A/U=0.842475`, strengthening the scoped rejection
+  of width four on this prefix. The eight-token native replay also exposed and
+  corrected a previously unexercised arithmetic boundary: PyTorch BF16
+  attention matmul uses a contiguous pairwise reduction for eight values, not
+  the expert GEMV reducer's cross-lane tree. See
+  [`experiments/FW-0042-sequential-mtp-transaction.md`](experiments/FW-0042-sequential-mtp-transaction.md).
 
 ## Prediction errors
 
