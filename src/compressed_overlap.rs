@@ -35,6 +35,19 @@ const PHYSICAL_BYTES: usize = 5_257_854_976;
 const CACHE_BYTES: usize = 4_260_902_888;
 const SAMPLES: usize = 3;
 const WORKERS: usize = 8;
+const SEQUENTIAL_BUILDER_COMMIT: &str = "6271f3dd845f00d183d5b76053718859be0f14bd";
+const SEQUENTIAL_MANIFEST_SHA256: &str =
+    "6759e772d2c9a4560ab39ae80a3b4f4e1a24552adafbf30a396e84166b9c71ca";
+const SEQUENTIAL_CONTAINER_SHA256: &str =
+    "b14d0f9827a001b97495b97f11d111495f94e8c7392e0ec7d9e7f39095a372bb";
+const SECOND_ENDPOINT_SHA256: &str =
+    "114dae658be2edf772d3f8b3e4ef7c9ac669387d42c35a26cf739323733ee130";
+const SECOND_TRANSACTION_SHA256: &str =
+    "897cf8ad8278847a41e645cc97db79acc5fe1c7b19e0fa34975bbb896b78d573";
+const FW0048_SHA256: &str = "592d5b4e4c45f3733977a9a068c660dd23f90c877f5df1e0afa960841f1f1e89";
+const SEQUENTIAL_RECORDS: usize = 1097;
+const SEQUENTIAL_COMPRESSED_BYTES: usize = 7_381_296_763;
+const SEQUENTIAL_PHYSICAL_BYTES: usize = 7_388_381_184;
 
 #[derive(Deserialize)]
 struct Manifest {
@@ -86,6 +99,57 @@ struct Codec {
     independent_frames: bool,
 }
 
+#[derive(Deserialize)]
+struct SequentialManifest {
+    schema_version: u32,
+    semantic: String,
+    implementation_commit: String,
+    model: String,
+    revision: String,
+    authorities: SequentialAuthorities,
+    codec: Codec,
+    exact_transform: String,
+    page_bytes: usize,
+    source_bytes_per_expert: usize,
+    fixed_resident_bytes: usize,
+    resident_limit_bytes: usize,
+    compressed_cache_bytes: usize,
+    records: Vec<Record>,
+    transactions: Vec<SequentialTransaction>,
+    source_bytes: usize,
+    compressed_bytes: usize,
+    physical_bytes: usize,
+    container_file: String,
+    container_sha256: String,
+    exact_round_trips: usize,
+    batch_size: usize,
+    concurrency: usize,
+    sampling: String,
+    q: usize,
+    #[serde(rename = "A")]
+    accepted: usize,
+    #[serde(rename = "sum_equivalent_U")]
+    union: f64,
+    performance_claim: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SequentialAuthorities {
+    model_lock_sha256: String,
+    first_endpoint_sha256: String,
+    second_endpoint_sha256: String,
+    first_transaction_sha256: String,
+    second_transaction_sha256: String,
+    fw_0048_receipt_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct SequentialTransaction {
+    ordinal: usize,
+    accepted_tokens: usize,
+    target_rows: Vec<Vec<Vec<String>>>,
+}
+
 #[derive(Clone, Deserialize)]
 struct Record {
     identity: String,
@@ -102,6 +166,7 @@ struct Record {
 struct WorkerResult {
     pread_ns: u128,
     decompression_ns: u128,
+    inverse_shuffle_ns: u128,
     compressed_bytes: usize,
     physical_bytes: usize,
     source_bytes: usize,
@@ -123,6 +188,8 @@ pub struct CompressedOverlapTrial {
     pub maximum_worker_pread_time_ns: u128,
     pub summed_decompression_time_ns: u128,
     pub maximum_worker_decompression_time_ns: u128,
+    pub summed_inverse_shuffle_time_ns: u128,
+    pub maximum_worker_inverse_shuffle_time_ns: u128,
     pub process_disk_bytes_read: u64,
     pub cold_prepare_wall_time_ns: u128,
     pub resident_page_instances_before: u64,
@@ -180,6 +247,63 @@ pub struct ParallelZstdOverlapReport {
     #[serde(rename = "U")]
     pub union: f64,
     pub rolled_back_proposal_rows: usize,
+    pub favorable_grants: Vec<&'static str>,
+    pub host_safety_policy: HostSafetyPolicy,
+    pub host_safety_snapshots: Vec<HostSafetySnapshot>,
+    pub performance_claim: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SequentialShuffleOverlapReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub implementation_commit: String,
+    pub model: &'static str,
+    pub revision: &'static str,
+    pub builder_commit: &'static str,
+    pub manifest_sha256: &'static str,
+    pub container_sha256: &'static str,
+    pub device_name: String,
+    pub codec: &'static str,
+    pub exact_transform: &'static str,
+    pub page_bytes: usize,
+    pub expert_frames: usize,
+    pub first_transaction_frames: usize,
+    pub second_transaction_frames: usize,
+    pub cross_transaction_frames: usize,
+    pub compressed_cache_bytes: usize,
+    pub free_initial_frames: usize,
+    pub free_initial_compressed_bytes: usize,
+    pub miss_frames: usize,
+    pub miss_compressed_bytes: usize,
+    pub miss_physical_bytes: usize,
+    pub miss_source_bytes: usize,
+    pub authority_verification_wall_time_ns: u128,
+    pub exact_round_trips: usize,
+    pub diagnostic_worker_trials: Vec<CompressedOverlapTrial>,
+    pub interleaved_trials: Vec<CompressedOverlapTrial>,
+    pub control_p10_wall_time_ns: u128,
+    pub control_median_wall_time_ns: u128,
+    pub control_p90_wall_time_ns: u128,
+    pub candidate_p10_wall_time_ns: u128,
+    pub candidate_median_wall_time_ns: u128,
+    pub candidate_p90_wall_time_ns: u128,
+    pub accepted_bound_tps: Vec<String>,
+    pub accepted_bound_tps_p10: String,
+    pub accepted_bound_tps_median: String,
+    pub accepted_bound_tps_p90: String,
+    pub metal_warmups: usize,
+    pub metal_executions_per_candidate: usize,
+    pub maximum_phase_scoped_staging_bytes: usize,
+    pub cache_state: &'static str,
+    pub batch_size: usize,
+    pub concurrency: usize,
+    pub sampling: &'static str,
+    pub q: usize,
+    #[serde(rename = "A")]
+    pub accepted: usize,
+    #[serde(rename = "sum_equivalent_U")]
+    pub union: f64,
     pub favorable_grants: Vec<&'static str>,
     pub host_safety_policy: HostSafetyPolicy,
     pub host_safety_snapshots: Vec<HostSafetySnapshot>,
@@ -300,6 +424,126 @@ fn load_manifest(path: &Path, container_path: &Path) -> Result<Manifest, String>
     Ok(manifest)
 }
 
+fn load_sequential_manifest(
+    path: &Path,
+    container_path: &Path,
+) -> Result<SequentialManifest, String> {
+    if sha256_file(path)? != SEQUENTIAL_MANIFEST_SHA256 {
+        return Err("sequential-overlap manifest hash mismatch".to_owned());
+    }
+    let manifest: SequentialManifest =
+        serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed sequential-overlap manifest: {error}"))?;
+    if manifest.schema_version != 1
+        || manifest.semantic
+            != "qwen3_8_flash_next_two_q2_exact_bf16_shuffle_zstd1_page_aligned_expert_container"
+        || manifest.implementation_commit != SEQUENTIAL_BUILDER_COMMIT
+        || manifest.model != MODEL
+        || manifest.revision != REVISION
+        || manifest.authorities.model_lock_sha256 != MODEL_LOCK_SHA256
+        || manifest.authorities.first_endpoint_sha256 != ENDPOINT_SHA256
+        || manifest.authorities.second_endpoint_sha256 != SECOND_ENDPOINT_SHA256
+        || manifest.authorities.first_transaction_sha256 != TRANSACTION_SHA256
+        || manifest.authorities.second_transaction_sha256 != SECOND_TRANSACTION_SHA256
+        || manifest.authorities.fw_0048_receipt_sha256 != FW0048_SHA256
+        || manifest.codec.name != "zstandard"
+        || manifest.codec.python_package_version != "0.25.0"
+        || manifest.codec.level != 1
+        || !manifest.codec.frame_content_size
+        || !manifest.codec.independent_frames
+        || manifest.exact_transform != "bf16_even_bytes_then_odd_bytes_per_expert"
+        || manifest.page_bytes != PAGE_BYTES
+        || manifest.source_bytes_per_expert != EXPERT_BYTES
+        || manifest.fixed_resident_bytes != 8_623_999_000
+        || manifest.resident_limit_bytes != 12 * 1024usize.pow(3)
+        || manifest.compressed_cache_bytes != CACHE_BYTES
+        || manifest.records.len() != SEQUENTIAL_RECORDS
+        || manifest.source_bytes != SEQUENTIAL_RECORDS * EXPERT_BYTES
+        || manifest.compressed_bytes != SEQUENTIAL_COMPRESSED_BYTES
+        || manifest.physical_bytes != SEQUENTIAL_PHYSICAL_BYTES
+        || manifest.container_file != "q2-sequential-bf16-shuffle-zstd1.fwz"
+        || manifest.container_sha256 != SEQUENTIAL_CONTAINER_SHA256
+        || manifest.exact_round_trips != SEQUENTIAL_RECORDS
+        || manifest.batch_size != 1
+        || manifest.concurrency != 1
+        || manifest.sampling != "greedy"
+        || manifest.q != 2
+        || manifest.accepted != 4
+        || manifest.union != (697.0 + 741.0) / 480.0
+        || manifest.performance_claim.is_some()
+        || fs::metadata(container_path)
+            .map_err(|error| error.to_string())?
+            .len()
+            != SEQUENTIAL_PHYSICAL_BYTES as u64
+        || sha256_file(container_path)? != SEQUENTIAL_CONTAINER_SHA256
+    {
+        return Err("sequential-overlap manifest identity mismatch".to_owned());
+    }
+    let mut expected_offset = 0_u64;
+    let mut identities = BTreeSet::new();
+    for record in &manifest.records {
+        if record.identity != format!("{}:{}", record.layer, record.expert)
+            || record.layer >= LAYERS
+            || record.expert >= 512
+            || record.offset != expected_offset
+            || record.offset % PAGE_BYTES as u64 != 0
+            || record.compressed_bytes == 0
+            || record.physical_bytes < record.compressed_bytes
+            || record.physical_bytes % PAGE_BYTES != 0
+            || !is_hash(&record.frame_sha256)
+            || !is_hash(&record.source_sha256)
+            || !identities.insert(record.identity.clone())
+        {
+            return Err("sequential-overlap record layout mismatch".to_owned());
+        }
+        expected_offset = expected_offset
+            .checked_add(record.physical_bytes as u64)
+            .ok_or_else(|| "sequential-overlap offset overflow".to_owned())?;
+    }
+    if expected_offset != SEQUENTIAL_PHYSICAL_BYTES as u64 || manifest.transactions.len() != 2 {
+        return Err("sequential-overlap transaction layout mismatch".to_owned());
+    }
+    let mut transaction_sets = Vec::new();
+    for (ordinal, transaction) in manifest.transactions.iter().enumerate() {
+        if transaction.ordinal != ordinal
+            || transaction.accepted_tokens != 2
+            || transaction.target_rows.len() != 2
+            || transaction
+                .target_rows
+                .iter()
+                .any(|row| row.len() != LAYERS || row.iter().any(|event| event.len() != TOP_K))
+        {
+            return Err("sequential-overlap target-row shape mismatch".to_owned());
+        }
+        let set = transaction
+            .target_rows
+            .iter()
+            .flatten()
+            .flatten()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if set.iter().any(|identity| !identities.contains(identity)) {
+            return Err("sequential-overlap unknown route identity".to_owned());
+        }
+        transaction_sets.push(set);
+    }
+    if transaction_sets[0].len() != 687
+        || transaction_sets[1].len() != 731
+        || transaction_sets[0]
+            .intersection(&transaction_sets[1])
+            .count()
+            != 321
+        || transaction_sets[0]
+            .union(&transaction_sets[1])
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            != identities
+    {
+        return Err("sequential-overlap route union mismatch".to_owned());
+    }
+    Ok(manifest)
+}
+
 fn verify_frames(container: &File, records: &[Record]) -> Result<(), String> {
     let maximum = records
         .iter()
@@ -328,6 +572,94 @@ fn verify_frames(container: &File, records: &[Record]) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn verify_transformed_frames(container: &File, records: &[Record]) -> Result<(), String> {
+    let maximum = records
+        .iter()
+        .map(|record| record.compressed_bytes)
+        .max()
+        .unwrap_or(1);
+    let mut encoded = vec![0_u8; maximum];
+    let mut shuffled = vec![0_u8; EXPERT_BYTES];
+    let mut source = vec![0_u8; EXPERT_BYTES];
+    let mut decompressor = zstd::bulk::Decompressor::new().map_err(|error| error.to_string())?;
+    for record in records {
+        let frame = &mut encoded[..record.compressed_bytes];
+        read_exact_at(container, frame, record.offset)?;
+        if format!("{:x}", Sha256::digest(&*frame)) != record.frame_sha256 {
+            return Err(format!(
+                "sequential compressed frame hash mismatch: {}",
+                record.identity
+            ));
+        }
+        let count = decompressor
+            .decompress_to_buffer(frame, &mut shuffled)
+            .map_err(|error| error.to_string())?;
+        if count != EXPERT_BYTES {
+            return Err(format!(
+                "sequential decoded byte mismatch: {}",
+                record.identity
+            ));
+        }
+        unshuffle_bf16(&shuffled, &mut source)?;
+        if format!("{:x}", Sha256::digest(&source)) != record.source_sha256 {
+            return Err(format!(
+                "sequential reconstructed source mismatch: {}",
+                record.identity
+            ));
+        }
+    }
+    Ok(())
+}
+
+struct SequentialSchedule {
+    misses: Vec<Record>,
+    initial_count: usize,
+    initial_bytes: usize,
+}
+
+fn build_sequential_schedule(manifest: &SequentialManifest) -> Result<SequentialSchedule, String> {
+    let mut candidates = manifest.records.iter().collect::<Vec<_>>();
+    candidates.sort_by_key(|record| {
+        (
+            std::cmp::Reverse(record.compressed_bytes),
+            record.identity.clone(),
+        )
+    });
+    let mut initial = BTreeSet::new();
+    let mut initial_bytes = 0_usize;
+    for record in candidates {
+        if initial_bytes + record.compressed_bytes <= CACHE_BYTES {
+            initial.insert(record.identity.clone());
+            initial_bytes += record.compressed_bytes;
+        }
+    }
+    let misses = manifest
+        .records
+        .iter()
+        .filter(|record| !initial.contains(&record.identity))
+        .cloned()
+        .collect::<Vec<_>>();
+    if initial.is_empty()
+        || misses.is_empty()
+        || initial_bytes > CACHE_BYTES
+        || CACHE_BYTES - initial_bytes
+            >= manifest
+                .records
+                .iter()
+                .filter(|record| !initial.contains(&record.identity))
+                .map(|record| record.compressed_bytes)
+                .min()
+                .unwrap_or(usize::MAX)
+    {
+        return Err("sequential-overlap initial cache selection mismatch".to_owned());
+    }
+    Ok(SequentialSchedule {
+        misses,
+        initial_count: initial.len(),
+        initial_bytes,
+    })
 }
 
 struct Schedule {
@@ -437,12 +769,27 @@ fn cold_prepare(file: &File, plans: &[AlignedReadPlan]) -> Result<(u128, u64, u6
     Ok((elapsed, before, after))
 }
 
+fn unshuffle_bf16(shuffled: &[u8], source: &mut [u8]) -> Result<(), String> {
+    if shuffled.len() != source.len() || !shuffled.len().is_multiple_of(2) {
+        return Err("compressed-overlap invalid BF16 shuffle buffers".to_owned());
+    }
+    let half = shuffled.len() / 2;
+    for index in 0..half {
+        source[index * 2] = shuffled[index];
+        source[index * 2 + 1] = shuffled[half + index];
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 fn run_trial(
     container_path: &Path,
     misses: &[Record],
     workers: usize,
     sample_ordinal: usize,
     overlap: bool,
+    inverse_shuffle: bool,
+    metal_executions: usize,
     runner: &ExactResidentTop10Runner,
 ) -> Result<CompressedOverlapTrial, String> {
     if workers == 0 || workers > WORKERS {
@@ -488,6 +835,7 @@ fn run_trial(
                         .unwrap_or(1);
                     let mut encoded = AlignedBuffer::new(capacity, PAGE_BYTES)?;
                     let mut decoded = vec![0_u8; EXPERT_BYTES];
+                    let mut reconstructed = vec![0_u8; EXPERT_BYTES];
                     let mut decompressor =
                         zstd::bulk::Decompressor::new().map_err(|error| error.to_string())?;
                     ready.wait();
@@ -513,7 +861,14 @@ fn run_trial(
                         if count != EXPERT_BYTES {
                             return Err("compressed-overlap decoded byte mismatch".to_owned());
                         }
-                        std::hint::black_box(&decoded[..count]);
+                        if inverse_shuffle {
+                            let shuffle_started = Instant::now();
+                            unshuffle_bf16(&decoded[..count], &mut reconstructed)?;
+                            result.inverse_shuffle_ns += shuffle_started.elapsed().as_nanos();
+                            std::hint::black_box(&reconstructed[..count]);
+                        } else {
+                            std::hint::black_box(&decoded[..count]);
+                        }
                         result.compressed_bytes += record.compressed_bytes;
                         result.physical_bytes += plan.physical_bytes;
                         result.source_bytes += count;
@@ -528,7 +883,7 @@ fn run_trial(
             start.wait();
             let compute_wall_time_ns = if overlap {
                 let compute_started = Instant::now();
-                for _ in 0..LAYERS * 2 {
+                for _ in 0..metal_executions {
                     runner.execute_exact()?;
                 }
                 Some(compute_started.elapsed().as_nanos())
@@ -569,8 +924,12 @@ fn run_trial(
         return Err("compressed-overlap timed ledger mismatch".to_owned());
     }
     Ok(CompressedOverlapTrial {
-        mode: if overlap {
+        mode: if overlap && inverse_shuffle {
+            "parallel_storage_decode_inverse_shuffle_exact_metal_overlap"
+        } else if overlap {
             "parallel_storage_decode_exact_metal_overlap"
+        } else if inverse_shuffle {
+            "parallel_storage_decode_inverse_shuffle_control"
         } else {
             "parallel_storage_decode_control"
         },
@@ -592,6 +951,15 @@ fn run_trial(
         maximum_worker_decompression_time_ns: results
             .iter()
             .map(|result| result.decompression_ns)
+            .max()
+            .unwrap_or(0),
+        summed_inverse_shuffle_time_ns: results
+            .iter()
+            .map(|result| result.inverse_shuffle_ns)
+            .sum(),
+        maximum_worker_inverse_shuffle_time_ns: results
+            .iter()
+            .map(|result| result.inverse_shuffle_ns)
             .max()
             .unwrap_or(0),
         process_disk_bytes_read: disk_bytes,
@@ -653,6 +1021,8 @@ pub fn benchmark_parallel_zstd_overlap(
             workers,
             0,
             false,
+            false,
+            LAYERS * 2,
             &runner,
         )?);
         safety.checkpoint(&format!("diagnostic_workers_{workers}_complete"), false)?;
@@ -677,6 +1047,8 @@ pub fn benchmark_parallel_zstd_overlap(
             WORKERS,
             ordinal,
             overlap,
+            false,
+            LAYERS * 2,
             &runner,
         )?);
     }
@@ -773,6 +1145,195 @@ pub fn benchmark_parallel_zstd_overlap(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_sequential_shuffle_overlap(
+    checkpoint_dir: &Path,
+    mixture_fixture_path: &Path,
+    kernel_path: &Path,
+    manifest_path: &Path,
+    container_path: &Path,
+    implementation_commit: &str,
+) -> Result<SequentialShuffleOverlapReport, String> {
+    if implementation_commit.len() != 40
+        || !implementation_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
+    }
+    let mut safety = HostSafetyMonitor::start_normative(vec![PersistentResidencyDeclaration {
+        object: "exact_layer0_top10_bf16_metal_contention_probe".to_owned(),
+        maximum_bytes: 98_398_736,
+        lifetime: "sequential_shuffle_overlap_measurement_series".to_owned(),
+        eviction_order: 1,
+    }])?;
+    let authority_started = Instant::now();
+    let manifest = load_sequential_manifest(manifest_path, container_path)?;
+    let container = File::open(container_path).map_err(|error| error.to_string())?;
+    verify_transformed_frames(&container, &manifest.records)?;
+    drop(container);
+    let schedule = build_sequential_schedule(&manifest)?;
+    let authority_verification_wall_time_ns = authority_started.elapsed().as_nanos();
+    safety.checkpoint("authority_complete", true)?;
+
+    let runner =
+        ExactResidentTop10Runner::install(checkpoint_dir, mixture_fixture_path, kernel_path)?;
+    for _ in 0..3 {
+        runner.execute_exact()?;
+    }
+    safety.checkpoint("metal_warmups_complete", false)?;
+
+    let metal_executions = LAYERS * 4;
+    let mut diagnostic_worker_trials = Vec::new();
+    for workers in [1, 2, 4] {
+        diagnostic_worker_trials.push(run_trial(
+            container_path,
+            &schedule.misses,
+            workers,
+            0,
+            false,
+            true,
+            metal_executions,
+            &runner,
+        )?);
+        safety.checkpoint(&format!("diagnostic_workers_{workers}_complete"), false)?;
+    }
+    let order = [false, true, true, false, false, true];
+    let mut controls = 0;
+    let mut candidates = 0;
+    let mut interleaved_trials = Vec::with_capacity(order.len());
+    for overlap in order {
+        let ordinal = if overlap {
+            let value = candidates;
+            candidates += 1;
+            value
+        } else {
+            let value = controls;
+            controls += 1;
+            value
+        };
+        interleaved_trials.push(run_trial(
+            container_path,
+            &schedule.misses,
+            WORKERS,
+            ordinal,
+            overlap,
+            true,
+            metal_executions,
+            &runner,
+        )?);
+    }
+    safety.checkpoint("interleaved_trials_complete", false)?;
+    let control = interleaved_trials
+        .iter()
+        .filter(|trial| trial.mode == "parallel_storage_decode_inverse_shuffle_control")
+        .map(|trial| trial.complete_wall_time_ns)
+        .collect::<Vec<_>>();
+    let candidate = interleaved_trials
+        .iter()
+        .filter(|trial| trial.mode == "parallel_storage_decode_inverse_shuffle_exact_metal_overlap")
+        .map(|trial| trial.complete_wall_time_ns)
+        .collect::<Vec<_>>();
+    if control.len() != SAMPLES || candidate.len() != SAMPLES {
+        return Err("sequential-overlap sample ledger mismatch".to_owned());
+    }
+    let accepted_tps = candidate
+        .iter()
+        .map(|wall| 4_000_000_000_f64 / *wall as f64)
+        .collect::<Vec<_>>();
+    let mut ordered_tps = accepted_tps.clone();
+    ordered_tps.sort_by(f64::total_cmp);
+    let format_tps = |value: f64| format!("{value:.6}");
+    let first = manifest.transactions[0]
+        .target_rows
+        .iter()
+        .flatten()
+        .flatten()
+        .collect::<BTreeSet<_>>();
+    let second = manifest.transactions[1]
+        .target_rows
+        .iter()
+        .flatten()
+        .flatten()
+        .collect::<BTreeSet<_>>();
+    let maximum_physical = schedule
+        .misses
+        .iter()
+        .map(|record| record.physical_bytes)
+        .max()
+        .unwrap_or(0);
+    let device_name = runner.device_name().to_owned();
+    drop(runner);
+    let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
+    Ok(SequentialShuffleOverlapReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_two_q2_exact_bf16_shuffle_zstd1_parallel_physical_metal_overlap_favorable_bound",
+        implementation_commit: implementation_commit.to_owned(),
+        model: MODEL,
+        revision: REVISION,
+        builder_commit: SEQUENTIAL_BUILDER_COMMIT,
+        manifest_sha256: SEQUENTIAL_MANIFEST_SHA256,
+        container_sha256: SEQUENTIAL_CONTAINER_SHA256,
+        device_name,
+        codec: "zstd_0.13.3_bulk_decompressor_independent_frames",
+        exact_transform: "bf16_even_bytes_then_odd_bytes_per_expert",
+        page_bytes: PAGE_BYTES,
+        expert_frames: SEQUENTIAL_RECORDS,
+        first_transaction_frames: first.len(),
+        second_transaction_frames: second.len(),
+        cross_transaction_frames: first.intersection(&second).count(),
+        compressed_cache_bytes: CACHE_BYTES,
+        free_initial_frames: schedule.initial_count,
+        free_initial_compressed_bytes: schedule.initial_bytes,
+        miss_frames: schedule.misses.len(),
+        miss_compressed_bytes: schedule
+            .misses
+            .iter()
+            .map(|record| record.compressed_bytes)
+            .sum(),
+        miss_physical_bytes: schedule
+            .misses
+            .iter()
+            .map(|record| record.physical_bytes)
+            .sum(),
+        miss_source_bytes: schedule.misses.len() * EXPERT_BYTES,
+        authority_verification_wall_time_ns,
+        exact_round_trips: SEQUENTIAL_RECORDS,
+        diagnostic_worker_trials,
+        interleaved_trials,
+        control_p10_wall_time_ns: quantile(&control, 1, 10),
+        control_median_wall_time_ns: quantile(&control, 1, 2),
+        control_p90_wall_time_ns: quantile(&control, 9, 10),
+        candidate_p10_wall_time_ns: quantile(&candidate, 1, 10),
+        candidate_median_wall_time_ns: quantile(&candidate, 1, 2),
+        candidate_p90_wall_time_ns: quantile(&candidate, 9, 10),
+        accepted_bound_tps: accepted_tps.into_iter().map(format_tps).collect(),
+        accepted_bound_tps_p10: format_tps(ordered_tps[0]),
+        accepted_bound_tps_median: format_tps(ordered_tps[1]),
+        accepted_bound_tps_p90: format_tps(ordered_tps[2]),
+        metal_warmups: 3,
+        metal_executions_per_candidate: metal_executions,
+        maximum_phase_scoped_staging_bytes: WORKERS * (maximum_physical + 2 * EXPERT_BYTES),
+        cache_state: "range_invalidated_page_aligned_f_nocache_f_rdahead_zero_into_preallocated_parallel_zstd_and_inverse_shuffle_buffers",
+        batch_size: 1,
+        concurrency: 1,
+        sampling: "greedy",
+        q: 2,
+        accepted: 4,
+        union: (697.0 + 741.0) / 480.0,
+        favorable_grants: vec![
+            "the complete two-transaction future is known and the largest fitting whole compressed frames are installed into cache for free",
+            "every distinct frame outside the free initial cache is loaded exactly once without causal layer dependencies or eviction",
+            "cache metadata and all cache-hit traffic are free",
+            "the exact layer-0 top10 Metal workload stands in for all 192 target layer-row executions",
+            "MTP fixed endpoint work attention shared experts routing ngram sampling rollback and synchronization are free",
+        ],
+        host_safety_policy,
+        host_safety_snapshots,
+        performance_claim: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -782,6 +1343,14 @@ mod tests {
         assert_eq!(quantile(&[30, 10, 20], 1, 10), 10);
         assert_eq!(quantile(&[30, 10, 20], 1, 2), 20);
         assert_eq!(quantile(&[30, 10, 20], 9, 10), 30);
+    }
+
+    #[test]
+    fn bf16_inverse_shuffle_restores_source_bytes() {
+        let mut source = [0_u8; 8];
+        unshuffle_bf16(&[1, 3, 5, 7, 2, 4, 6, 8], &mut source).unwrap();
+        assert_eq!(source, [1, 2, 3, 4, 5, 6, 7, 8]);
+        assert!(unshuffle_bf16(&[1, 2], &mut [0_u8; 4]).is_err());
     }
 
     #[test]

@@ -299,6 +299,17 @@ target/release/firewing bench-parallel-zstd-overlap \
   /Users/chad/Models/firewing/evidence/FW-0046/q2-zstd1.fwz \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Exact page-aligned two-transaction BF16-shuffle/zstd physical overlap bound
+# (not endpoint TPS)
+target/release/firewing bench-sequential-shuffle-overlap \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  kernels/bf16_gemv.metal \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1-manifest-6271f3d.json \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1.fwz \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

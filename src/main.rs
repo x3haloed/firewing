@@ -2,14 +2,14 @@ use firewing::{
     benchmark_catalog_token_text_endpoint, benchmark_checkpoint_catalog,
     benchmark_exact_overlap_bound, benchmark_expert_acquisition, benchmark_metal_bf16_gemv,
     benchmark_metal_top10_moe, benchmark_ngram_transport, benchmark_parallel_zstd_overlap,
-    benchmark_q2_exact_overlap_bound, verify_accumulated_layer2_fixture,
-    verify_accumulated_layer3_fixture, verify_accumulated_layers01_fixture,
-    verify_accumulated_layers4_through47_fixture, verify_attention_residual_fixture,
-    verify_decoder_layer_fixture, verify_decoder_layer1_fixture, verify_decoder_layer3_fixture,
-    verify_deltanet_fixture, verify_expert_fixture, verify_full_attention_fixture,
-    verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
-    verify_mixture_fixture, verify_mtp_causal_prefill_fixture, verify_mtp_input_fusion_fixture,
-    verify_mtp_proposal_fixture, verify_mtp_recursive_fixture,
+    benchmark_q2_exact_overlap_bound, benchmark_sequential_shuffle_overlap,
+    verify_accumulated_layer2_fixture, verify_accumulated_layer3_fixture,
+    verify_accumulated_layers01_fixture, verify_accumulated_layers4_through47_fixture,
+    verify_attention_residual_fixture, verify_decoder_layer_fixture, verify_decoder_layer1_fixture,
+    verify_decoder_layer3_fixture, verify_deltanet_fixture, verify_expert_fixture,
+    verify_full_attention_fixture, verify_full_attention_residual_fixture,
+    verify_hyper_connection_fixture, verify_mixture_fixture, verify_mtp_causal_prefill_fixture,
+    verify_mtp_input_fusion_fixture, verify_mtp_proposal_fixture, verify_mtp_recursive_fixture,
     verify_mtp_recursive_transaction_fixture, verify_mtp_transaction_fixture, verify_ngram_fixture,
     verify_ngram_rows, verify_ple_attention_residual_fixture, verify_ple_fixture,
     verify_router_fixture, verify_sparse_moe_fixture, verify_text_output_fixture,
@@ -71,6 +71,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing bench-parallel-zstd-overlap CHECKPOINT_DIR MIXTURE_FIXTURE KERNEL_METAL MANIFEST_JSON CONTAINER IMPLEMENTATION_COMMIT [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing bench-sequential-shuffle-overlap CHECKPOINT_DIR MIXTURE_FIXTURE KERNEL_METAL MANIFEST_JSON CONTAINER IMPLEMENTATION_COMMIT [REPORT_JSON]"
     );
     eprintln!(
         "  firewing bench-checkpoint-catalog CHECKPOINT_DIR MODEL_LOCK IDENTITY_MANIFEST IDENTITY_SHA256 ROUTER_FIXTURE EXPERT_FIXTURE IMPLEMENTATION_COMMIT [REPORT_JSON]"
@@ -551,6 +554,18 @@ fn main() {
         ),
         Some("bench-parallel-zstd-overlap") if (8..=9).contains(&args.len()) => (
             benchmark_parallel_zstd_overlap(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                &args[7],
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(8),
+        ),
+        Some("bench-sequential-shuffle-overlap") if (8..=9).contains(&args.len()) => (
+            benchmark_sequential_shuffle_overlap(
                 Path::new(&args[2]),
                 Path::new(&args[3]),
                 Path::new(&args[4]),
