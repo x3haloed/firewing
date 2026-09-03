@@ -1,7 +1,7 @@
 # FW-0015 - Real Gated DeltaNet cached decode
 
-- Status: planned
-- Disposition: unexecuted
+- Status: in progress
+- Disposition: partial parity; cached recurrent reduction unresolved
 - Date: 2026-09-03
 - Parent experiments: FW-0001, FW-0014
 - Exactness: L0 bit-identical component semantics
@@ -84,8 +84,34 @@ full-attention/QSA layers, complete decoder parity, endpoint behavior, and TPS.
 
 ## Result
 
-Pending execution.
+The native verifier now validates all nine real tensor identities and payloads.
+For step 0 it reproduces all 20 captures exactly, including projection,
+depthwise convolution and state, SLEEF-based decay, repeated and normalized
+Q/K, padded chunk attention, the 3 MiB F32 recurrent state, configured sigmoid
+gating, and the final output projection.
+
+Failed localization attempts were preserved as observations rather than
+reported results:
+
+- scalar Rust `exp`/`log1p` first failed at step-0 decay;
+- Accelerate `vvexpf`/`vvlog1pf` also failed there, with 24 of 48 decay lanes
+  differing from the PyTorch/SLEEF result;
+- SLEEF 3.9.0 matched the frozen SLEEF-3.8-derived decay capture exactly;
+- ATen cascade reduction plus the two BF16-rounded `sqrt`/reciprocal operations
+  resolved Q/K normalization;
+- reproducing the actual 64-by-128 padded Accelerate SGEMM resolved two
+  low-bit-sensitive chunk-attention outputs;
+- the configured output gate is sigmoid, not the model's hidden SiLU
+  activation; correcting that resolved gated normalization and step-0 output;
+- step 1 currently fails closed at `recurrent_state`. Its retention vector and
+  decayed incoming state match exactly, while the strided F32 memory reduction
+  does not. Regenerating with `OMP_NUM_THREADS=1` produced the identical full
+  fixture, excluding thread partitioning as the cause.
+
+No report artifact is emitted on failure. Accepted tokens and TPS remain zero.
 
 ## Decision
 
-Pending. No performance default follows from component parity.
+Continue by reproducing the cached path's strided F32 outer reduction exactly.
+Step-0 parity is a useful implementation milestone, but FW-0015 remains open
+and no performance default follows from it.

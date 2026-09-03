@@ -90,6 +90,7 @@ n-gram addressing slice are reproducible with:
 ```shell
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-reference.txt
+brew install sleef
 .venv/bin/python tools/generate_tokenizer_fixtures.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --output fixtures/tokenizer/qwen3_8_flash_next.json
@@ -144,6 +145,11 @@ cargo run --release -- verify-sparse-moe \
   fixtures/mixture/qwen3_8_flash_next_real.json \
   fixtures/sparse_moe/qwen3_8_flash_next_layer0.json
 ```
+
+The native DeltaNet verifier currently targets Apple silicon and requires
+SLEEF for bit-identical transcendental functions. `build.rs` discovers the
+Homebrew prefix at `/opt/homebrew/opt/sleef`; set `SLEEF_ROOT` when using a
+different installation prefix.
 
 Transformers is a fixture authority, not the qualifying runtime. The native
 implementation remains responsible for every Qwen4-Exp semantic and all final

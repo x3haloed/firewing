@@ -498,7 +498,7 @@ fn read_tensor_2d(
 // PyTorch's aarch64 BF16 GEMV fast path uses eight four-lane F32 vector
 // accumulators over 32-value blocks, followed by a fixed reduction tree. This
 // is deliberately not a conventional forward scalar sum.
-fn pytorch_bf16_vector_dot(left: &[u16], right: &[u16]) -> f32 {
+pub(crate) fn pytorch_bf16_vector_dot(left: &[u16], right: &[u16]) -> f32 {
     debug_assert_eq!(left.len(), right.len());
     let mut accumulators = [[0.0_f32; 4]; 8];
     let complete_blocks = left.len() / 32 * 32;

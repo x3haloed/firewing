@@ -1,7 +1,8 @@
 use firewing::{
-    benchmark_expert_acquisition, benchmark_ngram_transport, verify_expert_fixture,
-    verify_hyper_connection_fixture, verify_mixture_fixture, verify_ngram_fixture,
-    verify_ngram_rows, verify_router_fixture, verify_sparse_moe_fixture, verify_tokenizer_fixture,
+    benchmark_expert_acquisition, benchmark_ngram_transport, verify_deltanet_fixture,
+    verify_expert_fixture, verify_hyper_connection_fixture, verify_mixture_fixture,
+    verify_ngram_fixture, verify_ngram_rows, verify_router_fixture, verify_sparse_moe_fixture,
+    verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -9,7 +10,7 @@ use std::path::Path;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]\n  firewing bench-expert-acquisition CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON COMMIT [REPORT_JSON]\n  firewing verify-router CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-expert CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE [REPORT_JSON]\n  firewing verify-mixture CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE [REPORT_JSON]\n  firewing verify-sparse-moe CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE SPARSE_MOE_FIXTURE [REPORT_JSON]\n  firewing verify-hyper-connection CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]"
+        "usage:\n  firewing verify-tokenizer CHECKPOINT_DIR FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-ngram-rows CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE [REPORT_JSON]\n  firewing bench-ngram-transport CHECKPOINT_DIR MODEL_LOCK ADDRESS_FIXTURE ROW_FIXTURE COMMIT [REPORT_JSON]\n  firewing bench-expert-acquisition CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON COMMIT [REPORT_JSON]\n  firewing verify-router CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-expert CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE [REPORT_JSON]\n  firewing verify-mixture CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE [REPORT_JSON]\n  firewing verify-sparse-moe CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE MIXTURE_FIXTURE SPARSE_MOE_FIXTURE [REPORT_JSON]\n  firewing verify-hyper-connection CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]\n  firewing verify-deltanet CHECKPOINT_DIR MODEL_LOCK FIXTURE_JSON [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -73,6 +74,15 @@ fn main() {
         ),
         Some("verify-hyper-connection") if (5..=6).contains(&args.len()) => (
             verify_hyper_connection_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(5),
+        ),
+        Some("verify-deltanet") if (5..=6).contains(&args.len()) => (
+            verify_deltanet_fixture(
                 Path::new(&args[2]),
                 Path::new(&args[3]),
                 Path::new(&args[4]),
