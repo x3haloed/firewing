@@ -531,6 +531,13 @@ runtime passing every target gate, including reproducible batch-one decode at
   1%/2% gates. Keep this mode explicitly modified. Calibrated, outlier-aware,
   smaller-block, INT8, or recovered forms remain distinct experiments. See
   [`experiments/FW-0057-modified-block-fp8-weight-fidelity.md`](experiments/FW-0057-modified-block-fp8-weight-fidelity.md).
+- FW-0058 rejects naïve symmetric block-128 INT8 before kernel work. It improves
+  the same favorable real layer-0 screen to 2.1704% mixture and 3.0226%
+  worst-expert relative L2, but still misses the frozen 1%/2% gates while using
+  0.500122 of source bytes. Do not spend deeper-fixture or kernel effort on this
+  exact form. Smaller blocks, channelwise scales, outlier preservation,
+  calibrated clipping, or recovery are separate modified experiments. See
+  [`experiments/FW-0058-modified-block-int8-weight-fidelity.md`](experiments/FW-0058-modified-block-int8-weight-fidelity.md).
 
 ## Prediction errors
 
@@ -565,9 +572,10 @@ These unresolved distinctions can still change the next decision:
   impossible-favorable bandwidth and on-chip reuse grants. Causal policy is no
   longer the next question for that representation. Exact compressed-weight
   execution, stronger exact coding, production route distribution, and full
-  endpoint work remain unresolved. FW-0057 separately rejects naive block-128
-  E4M3 weights as a modified escape hatch on the first real-mixture fidelity
-  rung; other calibrated or recovered compact formats remain unresolved.
+  endpoint work remain unresolved. FW-0057 and FW-0058 separately reject naive
+  block-128 E4M3 and symmetric INT8 weights as modified escape hatches on the
+  first real-mixture fidelity rung; more capable calibrated, outlier-aware, or
+  recovered compact formats remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
