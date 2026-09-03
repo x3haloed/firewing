@@ -163,6 +163,9 @@ pub struct NGramTransportTrial {
     pub widened_bytes: usize,
     pub pread_calls: usize,
     pub process_disk_bytes_read: u64,
+    pub cold_prepare_ms: f64,
+    pub resident_page_instances_before: Option<u64>,
+    pub resident_page_instances_after: Option<u64>,
     pub stream_sha256: String,
 }
 
@@ -1002,6 +1005,67 @@ fn set_uncached(_file: &File) -> Result<(), String> {
     Err("Darwin F_NOCACHE transport is required".to_owned())
 }
 
+fn invalidate_plan(file: &File, plan: AlignedReadPlan) -> Result<(), String> {
+    // SAFETY: the plan is page-aligned, bounded by the verified file size, and
+    // the file remains live for the mapping.
+    let mapping = unsafe {
+        memmap2::MmapOptions::new()
+            .offset(plan.physical_offset)
+            .len(plan.physical_bytes)
+            .map(file)
+    }
+    .map_err(|error| format!("cold-range mmap failed: {error}"))?;
+    // SAFETY: this is a live immutable file mapping; both calls only discard
+    // clean cached pages and preserve the authoritative backing file.
+    if unsafe {
+        libc::msync(
+            mapping.as_ptr().cast_mut().cast(),
+            mapping.len(),
+            libc::MS_INVALIDATE,
+        )
+    } != 0
+    {
+        return Err(format!(
+            "cold-range MS_INVALIDATE failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    if unsafe {
+        libc::madvise(
+            mapping.as_ptr().cast_mut().cast(),
+            mapping.len(),
+            libc::MADV_DONTNEED,
+        )
+    } != 0
+    {
+        return Err(format!(
+            "cold-range MADV_DONTNEED failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+fn resident_pages(file: &File, plan: AlignedReadPlan, page_bytes: usize) -> Result<u64, String> {
+    // SAFETY: the plan is page-aligned, bounded, and the file remains live.
+    let mapping = unsafe {
+        memmap2::MmapOptions::new()
+            .offset(plan.physical_offset)
+            .len(plan.physical_bytes)
+            .map(file)
+    }
+    .map_err(|error| format!("residency-probe mmap failed: {error}"))?;
+    let mut vector = vec![0_i8; mapping.len().div_ceil(page_bytes)];
+    // SAFETY: vector has one byte per mapped VM page and mapping is live.
+    if unsafe { libc::mincore(mapping.as_ptr().cast(), mapping.len(), vector.as_mut_ptr()) } != 0 {
+        return Err(format!(
+            "source-page mincore failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(vector.iter().filter(|state| (**state & 1) != 0).count() as u64)
+}
+
 fn quantile_f64(values: &[f64], fraction: f64) -> f64 {
     let mut ordered = values.to_vec();
     ordered.sort_by(f64::total_cmp);
@@ -1028,9 +1092,6 @@ fn run_transport_trial(
             let path = checkpoint_dir.join(&request.shard);
             let file = File::open(&path)
                 .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
-            if uncached {
-                set_uncached(&file)?;
-            }
             handles.insert(request.shard.clone(), file);
         }
     }
@@ -1057,6 +1118,33 @@ fn run_transport_trial(
         .unwrap_or(row_bytes);
     let mut aligned_buffer = AlignedBuffer::new(maximum_widened, page_bytes)?;
     let mut exact_buffer = vec![0_u8; row_bytes];
+    let (cold_prepare_ms, resident_before, resident_after) = if uncached {
+        let count_resident = || {
+            requests
+                .iter()
+                .zip(&plans)
+                .try_fold(0_u64, |total, (request, plan)| {
+                    resident_pages(&handles[&request.shard], *plan, page_bytes).and_then(|count| {
+                        total
+                            .checked_add(count)
+                            .ok_or_else(|| "resident page count overflow".to_owned())
+                    })
+                })
+        };
+        let before = count_resident()?;
+        let prepare_started = Instant::now();
+        for (request, plan) in requests.iter().zip(&plans) {
+            invalidate_plan(&handles[&request.shard], *plan)?;
+        }
+        let elapsed = prepare_started.elapsed().as_secs_f64() * 1000.0;
+        let after = count_resident()?;
+        for file in handles.values() {
+            set_uncached(file)?;
+        }
+        (elapsed, Some(before), Some(after))
+    } else {
+        (0.0, None, None)
+    };
     let disk_before = process_disk_bytes_read()?;
     let started = Instant::now();
     let mut stream_digest = Sha256::new();
@@ -1091,7 +1179,7 @@ fn run_transport_trial(
         .ok_or_else(|| "process disk byte counter moved backwards".to_owned())?;
     Ok(NGramTransportTrial {
         transport: if uncached {
-            "page_aligned_f_nocache_f_rdahead_zero"
+            "range_invalidated_page_aligned_f_nocache_f_rdahead_zero"
         } else {
             "cacheable_exact_pread"
         },
@@ -1105,6 +1193,9 @@ fn run_transport_trial(
         },
         pread_calls: requests.len(),
         process_disk_bytes_read,
+        cold_prepare_ms,
+        resident_page_instances_before: resident_before,
+        resident_page_instances_after: resident_after,
         stream_sha256: format!("{:x}", stream_digest.finalize()),
     })
 }
@@ -1203,7 +1294,7 @@ pub fn benchmark_ngram_transport(
     let mut summaries = Vec::new();
     for transport in [
         "cacheable_exact_pread",
-        "page_aligned_f_nocache_f_rdahead_zero",
+        "range_invalidated_page_aligned_f_nocache_f_rdahead_zero",
     ] {
         let matching: Vec<_> = trials
             .iter()
@@ -1227,7 +1318,7 @@ pub fn benchmark_ngram_transport(
     }
     Ok(NGramTransportBenchmarkReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_ngram_sparse_transport_diagnostic",
+        semantic: "qwen3_8_flash_next_ngram_range_invalidated_transport_diagnostic",
         model: rows.model,
         revision: rows.revision,
         commit: commit.to_owned(),
@@ -1238,7 +1329,7 @@ pub fn benchmark_ngram_transport(
         rows_per_trial: requests.len(),
         warmups_per_transport: WARMUPS,
         measurements_per_transport: MEASUREMENTS,
-        initial_cache_state: "cache-influenced after identity verification; F_NOCACHE trials bypass file cache",
+        initial_cache_state: "cache-influenced after identity verification; uncached trials explicitly invalidate every aligned source range before timing",
         trials,
         summaries,
         batch_size: 1,
