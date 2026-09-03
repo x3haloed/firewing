@@ -22,6 +22,7 @@ mod ngram;
 mod ple;
 mod ple_attention_residual;
 mod router;
+mod text_output;
 
 pub use accumulated_layer2::{
     AccumulatedLayer2VerificationReport, verify_accumulated_layer2_fixture,
@@ -65,6 +66,7 @@ pub use ple_attention_residual::{
     PleAttentionResidualVerificationReport, verify_ple_attention_residual_fixture,
 };
 pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
+pub use text_output::{TextOutputVerificationReport, verify_text_output_fixture};
 
 #[derive(Debug, Deserialize)]
 struct TokenizerFixture {

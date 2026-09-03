@@ -338,6 +338,70 @@ pub(crate) struct HyperConnectionOutputs {
     pub injection_weights: Vec<u16>,
 }
 
+pub(crate) struct FinalMixerOutputs {
+    pub hyper_input_normed: Vec<u16>,
+    pub mix_down: Vec<u16>,
+    pub mix_down_scaled: Vec<u16>,
+    pub mix_down_silu: Vec<u16>,
+    pub mix_up: Vec<u16>,
+    pub input_mix: Vec<u16>,
+    pub products: Vec<u16>,
+    pub mixed: Vec<u16>,
+}
+
+pub(crate) fn run_final_mixer(
+    input: &[u16],
+    hc_norm: &[u16],
+    input_mix_weight_down: &[u16],
+    input_mix_weight_up: &[u16],
+) -> Result<FinalMixerOutputs, String> {
+    if input.len() != HC_HIDDEN
+        || hc_norm.len() != HC_HIDDEN
+        || input_mix_weight_down.len() != HC_LOWRANK * HC_HIDDEN
+        || input_mix_weight_up.len() != HC_HIDDEN * HC_LOWRANK
+    {
+        return Err("invalid final hyper-connection mixer inputs".to_owned());
+    }
+    let hyper_input_normed = grouped_rms(input, hc_norm, 1.0e-6);
+    let mix_down = linear_bf16(
+        input_mix_weight_down,
+        &hyper_input_normed,
+        HC_LOWRANK,
+        HC_HIDDEN,
+    );
+    let mix_down_scaled = mix_down
+        .iter()
+        .map(|value| to_bf16(from_bf16(*value) / HC_COUNT as f32))
+        .collect::<Vec<_>>();
+    let mix_down_silu = silu_bf16(&mix_down_scaled);
+    let mix_up = linear_bf16(input_mix_weight_up, &mix_down_silu, HC_HIDDEN, HC_LOWRANK);
+    let input_mix = mix_up
+        .iter()
+        .map(|value| sigmoid_bf16(*value))
+        .collect::<Vec<_>>();
+    let products = input_mix
+        .iter()
+        .zip(&hyper_input_normed)
+        .map(|(left, right)| to_bf16(from_bf16(*left) * from_bf16(*right)))
+        .collect::<Vec<_>>();
+    let mixed = (0..HIDDEN)
+        .map(|column| {
+            let values = std::array::from_fn(|group| from_bf16(products[group * HIDDEN + column]));
+            to_bf16(four_stream_mean(values))
+        })
+        .collect();
+    Ok(FinalMixerOutputs {
+        hyper_input_normed,
+        mix_down,
+        mix_down_scaled,
+        mix_down_silu,
+        mix_up,
+        input_mix,
+        products,
+        mixed,
+    })
+}
+
 pub(crate) fn run_hyper_connection(
     input: &[u16],
     values: &BTreeMap<String, Vec<u16>>,

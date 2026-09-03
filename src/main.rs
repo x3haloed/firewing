@@ -7,7 +7,7 @@ use firewing::{
     verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
     verify_mixture_fixture, verify_ngram_fixture, verify_ngram_rows,
     verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
-    verify_sparse_moe_fixture, verify_tokenizer_fixture,
+    verify_sparse_moe_fixture, verify_text_output_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -19,6 +19,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing verify-accumulated-layers4-47 CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE LAYER2_FIXTURE LAYER3_FIXTURE FIXTURE_JSON [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-text-output CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE LAYER2_FIXTURE LAYER3_FIXTURE DECODER_FIXTURE OUTPUT_FIXTURE [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -239,6 +242,29 @@ fn main() {
             )
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(18),
+        ),
+        Some("verify-text-output") if (19..=20).contains(&args.len()) => (
+            verify_text_output_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+                Path::new(&args[9]),
+                Path::new(&args[10]),
+                Path::new(&args[11]),
+                Path::new(&args[12]),
+                Path::new(&args[13]),
+                Path::new(&args[14]),
+                Path::new(&args[15]),
+                Path::new(&args[16]),
+                Path::new(&args[17]),
+                Path::new(&args[18]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(19),
         ),
         Some("verify-full-attention") if (5..=6).contains(&args.len()) => (
             verify_full_attention_fixture(

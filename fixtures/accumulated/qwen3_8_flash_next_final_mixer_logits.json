@@ -1,0 +1,243 @@
+{
+  "configuration": {
+    "boundary_dtype": "BF16",
+    "hc_count": 4,
+    "hc_lowrank": 320,
+    "hidden_size": 2560,
+    "rms_norm_eps": 1e-06,
+    "tie_word_embeddings": false,
+    "vocab_size": 248320
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "decoder_fixture_sha256": "6ed2e16da1e64fb8001c26608d7972f4910190f74768055b5778dc7891ebf525",
+    "implementation": "source_derived_and_official_huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "Qwen4ExpTextModel.forward; Qwen4ExpTextGatedResidual.forward; Qwen4ExpForCausalLM.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_accumulated_decoder_final_mixer_logits",
+  "steps": [
+    {
+      "captures": {
+        "decoder_output": "7a2a93674993a3720bf921db9c97b9e81c38db83860086d8f6988fb6b51d9c9c",
+        "hyper_input_normed": "6a2c94304dfff40098cf89fd6b0de1dda6a604b258cde9ca14cfbb29efa7d9f8",
+        "input_mix_weight": "8d8a2699abb01c8a6b95d317526758e3d07337ffa51e2294b64504987deb89c3",
+        "logits": "bc992d63131ae37600f7d6d1156463677a52263a2e0b25dbff183d47a134be1f",
+        "mix_down": "a0da23048612050b7d4339670d899ae75d77472d85881e9ce71e0bedd28f013f",
+        "mix_down_scaled": "a2f172772ba63b625c8139771907b28d6e849c26727ddbbaadef3a06efecc7d6",
+        "mix_down_silu": "6fd486f0696e51f7b37ba53196365c932290514a75d38d3459c5cb5781ed82df",
+        "mix_up": "7a3cef50ae3fe1c6ba2abe85babbb798610aa910a993f68d58e847e4d408bb3a",
+        "mixed_hidden": "652685547f16b1dd130e66725cda170dc341730d82a04288168355fd87330d85",
+        "mixed_products": "0478cc3c5b634b6d91219ff0fee4e603340cf6965ccb0691998846e65f5e0f33"
+      },
+      "cutoff_tie_token_ids": [
+        445,
+        67506,
+        73206,
+        74377,
+        114834
+      ],
+      "ordinal": 0,
+      "strictly_above_cutoff_token_ids": [
+        1139,
+        9981,
+        28530,
+        41477,
+        42883,
+        45257,
+        86502,
+        86862,
+        94360,
+        95514,
+        96297,
+        96798,
+        97907,
+        110240,
+        114267,
+        124208,
+        130682,
+        209490,
+        246839
+      ],
+      "top20_cutoff_bf16_u16": 16410,
+      "top20_logit_bf16_u16": [
+        16441,
+        16436,
+        16426,
+        16421,
+        16421,
+        16420,
+        16418,
+        16417,
+        16417,
+        16417,
+        16416,
+        16416,
+        16416,
+        16415,
+        16415,
+        16414,
+        16414,
+        16412,
+        16411,
+        16410
+      ],
+      "top20_token_ids": [
+        96798,
+        110240,
+        1139,
+        96297,
+        28530,
+        130682,
+        45257,
+        86502,
+        209490,
+        42883,
+        114267,
+        9981,
+        97907,
+        94360,
+        86862,
+        246839,
+        95514,
+        124208,
+        41477,
+        73206
+      ]
+    },
+    {
+      "captures": {
+        "decoder_output": "3c63332aa6808d414ca198e88f52ee5c16c70f681753c2aa6ad85ac9e50c0714",
+        "hyper_input_normed": "ab92fa3a90a72325ffe24a783afd1b4a7242879f3121502ce2c65f6e6aadad5b",
+        "input_mix_weight": "ff0654cb2c244d8879c682e0422ad36a0b1fb2137d96012e26d2e1e1da484cc1",
+        "logits": "dfb5e4a641dfafd8a0069a16430b04014efbc131a8fd021b626bd87397193ba9",
+        "mix_down": "7c4e53b3a391c2b214c15267dda255df43f3ef56c9b961478e828ed31605311b",
+        "mix_down_scaled": "67952a0c56d29eb4bb5ed6b67c3c91d7373f18b443dcbe948962396ade0cd224",
+        "mix_down_silu": "762fc8cc033dbdc86d08786fc8b32d920ced194c92517d56aee064d8e0fa4fae",
+        "mix_up": "33524b00c41b4d9ce3e6e55fccaf9e7aeb1f256d3079dd0ad5b055163c665128",
+        "mixed_hidden": "e7fed582486fc7844b534d8ee5aa96dd3b5aabff432ab115e858c351fcc34a4a",
+        "mixed_products": "c66052b976b91cc107d35bdfd79fa2e376d70cb01a89ac71894bc930e17823ed"
+      },
+      "cutoff_tie_token_ids": [
+        85506
+      ],
+      "ordinal": 1,
+      "strictly_above_cutoff_token_ids": [
+        89,
+        261,
+        871,
+        933,
+        1112,
+        1875,
+        2311,
+        2835,
+        9648,
+        14078,
+        16109,
+        16487,
+        28086,
+        58353,
+        73456,
+        97840,
+        101290,
+        116255,
+        158819
+      ],
+      "top20_cutoff_bf16_u16": 16571,
+      "top20_logit_bf16_u16": [
+        16608,
+        16603,
+        16601,
+        16600,
+        16600,
+        16599,
+        16599,
+        16598,
+        16589,
+        16589,
+        16584,
+        16583,
+        16582,
+        16582,
+        16579,
+        16578,
+        16575,
+        16574,
+        16574,
+        16571
+      ],
+      "top20_token_ids": [
+        933,
+        1112,
+        73456,
+        14078,
+        261,
+        16487,
+        2835,
+        16109,
+        89,
+        2311,
+        1875,
+        158819,
+        9648,
+        871,
+        28086,
+        58353,
+        101290,
+        116255,
+        97840,
+        85506
+      ]
+    }
+  ],
+  "tensors": {
+    "hc_norm": {
+      "payload_sha256": "1839065ee4233a226a255aed20ae0a85913c53404b4e6093b036e8ef1103b09c",
+      "shape": [
+        10240
+      ],
+      "shard": "model-00001-of-00131.safetensors",
+      "shard_bytes": 1040155944,
+      "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+      "tensor": "model.language_model.hyper_connection_mixer.hc_norm.weight"
+    },
+    "input_mix_weight_down": {
+      "payload_sha256": "7d215ea21a8a2fac2be0d77644866c5563b946c8ddadcc5f84922e114419d815",
+      "shape": [
+        320,
+        10240
+      ],
+      "shard": "model-00001-of-00131.safetensors",
+      "shard_bytes": 1040155944,
+      "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+      "tensor": "model.language_model.hyper_connection_mixer.input_mix_weight_down.weight"
+    },
+    "input_mix_weight_up": {
+      "payload_sha256": "19b34c5c01898ca37573bca248f3783b6eac776f00174a019d04d5bc387d516d",
+      "shape": [
+        10240,
+        320
+      ],
+      "shard": "model-00001-of-00131.safetensors",
+      "shard_bytes": 1040155944,
+      "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+      "tensor": "model.language_model.hyper_connection_mixer.input_mix_weight_up.weight"
+    },
+    "lm_head": {
+      "payload_sha256": "40bddd25d0d94a128ab08280faad39cfc3ee3064252761269115f544722607c9",
+      "shape": [
+        248320,
+        2560
+      ],
+      "shard": "model-00131-of-00131.safetensors",
+      "shard_bytes": 1271398528,
+      "shard_sha256": "50be0ccd11e4da0c92114600aca321d2c18f795e9e923fd587469587ecfd9df4",
+      "tensor": "lm_head.weight"
+    }
+  }
+}

@@ -121,7 +121,7 @@ fn require_capture(capture: &Capture, values: &[u16], label: &str) -> Result<(),
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_accumulated_layers4_through47_fixture(
+pub(crate) fn verify_accumulated_layers4_through47_fixture_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
     ngram_fixture_path: &Path,
@@ -138,7 +138,7 @@ pub fn verify_accumulated_layers4_through47_fixture(
     layer2_fixture_path: &Path,
     layer3_fixture_path: &Path,
     fixture_path: &Path,
-) -> Result<AccumulatedLayers4Through47VerificationReport, String> {
+) -> Result<(AccumulatedLayers4Through47VerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(
         &fs::read(fixture_path).map_err(|error| format!("cannot read fixture: {error}"))?,
     )
@@ -316,7 +316,7 @@ pub fn verify_accumulated_layers4_through47_fixture(
         )?;
     }
     let parent_bytes = parent_report.total_verified_payload_bytes;
-    Ok(AccumulatedLayers4Through47VerificationReport {
+    let report = AccumulatedLayers4Through47VerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_accumulated_layers4_47_verification",
         model: fixture.model,
@@ -344,7 +344,48 @@ pub fn verify_accumulated_layers4_through47_fixture(
             .collect(),
         accepted_tokens: 0,
         performance_claim: None,
-    })
+    };
+    Ok((report, current_outputs))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_accumulated_layers4_through47_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    layer0_hyper_fixture_path: &Path,
+    layer0_deltanet_fixture_path: &Path,
+    layer0_attention_fixture_path: &Path,
+    layer0_sparse_moe_fixture_path: &Path,
+    layer0_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    layer1_attention_fixture_path: &Path,
+    layer1_fixture_path: &Path,
+    layers01_fixture_path: &Path,
+    layer2_fixture_path: &Path,
+    layer3_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<AccumulatedLayers4Through47VerificationReport, String> {
+    verify_accumulated_layers4_through47_fixture_with_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        layer0_hyper_fixture_path,
+        layer0_deltanet_fixture_path,
+        layer0_attention_fixture_path,
+        layer0_sparse_moe_fixture_path,
+        layer0_fixture_path,
+        ple_fixture_path,
+        layer1_attention_fixture_path,
+        layer1_fixture_path,
+        layers01_fixture_path,
+        layer2_fixture_path,
+        layer3_fixture_path,
+        fixture_path,
+    )
+    .map(|(report, _)| report)
 }
 
 #[cfg(test)]

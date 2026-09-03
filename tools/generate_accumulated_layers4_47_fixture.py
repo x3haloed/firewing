@@ -53,7 +53,9 @@ def build_fixture(
     layer3_fixture_path: Path,
     full_attention_fixture_path: Path,
     attention_residual_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[Any]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -192,7 +194,7 @@ def build_fixture(
         del attention_result, post_attention, decoder_result, next_outputs
         gc.collect()
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -217,6 +219,7 @@ def build_fixture(
             layers[-1]["steps"][ordinal]["captures"]["layer_output"] for ordinal in range(2)
         ],
     }
+    return (fixture, current_outputs) if _return_outputs else fixture
 
 
 def main() -> int:

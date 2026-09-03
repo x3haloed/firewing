@@ -221,6 +221,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   layer-47 output hashes. Decoder-stack parity does not establish embedding,
   final normalization, logits, MTP, an endpoint, or TPS. See
   [`experiments/FW-0027-accumulated-layers4-47.md`](experiments/FW-0027-accumulated-layers4-47.md).
+- FW-0028 continues both exact layer-47 states through Qwen's learned
+  non-injecting four-stream mixer and all 248,320 rows of its untied LM head.
+  Native execution matches 18 mixer boundaries and both complete BF16 logit
+  vectors while authenticating 1,284,526,080 additional logical payload bytes.
+  One top-20 diagnostic has five equal BF16 logits at its cutoff, so the
+  authority preserves the complete tie partition and reproduces pinned
+  PyTorch CPU `topk` instead of treating a generic sorted set as stable. This
+  closes the output side of the accumulated decoder fixture, not token-derived
+  execution, a text endpoint, MTP, or TPS. See
+  [`experiments/FW-0028-final-mixer-logits.md`](experiments/FW-0028-final-mixer-logits.md).
 
 ## Prediction errors
 

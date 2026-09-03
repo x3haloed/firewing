@@ -24,6 +24,19 @@ unsafe extern "C" {
         indices: *mut usize,
     ) -> bool;
 }
+
+pub(crate) fn pytorch_topk_bf16(values: &[u16], k: usize) -> Result<Vec<usize>, String> {
+    if values.is_empty() || k == 0 || k > values.len() {
+        return Err("invalid PyTorch BF16 top-k request".to_owned());
+    }
+    let mut indices = vec![0_usize; k];
+    let ok =
+        unsafe { firewing_torch_topk_bf16(values.as_ptr(), values.len(), k, indices.as_mut_ptr()) };
+    if !ok {
+        return Err("pinned PyTorch BF16 top-k shim failed".to_owned());
+    }
+    Ok(indices)
+}
 const EXPERTS: usize = 512;
 const TOP_K: usize = 10;
 const INTERMEDIATE: usize = 640;

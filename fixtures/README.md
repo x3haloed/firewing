@@ -127,3 +127,10 @@ the remaining 44 decoder layers. It follows the checkpoint's exact 33-linear,
 11-full-attention suffix schedule, freezes 880 dynamic expert selections, and
 links every layer input to the preceding real layer output without recursively
 embedding prior fixtures or committing activation payloads.
+
+`accumulated/qwen3_8_flash_next_final_mixer_logits.json` continues both exact
+layer-47 outputs through the model-level four-stream gated mixer and the full
+untied 248,320-row LM head. It commits complete BF16 vector hashes plus a small
+top-20 diagnostic. Because one rank-20 cutoff contains five equal BF16 logits,
+the fixture also freezes every token strictly above and tied at that cutoff;
+it does not mistake an arbitrary tie ordering for a stable distribution fact.
