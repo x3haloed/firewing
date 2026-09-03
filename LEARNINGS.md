@@ -573,6 +573,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   its best layer-0 result. Five mixtures miss 1%, reaching 1.1401%, while all
   experts pass 2%. Only FW-0063's 8x2 first-rung pass remains unresolved. See
   [`experiments/FW-0064-modified-block1x16-int8-real-layers.md`](experiments/FW-0064-modified-block1x16-int8-real-layers.md).
+- FW-0065 rejects the remaining 8x2 survivor: five of six mixtures miss 1%,
+  reaching 1.1139%, while all experts pass 2%. FW-0058 through FW-0065 now
+  close uncalibrated symmetric INT8 across every tested byte-useful square or
+  rectangular topology that earned deeper screening. The next compact branch
+  must change the error mechanism, not merely scale orientation. See
+  [`experiments/FW-0065-modified-block8x2-int8-real-layers.md`](experiments/FW-0065-modified-block8x2-int8-real-layers.md).
 
 ## Prediction errors
 
@@ -615,7 +621,8 @@ These unresolved distinctions can still change the next decision:
   rejects it across real early/middle/late inputs. Plain square-block symmetric
   INT8 is closed. FW-0063 reopens only rectangular topology: 1x16 and 8x2 pass
   layer 0 at identical bytes. FW-0064 rejects selected 1x16 on deeper
-  source-accumulated inputs; 8x2 remains to be screened.
+  source-accumulated inputs, and FW-0065 rejects 8x2. Uncalibrated symmetric
+  INT8 is closed at this rung.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range

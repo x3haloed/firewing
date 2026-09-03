@@ -386,7 +386,9 @@ target/release/firewing bench-executable-cache-overlap \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
   IMPLEMENTATION_COMMIT \
-  REPORT_JSON
+  REPORT_JSON \
+  --block-rows ROWS \
+  --block-columns COLUMNS
 
 # Rectangular INT8 scale-topology screen (not TPS)
 .venv/bin/python tools/analyze_block_fp8_weight_fidelity.py \
