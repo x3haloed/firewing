@@ -256,6 +256,8 @@ def analyze(
         raise lossless.AnalysisError("executable-cache interval has two representations")
 
     boundary_bytes = [0] * len(events)
+    boundary_compressed_bytes = [0] * len(events)
+    boundary_decoded_bytes = [0] * len(events)
     selections: list[dict[str, Any]] = []
     misses_by_event: list[list[str]] = [[] for _ in events]
     compressed_hits_by_event: list[list[str]] = [[] for _ in events]
@@ -278,6 +280,10 @@ def analyze(
         if representation is not None:
             for boundary in range(interval.after_event + 1, interval.hit_event + 1):
                 boundary_bytes[boundary] += residency_bytes
+                if keep_compressed:
+                    boundary_compressed_bytes[boundary] += residency_bytes
+                else:
+                    boundary_decoded_bytes[boundary] += residency_bytes
             selections.append(
                 {
                     "identity": interval.identity,
@@ -352,10 +358,13 @@ def analyze(
         "compressed_retention_intervals": len(compressed_hits),
         "decoded_retention_intervals": len(decoded_hits),
         "misses": len(misses),
-        "compressed_cache_bytes": capacity_bytes,
+        "source_manifest_compressed_cache_budget_bytes": capacity_bytes,
+        "mixed_representation_capacity_bytes": capacity_bytes,
         "free_initial_compressed_frames": initial_compressed,
         "free_initial_decoded_frames": initial_decoded,
         "maximum_boundary_resident_bytes": max(boundary_bytes),
+        "maximum_boundary_compressed_resident_bytes": max(boundary_compressed_bytes),
+        "maximum_boundary_decoded_resident_bytes": max(boundary_decoded_bytes),
         "physical_miss_bytes": physical_bytes,
         "decode_accesses": decode_accesses,
         "decoded_source_bytes": decoded_source_bytes,
