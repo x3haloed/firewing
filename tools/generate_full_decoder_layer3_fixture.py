@@ -7,7 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import torch
 import transformers
@@ -58,6 +58,7 @@ def build_fixture(
     _layer_prefix: str | None = None,
     _mtp_config: bool = False,
     _return_outputs: bool = False,
+    _mixture_observer: Callable[..., None] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -180,6 +181,19 @@ def build_fixture(
                 experts, routed = execute_mixture(
                     mlp_input[0, 0], selection, scores, gate_up_file, down_file, gate_up_name, down_name
                 )
+                if _mixture_observer is not None:
+                    _mixture_observer(
+                        layer=_layer,
+                        ordinal=ordinal,
+                        hidden=mlp_input[0, 0],
+                        selection=selection,
+                        scores=scores,
+                        gate_up_file=gate_up_file,
+                        down_file=down_file,
+                        gate_up_name=gate_up_name,
+                        down_name=down_name,
+                        reference_mixture=routed,
+                    )
                 shared = shared_expert_forward(
                     mlp_input[0, 0],
                     dense["shared_gate_weight"],

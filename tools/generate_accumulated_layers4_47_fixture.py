@@ -8,7 +8,7 @@ import gc
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import transformers
 
@@ -55,6 +55,7 @@ def build_fixture(
     attention_residual_fixture_path: Path,
     *,
     _return_outputs: bool = False,
+    _mixture_observer: Callable[..., None] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[Any]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -158,6 +159,7 @@ def build_fixture(
             _modes=modes,
             _require_committed_parent=False,
             _return_outputs=True,
+            _mixture_observer=_mixture_observer,
         )
         if not isinstance(decoder_result, tuple):
             raise AssertionError(f"layer-{layer} decoder outputs were not returned")
