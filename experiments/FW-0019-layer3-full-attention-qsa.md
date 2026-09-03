@@ -108,6 +108,16 @@ work has begun with independently tested 128/256-wide RMSNorm, BF16-staged
 partial RoPE, and fail-closed top-k selection primitives; full fixture parity
 is pending.
 
+At commit `7f21b79`, the release-mode native projection verifier authenticated
+all nine real layer-3 tensors (102,893,056 payload bytes) and exactly matched
+12 BF16 captures across the two cases: deterministic hidden state, index-QK
+projection, raw-indexer cache append, Q projection, per-head gate extraction,
+K projection, and V projection. The long case regenerated 532,480 bytes of
+synthetic raw-indexer history rather than storing it. Its report is
+`/Users/chad/Models/firewing/evidence/FW-0019/projections.json`, SHA-256
+`08e50d070c080648a6dee80c5bb4075bcf53f8176c0c7530becb54cf2bf030bd`.
+This remains a projection diagnostic, not complete attention parity.
+
 ## Decision
 
 Continue to native checkpoint integration. No performance default follows
