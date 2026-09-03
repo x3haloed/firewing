@@ -1,7 +1,7 @@
 # FW-0027 - Accumulated decoder layers 4 through 47
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiment: FW-0026
 - Exactness: L0 bit-identical component semantics
@@ -73,14 +73,25 @@ Planned commands:
 cargo run --release -- verify-accumulated-layers4-47 \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
+  fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
+  fixtures/accumulated/qwen3_8_flash_next_layer2.json \
   fixtures/accumulated/qwen3_8_flash_next_layer3.json \
   fixtures/accumulated/qwen3_8_flash_next_layers4_47.json \
   /Users/chad/Models/firewing/evidence/FW-0027/accumulated-layers4-47.json
 ```
 
-Final commands may enumerate the committed FW-0026 component authorities
-explicitly. Batch size and concurrency are one. Accepted tokens, `A`, `U`, and
-measured TPS are zero because this is accumulated correctness evidence.
+Batch size and concurrency are one. Accepted tokens, `A`, `U`, and measured
+TPS are zero because this is accumulated correctness evidence.
 
 ## Gates
 
@@ -119,8 +130,46 @@ The 2.0 MiB hash-only fixture has SHA-256
 `6ed2e16da1e64fb8001c26608d7972f4910190f74768055b5778dc7891ebf525`.
 All 59 Python tests pass, and the generalized full-attention source path still
 regenerates FW-0020's committed layer-3 fixture byte-for-byte. Independent
-native verification is pending.
+native verification initially stopped at layer 5's cached MLP input. Every
+intermediate hash through the 10,240 hyper-connection products matched; only
+the four-stream mean differed. The old native pair tree produced
+`135d7cf3...baf37`, while PyTorch's sequential F32 reduction produced the
+expected `7603e3b8...6b4bf`. A cancellation-sensitive unit fixture now
+distinguishes those orders.
+
+After that repair, layer 5 exposed an equal-BF16-logit tie at the top-10
+selection boundary. This cannot be treated as a neutral permutation because
+it changes the selected expert set. The native path now reproduces the pinned
+PyTorch 2.14.0 CPU algorithm: libc++ `nth_element` at `k - 1`, followed by
+sorting the first `k - 1` entries for this 512-by-10 shape. A synthetic
+boundary-tie fixture matches PyTorch's exact selected IDs. The installed
+`ATen/native/TopKImpl.h` has SHA-256
+`1ff24ba878ccb3816511ba34609d7247225342c6aa61740b51917c8ca79407ab`.
+
+At commit `1e49846`, the release-mode native verifier passes the complete
+48-layer replay. The suffix matches 1,144 BF16 and 88 F32 attention captures,
+66 int64 and 22 boolean full-attention selection captures, 1,408 decoder BF16
+captures, and 880 weighted-expert hashes across 853 layer-scoped unique expert
+payloads. Layers 4 through 47 authenticate 15,052,975,040 logical payload
+bytes; including FW-0026, the complete stack authenticates 16,511,246,080
+bytes. Both final native output hashes equal the source fixture.
+
+The final receipt is
+`/Users/chad/Models/firewing/evidence/FW-0027/accumulated-layers4-47.json`,
+SHA-256
+`cae2c5657138d721ce8195455dd76e0550dbd61d7763faddaa22bc1362430cc7`.
+The preserved prediction-error record is
+`/Users/chad/Models/firewing/evidence/FW-0027/prediction-errors.json`, SHA-256
+`41a1d20b300cfc382f942f69d51d3b4efb4d00453a69c020f47c6f27b24de3df`.
+The final suite has 59 Python and 39 Rust tests; Clippy passes with warnings
+denied. FW-0020's active-QSA residual and FW-0021's complete layer-3 native
+commands also pass after the generalized changes.
 
 ## Decision
 
-Pending.
+Pass as a correctness repair. Exact native execution now covers every decoder
+layer for an initial and cached token, including all private recurrent/KV
+states, dynamic routes, selected experts, and residual boundaries. Proceed to
+token embedding, final normalization, LM-head/logits, and the first slow text
+endpoint. This result does not establish MTP, real prefill, modality behavior,
+latency, or TPS.

@@ -210,6 +210,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   decoder transition, not layers 4 through 47, logits, an endpoint, or TPS.
   See
   [`experiments/FW-0026-accumulated-layer3.md`](experiments/FW-0026-accumulated-layer3.md).
+- FW-0027 exactly executes the complete 48-layer decoder stack for an initial
+  and cached token. The accumulated activation exposed two semantics hidden by
+  earlier local fixtures: PyTorch's four-stream mean is a sequential F32
+  reduction, and an equal-logit tie crossing the router's selection boundary
+  requires reproducing pinned PyTorch 2.14.0 CPU `topk` rather than accepting a
+  neutral order permutation. After both repairs, native execution matches
+  880 weighted expert outputs and every linear/full-attention state boundary,
+  authenticates 16,511,246,080 logical payload bytes, and reaches both exact
+  layer-47 output hashes. Decoder-stack parity does not establish embedding,
+  final normalization, logits, MTP, an endpoint, or TPS. See
+  [`experiments/FW-0027-accumulated-layers4-47.md`](experiments/FW-0027-accumulated-layers4-47.md).
 
 ## Prediction errors
 
