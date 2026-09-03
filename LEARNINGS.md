@@ -292,6 +292,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   buffers. Retain it only as a fragile analytical survivor; an exact top-10
   Metal MoE compute/buffer bound must pass before high residency is built. See
   [`experiments/FW-0034-exact-residency-oracle.md`](experiments/FW-0034-exact-residency-oracle.md).
+- FW-0035 amortizes all ten exact real layer-0 experts across two Metal command
+  transactions with persistent BF16 source buffers. Thirty candidates match
+  all weighted-expert and source-order mixture hashes and take 3.639 ms median,
+  a 10.593738x gain over the 38.555-ms scalar control. Repeating that routed
+  component across 48 layers projects to 174.690 ms or 5.724 routed-only TPS,
+  so compute alone survives, but serial composition with FW-0034's optimistic
+  12-GiB storage interval is only 2.941 TPS before fixed work. Actual
+  transport/compute overlap is now the decisive next bound; neither component
+  result is endpoint TPS. See
+  [`experiments/FW-0035-exact-resident-top10-metal-moe.md`](experiments/FW-0035-exact-resident-top10-metal-moe.md).
 
 ## Prediction errors
 
@@ -300,7 +310,8 @@ These unresolved distinctions can still change the next decision:
 - Whether hosted Qwen3.8-Flash is distributionally and semantically equivalent
   enough to the open Qwen3.8-Flash-Next checkpoint to serve as its behavioral
   reference.
-- Active executable bytes after reuse/recoding, production-trace n-gram storage
+- Active executable bytes after reuse/recoding beyond FW-0035's measured
+  98.399-MB one-layer top-10 working set, production-trace n-gram storage
   amplification, MTP acceptance, expert union, and achievable expert hit rate
   remain unresolved. FW-0008 measured the
   fixed 14-position n-gram trace at 51.886x physical/useful bytes and 1.577
