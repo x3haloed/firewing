@@ -505,6 +505,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   resident. Solve a smaller-capacity traffic/decode frontier, then isolate its
   cache-only installation boundary before another overlap run. See
   [`experiments/FW-0054-mixed-cache-physical-overlap.md`](experiments/FW-0054-mixed-cache-physical-overlap.md).
+- FW-0055 narrows the post-safety capacity frontier. A 4.00-GB mixed cache has
+  a replayed favorable incumbent at 4.134964 TPS but only 32.640 ms of omitted-
+  work headroom. At 3.75 GB, the replayed rate falls to 3.851666 TPS and the
+  solver's 1.037796-s dual bound proves that no better schedule reaches four
+  TPS inside the same optimistic model. Reject every capacity at or below
+  3.75 GB; retain 4.00 GB only as a razor-thin offline point. Charge a lower
+  bound for fixed matrices and work before another multi-gigabyte allocation.
+  See
+  [`experiments/FW-0055-mixed-cache-capacity-frontier.md`](experiments/FW-0055-mixed-cache-capacity-frontier.md).
 
 ## Prediction errors
 
@@ -533,7 +542,9 @@ These unresolved distinctions can still change the next decision:
   mixed compressed/decoded offline schedule that still bounds at 4.483 TPS.
   FW-0054 then rejects its direct 4.259-GB physical instantiation under the
   host-safety gate before timing because swap grew during installation.
-  Smaller safe mixed-cache capacity, causality, and full endpoint work remain
+  FW-0055 proves capacities at or below 3.75 GB too slow even ideally and leaves
+  4.00 GB with only 32.640 ms of free fixed-work headroom. Safe residency above
+  that performance threshold, causality, and full endpoint work remain
   unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
@@ -556,8 +567,9 @@ These unresolved distinctions can still change the next decision:
   footprint and 34% system-free memory.
   Uncertain: whether the safe cache ceiling is intrinsic to this target's
   protected shared state or shifts materially with target-compliant background
-  occupancy, and exactly where that ceiling lies.
-  Evidence: the FW-0054 failure receipt and experiment record.
+  occupancy, and whether it intersects FW-0055's performance requirement above
+  3.75 GB.
+  Evidence: the FW-0054 failure receipt plus FW-0055's 3.75/4.00-GB frontier.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

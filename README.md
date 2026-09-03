@@ -329,7 +329,8 @@ target/release/firewing bench-capacity-cache-overlap \
   /Users/chad/Models/firewing/evidence/FW-0051/capacity-cache-overlap-d671bd1.json \
   /Users/chad/Models/firewing/evidence/FW-0052/metal-swiglu-c2bac85.json \
   IMPLEMENTATION_COMMIT \
-  REPORT_JSON
+  REPORT_JSON \
+  --capacity-bytes CAPACITY_BYTES
 
 # Physical FW-0053 mixed-cache replay (favorable bound, not endpoint TPS;
 # the recorded FW-0054 attempt stops on host-safety swap growth)
