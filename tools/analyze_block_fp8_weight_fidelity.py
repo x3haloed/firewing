@@ -31,6 +31,7 @@ MODEL_LOCK_SHA256 = "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4
 MIXTURE_SHA256 = "975a9982919297d37dd077f774693c782295cba496542c6adf278182e27b4d89"
 BLOCK = 128
 FP8_MAX = 448.0
+INT8_MAX = 127.0
 
 
 def block_fp8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, int]:
@@ -59,6 +60,33 @@ def block_fp8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, 
     return decoded, scales.contiguous(), artifact_bytes
 
 
+def block_int8_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, int]:
+    if (
+        weight.dtype != torch.bfloat16
+        or weight.ndim != 2
+        or weight.shape[0] % BLOCK
+        or weight.shape[1] % BLOCK
+        or not torch.isfinite(weight.float()).all()
+    ):
+        raise common.AnalysisError("block-INT8 weight must be finite aligned BF16 matrix")
+    rows, columns = weight.shape
+    blocks = (
+        weight.float()
+        .reshape(rows // BLOCK, BLOCK, columns // BLOCK, BLOCK)
+        .permute(0, 2, 1, 3)
+        .contiguous()
+    )
+    maximums = blocks.abs().amax(dim=(2, 3))
+    scales = torch.clamp(maximums, min=1.0e-10) / INT8_MAX
+    codes = torch.clamp(torch.round(blocks / scales[:, :, None, None]), -127, 127).to(
+        torch.int8
+    )
+    decoded = (codes.float() * scales[:, :, None, None]).to(torch.bfloat16)
+    decoded = decoded.permute(0, 2, 1, 3).reshape(rows, columns).contiguous()
+    artifact_bytes = weight.numel() + scales.numel() * 4
+    return decoded, scales.contiguous(), artifact_bytes
+
+
 def error_metrics(actual: torch.Tensor, reference: torch.Tensor) -> dict[str, float]:
     if actual.shape != reference.shape:
         raise common.AnalysisError("FP8 metric shape mismatch")
@@ -78,6 +106,7 @@ def analyze(
     model_lock_path: Path,
     mixture_path: Path,
     implementation_commit: str,
+    weight_format: str = "block_fp8",
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -116,6 +145,16 @@ def analyze(
     source_bytes = 0
     artifact_bytes = 0
     exact_baseline_hashes = 0
+    if weight_format == "block_fp8":
+        quantize = block_fp8_weight
+        mode = "modified_block_fp8_weight_only"
+        format_description = "e4m3fn_per_128x128_absmax_f32_scale"
+    elif weight_format == "block_int8":
+        quantize = block_int8_weight
+        mode = "modified_block_int8_weight_only"
+        format_description = "symmetric_int8_per_128x128_absmax_f32_scale"
+    else:
+        raise common.AnalysisError("unknown modified block weight format")
     with safe_open(checkpoint_dir / gate["shard"], framework="pt", device="cpu") as gate_file:
         with safe_open(checkpoint_dir / down["shard"], framework="pt", device="cpu") as down_file:
             for expected in case["experts"]:
@@ -135,10 +174,10 @@ def analyze(
                 if capture_hash(reference["weighted_down"]) != expected["weighted_down_bf16_sha256"]:
                     raise common.AnalysisError("block-FP8 exact baseline mismatch")
                 exact_baseline_hashes += 1
-                fp8_gate_up, gate_scales, gate_bytes = block_fp8_weight(gate_up)
-                fp8_down, down_scales, down_bytes = block_fp8_weight(down_weight)
+                candidate_gate_up, gate_scales, gate_bytes = quantize(gate_up)
+                candidate_down, down_scales, down_bytes = quantize(down_weight)
                 candidate = expert_forward(
-                    hidden, fp8_gate_up, fp8_down, score_by_expert[expert]
+                    hidden, candidate_gate_up, candidate_down, score_by_expert[expert]
                 )
                 reference_contributions.append(reference["weighted_down"])
                 candidate_contributions.append(candidate["weighted_down"])
@@ -165,8 +204,8 @@ def analyze(
     passes = mixture_metrics["relative_l2"] <= 0.01 and maximum_expert_relative_l2 <= 0.02
     return {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_modified_block128_fp8_weight_only_layer0_top10_fidelity_screen",
-        "mode": "modified_block_fp8_weight_only",
+        "semantic": f"qwen3_8_flash_next_{mode}_layer0_top10_fidelity_screen",
+        "mode": mode,
         "implementation_commit": implementation_commit,
         "model": common.MODEL,
         "revision": common.REVISION,
@@ -175,7 +214,7 @@ def analyze(
         "layer": 0,
         "experts": expert_rows,
         "exact_baseline_hashes": exact_baseline_hashes + 1,
-        "weight_format": "e4m3fn_per_128x128_absmax_f32_scale",
+        "weight_format": format_description,
         "activation_format": "bf16_unmodified_favorable_grant",
         "boundary_format": "bf16",
         "source_weight_bytes": source_bytes,
@@ -188,7 +227,7 @@ def analyze(
             "each_expert_weighted_down_relative_l2_maximum": 0.02,
         },
         "passes_continuation_gates": passes,
-        "decision": "continue_modified_block_fp8" if passes else "reject_modified_block_fp8",
+        "decision": f"{'continue' if passes else 'reject'}_{mode}",
         "limitations": [
             "one layer and one real routed input only",
             "weight-only quantization grants exact BF16 activations",
@@ -218,12 +257,18 @@ def main() -> int:
     parser.add_argument("mixture_fixture", type=Path)
     parser.add_argument("implementation_commit")
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--weight-format",
+        choices=("block_fp8", "block_int8"),
+        default="block_fp8",
+    )
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
         args.model_lock,
         args.mixture_fixture,
         args.implementation_commit,
+        args.weight_format,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))
