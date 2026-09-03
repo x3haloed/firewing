@@ -25,9 +25,11 @@ Represent every possible hit as a binary interval from an identity's previous
 access (or pre-run initial state) through its next access. Its compressed size
 consumes capacity at every intervening event boundary and its physical frame
 size is the avoided-read objective. Solve the resulting interval-packing MILP
-with a deterministic 10,000-node limit, preserve the incumbent and dual bound,
-then independently replay every selected interval to verify all capacities,
-hits, misses, and byte ledgers.
+with a deterministic 10,000-node limit, preserve the incumbent and
+solver-reported dual bound, then independently replay every selected interval
+to verify all capacities, hits, misses, and byte ledgers. The replayed incumbent
+is the decision authority; a node-limited dual bound is diagnostic unless the
+wrapper reports an optimal solve.
 
 A feasible incumbent at or above 4 TPS under FW-0048's favorable measured SSD
 rate promotes a capacity-respecting offline physical replay. A certified

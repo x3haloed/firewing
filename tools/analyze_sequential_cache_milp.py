@@ -217,6 +217,12 @@ def analyze(manifest_path: Path, implementation_commit: str) -> dict[str, Any]:
     if not math.isclose(incumbent_from_solver, miss_physical_bytes, abs_tol=0.5):
         raise lossless.AnalysisError("cache solver objective disagrees with replay")
     optimistic_lower_bound = total_physical_bytes + result.mip_dual_bound * objective_scale
+    if (
+        not math.isfinite(result.mip_gap)
+        or result.mip_gap < 0
+        or result.mip_dual_bound > result.fun + 1e-7
+    ):
+        raise lossless.AnalysisError("cache solver bound relationship is invalid")
     storage_seconds = miss_physical_bytes / FAVORABLE_PHYSICAL_BYTES_PER_SECOND
     return {
         "schema_version": 1,
@@ -237,6 +243,16 @@ def analyze(manifest_path: Path, implementation_commit: str) -> dict[str, Any]:
             "relative_gap": float(result.mip_gap),
             "incumbent_objective": float(result.fun),
             "dual_bound": float(result.mip_dual_bound),
+            "dual_bound_scope": (
+                "solver diagnostic only because SciPy maps the deterministic HiGHS "
+                "node limit to status 4; the incumbent is independently certified below"
+            ),
+        },
+        "incumbent_certificate": {
+            "integral_within_absolute_tolerance": 1e-7,
+            "replayed_capacity_boundaries": len(boundary_bytes),
+            "maximum_capacity_violation_bytes": 0,
+            "objective_matches_replay_within_bytes": 0.5,
         },
         "cache_semantic": "whole_compressed_expert_frames_retained_between_ordered_layer_events",
         "initial_cache_semantic": "free_offline_future_known_capacity_respecting",
@@ -251,7 +267,7 @@ def analyze(manifest_path: Path, implementation_commit: str) -> dict[str, Any]:
         "miss_compressed_bytes": miss_compressed_bytes,
         "miss_physical_bytes": miss_physical_bytes,
         "total_uncached_physical_bytes": total_physical_bytes,
-        "certified_optimistic_minimum_miss_physical_bytes": optimistic_lower_bound,
+        "solver_reported_optimistic_minimum_miss_physical_bytes": optimistic_lower_bound,
         "favorable_physical_bytes_per_second": FAVORABLE_PHYSICAL_BYTES_PER_SECOND,
         "incumbent_storage_seconds": storage_seconds,
         "incumbent_storage_only_accepted_tps": 4 / storage_seconds,
