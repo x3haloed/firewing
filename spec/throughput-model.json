@@ -148,9 +148,27 @@
       "exact_candidate_executions": 33,
       "accepted_tokens": 0,
       "performance_claim": null
+    },
+    "once_authenticated_checkpoint_catalog": {
+      "status": "fw_0032_production_infrastructure_not_endpoint_default",
+      "implementation_commit": "73e7da9451ede69fdb034c0499e2b067a3626573",
+      "identity_binding_sha256": "9830d5ae87a0586b6c8090b0f05274e958eca062fa04504978fa0041b2b714df",
+      "raw_report_sha256": "7a6cc4f0da9e5543990c8122ce228ec5348a742b1fa935339f4e412ccf3ea21d",
+      "checkpoint_bytes_bound": 360023351514,
+      "mapped_shards": 131,
+      "reconciled_tensors": 1658,
+      "parsed_header_bytes": 229760,
+      "warm_catalog_open_ms": 6.362833,
+      "warm_expert_p10_ms": 3.361417,
+      "warm_expert_median_ms": 3.362458,
+      "warm_expert_p90_ms": 3.372625,
+      "exact_measurements": 30,
+      "clean_run_physical_read_bytes": 0,
+      "accepted_tokens": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0031_exact_metal_primitive_validated_acquisition_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured that two-position correctness endpoint at 77,703.382 ms and 17,318,928,384 physical read bytes in an uncontrolled mixed-cache state. FW-0031 then showed exact warm expert compute is only 3.546 ms on CPU and 1.540 ms on Metal while warm source loading plus hashing takes 31.064 ms. Its 2.301836x Metal component gain is retained, but the corrected next priority is removing repeated hot-path acquisition and integrity work. No accepted TPS is claimed."
+  "status": "fw_0032_authenticated_catalog_validated_endpoint_propagation_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured that two-position correctness endpoint at 77,703.382 ms and 17,318,928,384 physical read bytes in an uncontrolled mixed-cache state. FW-0031 then showed exact warm expert compute is only 3.546 ms on CPU and 1.540 ms on Metal while warm source loading plus hashing takes 31.064 ms. FW-0032 validates a once-authenticated catalog across all 131 shards and 1,658 tensors; its exact warm real-expert loop takes 3.362 ms median without per-use payload copies or hashes. The catalog is infrastructure pending propagation through the unchanged exact endpoint. No accepted TPS is claimed."
 }

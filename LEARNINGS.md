@@ -262,6 +262,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   but first move checkpoint identity out of the per-use hot path through a
   once-authenticated bounded tensor catalog. See
   [`experiments/FW-0031-exact-metal-bf16-expert.md`](experiments/FW-0031-exact-metal-bf16-expert.md).
+- FW-0032 removes that repeated verifier tax for one exact real expert through
+  a fail-closed once-authenticated checkpoint catalog. Startup validates the
+  pinned full-verification receipt and live identity of all 144 files, maps all
+  131 shards, and reconciles all 1,658 indexed tensors before exposing borrowed
+  views. Thirty exact warm expert executions take 3.362 ms median with zero
+  additional physical reads, versus FW-0031's separate 31.064-ms warm
+  load-plus-hash interval. This promotes the catalog as infrastructure, not an
+  endpoint performance default; the next step is to propagate it through the
+  exact endpoint and reprofile. See
+  [`experiments/FW-0032-once-authenticated-checkpoint-catalog.md`](experiments/FW-0032-once-authenticated-checkpoint-catalog.md).
 
 ## Prediction errors
 

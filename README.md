@@ -176,6 +176,16 @@ cargo run --release -- bench-metal-bf16-gemv \
   fixtures/expert/qwen3_8_flash_next_real.json \
   kernels/bf16_gemv.metal \
   IMPLEMENTATION_COMMIT
+
+# Once-authenticated read-only tensor catalog (component timing, not TPS)
+target/release/firewing bench-checkpoint-catalog \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  /Users/chad/Models/firewing/evidence/FW-0032/checkpoint-live-identity-b3d7810.json \
+  IDENTITY_MANIFEST_SHA256 \
+  fixtures/router/qwen3_8_flash_next_real.json \
+  fixtures/expert/qwen3_8_flash_next_real.json \
+  IMPLEMENTATION_COMMIT
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
