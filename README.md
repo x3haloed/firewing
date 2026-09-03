@@ -186,6 +186,19 @@ target/release/firewing bench-checkpoint-catalog \
   fixtures/router/qwen3_8_flash_next_real.json \
   fixtures/expert/qwen3_8_flash_next_real.json \
   IMPLEMENTATION_COMMIT
+
+# Exact two-position endpoint through the authenticated catalog (not TPS)
+target/release/firewing bench-catalog-token-text-endpoint \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  /Users/chad/Models/firewing/evidence/FW-0032/checkpoint-live-identity-b3d7810.json \
+  IDENTITY_MANIFEST_SHA256 \
+  fixtures/tokenizer/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json \
+  IMPLEMENTATION_COMMIT
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

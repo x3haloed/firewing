@@ -272,6 +272,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   endpoint performance default; the next step is to propagate it through the
   exact endpoint and reprofile. See
   [`experiments/FW-0032-once-authenticated-checkpoint-catalog.md`](experiments/FW-0032-once-authenticated-checkpoint-catalog.md).
+- FW-0033 propagates the catalog through the unchanged exact 48-layer endpoint.
+  A candidate/control/candidate sequence completes in 49.947/81.338/47.949
+  seconds: the 48.948-second candidate median is a repeatable 1.661711x gain,
+  with identical routes, captures, and final logits. Yet it still physically
+  reads 17.175 GB median, takes 24.474 seconds per teacher-forced position, and
+  remains 97.90x outside the Firewing-4 decode budget. This resolves repeated
+  payload authentication as substantial but not causal sufficiency. Physical
+  demand reduction through an actual-route exact cache bound, lossless
+  representation, or MTP union is now mandatory before broader kernel work.
+  See
+  [`experiments/FW-0033-catalog-backed-exact-endpoint.md`](experiments/FW-0033-catalog-backed-exact-endpoint.md).
 
 ## Prediction errors
 
