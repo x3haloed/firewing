@@ -75,6 +75,12 @@ through the independently parameterized MLP hyper-connection, actual dynamic
 top-10 routes, selected routed experts, shared expert, and final four-stream
 layer residual.
 
+`decoder_layer/qwen3_8_flash_next_layer3.json` continues the empty-cache and
+active-QSA layer-3 attention residuals through that layer's real MLP
+hyper-connection, twenty distinct selected routed experts, shared expert, and
+final four-stream residual. It commits expert payload hashes rather than
+checkpoint-derived expert bytes.
+
 `ple/qwen3_8_flash_next_layer1_decode.json` binds two real sparse n-gram
 lookups to layer 1's projections, grouped gating, token-context cache, dilated
 depthwise-convolution cache, and final BF16 PLE injection output.

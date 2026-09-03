@@ -80,7 +80,9 @@ def build_fixture(
     checkpoint_dir: Path,
     model_lock_path: Path,
     full_attention_fixture_path: Path,
-) -> dict[str, Any]:
+    *,
+    _return_outputs: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
@@ -139,6 +141,7 @@ def build_fixture(
     attention.load_state_dict(attention_state, strict=True)
 
     cases = []
+    composed_outputs = []
     for ordinal, (past_length, input_spec) in enumerate(zip((0, LONG_PAST), INPUT_SPECS, strict=True)):
         hyper_input = make_hyper_input(input_spec)
         positions = torch.arange(past_length + 1, dtype=torch.int64).view(1, -1)
@@ -197,8 +200,9 @@ def build_fixture(
                 "captures": {name: capture(value) for name, value in captures.items()},
             }
         )
+        composed_outputs.append(composed_output)
 
-    return {
+    fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
@@ -227,6 +231,9 @@ def build_fixture(
         "tensors": tensors,
         "cases": cases,
     }
+    if _return_outputs:
+        return fixture, composed_outputs
+    return fixture
 
 
 def write_json(path: Path, value: Any) -> None:
