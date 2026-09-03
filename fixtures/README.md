@@ -85,8 +85,8 @@ layer residual.
 `decoder_layer/qwen3_8_flash_next_layer1_ple.json` continues FW-0022's initial
 and cached PLE-bearing attention residuals through layer 1's independently
 parameterized MLP hyper-connection, dynamic routes, selected experts, shared
-expert, and final residual. Its two real routes overlap where the model chooses
-the same expert; no artificial disjointness constraint is imposed.
+expert, and final residual. Its two corrected real layer-1 routes are disjoint;
+every dense tensor is required to carry the layer-1 checkpoint prefix.
 
 `decoder_layer/qwen3_8_flash_next_layer3.json` continues the empty-cache and
 active-QSA layer-3 attention residuals through that layer's real MLP

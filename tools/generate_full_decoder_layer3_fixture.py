@@ -104,7 +104,7 @@ def build_fixture(
     shared_prefix = f"model.language_model.layers.{_layer}.mlp.shared_expert"
     dense_names = {
         **mlp_names,
-        "router": (f"model.language_model.layers.{LAYER}.mlp.gate.weight", [EXPERTS, HIDDEN]),
+        "router": (f"model.language_model.layers.{_layer}.mlp.gate.weight", [EXPERTS, HIDDEN]),
         "shared_gate_weight": (f"{shared_prefix}.gate_proj.weight", [INTERMEDIATE, HIDDEN]),
         "shared_up_weight": (f"{shared_prefix}.up_proj.weight", [INTERMEDIATE, HIDDEN]),
         "shared_down_weight": (f"{shared_prefix}.down_proj.weight", [HIDDEN, INTERMEDIATE]),

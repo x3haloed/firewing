@@ -12,6 +12,12 @@ class FullDecoderLayer1FixtureTests(unittest.TestCase):
         )
         self.assertEqual(fixture["configuration"]["layer"], 1)
         self.assertEqual(fixture["configuration"]["layer_type"], "linear_attention")
+        self.assertTrue(
+            all(
+                record["tensor"].startswith("model.language_model.layers.1.")
+                for record in fixture["tensors"].values()
+            )
+        )
         self.assertEqual([step["mode"] for step in fixture["steps"]], ["initial_chunk", "cached_recurrent"])
         routes = [step["selected_experts"] for step in fixture["steps"]]
         self.assertEqual(len(routes[0]), 10)
