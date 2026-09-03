@@ -80,6 +80,18 @@ python3 tools/checkpoint_verify.py \
   --output /Users/chad/Models/firewing/evidence/FW-0001/copy-verification.json
 ```
 
+After a complete verification, bind its hashes to the current files' live
+device, inode, size, modification time, and change time. Runtime startup can
+then fail closed on filesystem identity drift without hashing 360 GB again:
+
+```shell
+.venv/bin/python tools/bind_checkpoint_identity.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  --model-lock spec/model.lock.json \
+  --verification /Users/chad/Models/firewing/evidence/FW-0001/checkpoint-verification-de4b8e4d.json \
+  --output /Users/chad/Models/firewing/evidence/FW-0032/checkpoint-live-identity.json
+```
+
 The census is not a payload-integrity or performance result. The verifier is
 not an endpoint benchmark.
 
