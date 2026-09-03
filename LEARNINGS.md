@@ -78,8 +78,8 @@ runtime passing every target gate, including reproducible batch-one decode at
 - FW-0012 exactly matches the complete layer-0 sparse-MoE block for the same
   input: seven shared-expert/gate captures, the routed mixture, and the final
   BF16 combination. Shared weights add 9,835,520 logical bytes, making the
-  tested full MoE block 108,139,520 bytes. Norm, hyper-connection, residual,
-  real activation, and physical-I/O behavior remain unresolved.
+  tested full MoE block 108,139,520 bytes. Complete residual injection, real
+  activation, and physical-I/O behavior remain unresolved.
 - FW-0013 rejects direct raw-BF16 all-miss expert streaming as the Firewing-4
   path. The fixed 48-layer trace verified 960 real extents and moved
   4,734,296,064 physical bytes per cold trial. Eight readers achieved a
@@ -89,6 +89,13 @@ runtime passing every target gate, including reproducible batch-one decode at
   instances resident, so the following trials are post-prefault rather than a
   valid warm-OS-cache state. See
   [`experiments/FW-0013-all-layer-source-expert-acquisition.md`](experiments/FW-0013-all-layer-source-expert-acquisition.md).
+- FW-0014 exactly reproduces Qwen's layer-0 attention gated hyper-connection
+  across 13 BF16 captures and 13,209,600 real tensor bytes. Four grouped RMS
+  reductions, 10,240↔320 low-rank mixing, the four-stream mean, and block
+  injection weights all match the pinned Transformers module. The primitive
+  is ready for attention/MoE wrapper reuse, but attention and complete decoder
+  residual composition remain unresolved. See
+  [`experiments/FW-0014-real-gated-hyper-connection.md`](experiments/FW-0014-real-gated-hyper-connection.md).
 
 ## Prediction errors
 

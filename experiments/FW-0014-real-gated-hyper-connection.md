@@ -1,7 +1,7 @@
 # FW-0014 - Real gated hyper-connection semantics
 
-- Status: planned
-- Disposition: unexecuted
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0001, FW-0009, FW-0012
 - Exactness: L0 bit-identical component semantics
@@ -30,11 +30,20 @@ mode, changed weight, or relaxed comparison is allowed.
 - Frozen fixture SHA-256:
   `3615d35c75ed25fc7e81f5b82712017a1948260e3fe7f4b0e7cc8c92ead65503`
 - Baseline commit: `37c9451f439644e6b0a3a539531295be15da15c0`
+- Fixture commit: `e6e88904f57f3944b630f9ff2bf2bb4abc6aa078`
+- Implementation commit:
+  `d8eaef100ec13691aeee3314f7c75a5361bd01c1`
 - Framework reference: Transformers 5.16.1
   `Qwen4ExpTextGatedResidual.forward` and `Qwen4ExpTextRMSNorm.forward`
 - Reduction reference: Prismwing commit
   `c87d0c1aa2c118f71ca5348434be35d02f62f031`, `src/lib.rs` SHA-256
   `2f2de84115cc99bcf2bca8714682fd374582a671df3254841f6adaa64b3d6717`
+- Raw external receipt:
+  `/Users/chad/Models/firewing/evidence/FW-0014/hyper-connection.json`
+- Raw receipt SHA-256:
+  `c5baff222e95bac4dd0728bd85e1715cc7ba3de6995a311b5f6449d7f91129ea`
+- Toolchain: Rust/Cargo 1.96.0; Transformers 5.16.1; PyTorch 2.14.0;
+  macOS 26.6.2 (`25G83`)
 
 ## Method and commands
 
@@ -84,8 +93,32 @@ parity, modality behavior, endpoint latency, and accepted TPS.
 
 ## Result
 
-Pending execution.
+The fixture generator loaded only four layer-0 attention hyper-connection
+tensors and confirmed that its explicit intermediate calculation matched the
+isolated official module's complete `(mixed_input, hyper_input,
+injection_weights)` output. Deterministic regeneration reproduced fixture
+SHA-256
+`3615d35c75ed25fc7e81f5b82712017a1948260e3fe7f4b0e7cc8c92ead65503`.
+
+The native verifier independently read and hashed all 13,209,600 tensor payload
+bytes, rederived all four shapes from safetensors metadata, and matched all 13
+BF16 capture hashes exactly:
+
+- input and four independently normalized hyper streams;
+- low-rank down projection, division, SiLU, up projection, and sigmoid;
+- per-stream products and the final 2,560-element mixed input; and
+- block-injection projection, division, sigmoid, and four doubled weights.
+
+The PyTorch aarch64 contiguous-F32 RMS cascade reused from Prismwing matched
+Qwen's real 2,560-wide groups without adjustment. Firewing's FW-0010 BF16 GEMV
+topology matched the 10,240↔320 projections and 4×10,240 injection projection.
+Every nonlinear and arithmetic capture retained the framework's BF16 boundary.
+The report records zero accepted tokens and no performance claim.
 
 ## Decision
 
-Pending. No runtime default or performance claim follows from this fixture.
+Promote the exact gated hyper-connection primitive up the correctness ladder.
+It can now serve both attention and MoE wrapper semantics and the final
+`use_combine=false` mixer after that variant receives its own fixture. Proceed
+to the layer-0 Gated DeltaNet attention slice; complete residual injection,
+decoder-block parity, and endpoint behavior remain unproven.
