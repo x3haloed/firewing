@@ -8,10 +8,11 @@ use firewing::{
     verify_deltanet_fixture, verify_expert_fixture, verify_full_attention_fixture,
     verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
     verify_mixture_fixture, verify_mtp_causal_prefill_fixture, verify_mtp_input_fusion_fixture,
-    verify_mtp_proposal_fixture, verify_ngram_fixture, verify_ngram_rows,
-    verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
-    verify_sparse_moe_fixture, verify_text_output_fixture, verify_token_text_continuation_fixture,
-    verify_token_text_endpoint_fixture, verify_tokenizer_fixture,
+    verify_mtp_proposal_fixture, verify_mtp_transaction_fixture, verify_ngram_fixture,
+    verify_ngram_rows, verify_ple_attention_residual_fixture, verify_ple_fixture,
+    verify_router_fixture, verify_sparse_moe_fixture, verify_text_output_fixture,
+    verify_token_text_continuation_fixture, verify_token_text_endpoint_fixture,
+    verify_token_text_transaction_fixture, verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -34,6 +35,9 @@ fn usage() -> ! {
         "  firewing verify-token-text-continuation CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
     );
     eprintln!(
+        "  firewing verify-token-text-transaction CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
+    );
+    eprintln!(
         "  firewing verify-mtp-input-fusion CHECKPOINT_DIR MODEL_LOCK SOURCE_LOCK FIXTURE_JSON [REPORT_JSON]"
     );
     eprintln!(
@@ -41,6 +45,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing verify-mtp-causal-prefill CHECKPOINT_DIR MODEL_LOCK MTP_SOURCE_LOCK SCHEDULER_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE FUSION_FIXTURE SEED_FIXTURE ATTENTION_FIXTURE DECODER_FIXTURE OUTPUT_FIXTURE [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-mtp-transaction CHECKPOINT_DIR MODEL_LOCK MTP_SOURCE_LOCK SCHEDULER_LOCK ACCEPTANCE_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE PREFILL_ENDPOINT_FIXTURE FUSION_FIXTURE SEED_FIXTURE MTP_ATTENTION_FIXTURE MTP_DECODER_FIXTURE MTP_OUTPUT_FIXTURE TARGET_TRANSACTION_FIXTURE TRANSACTION_FIXTURE [REPORT_JSON]"
     );
     eprintln!(
         "  firewing bench-metal-bf16-gemv CHECKPOINT_DIR MODEL_LOCK ROUTER_FIXTURE EXPERT_FIXTURE KERNEL_METAL IMPLEMENTATION_COMMIT [REPORT_JSON]"
@@ -129,6 +136,29 @@ fn main() {
             )
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(16),
+        ),
+        Some("verify-mtp-transaction") if (19..=20).contains(&args.len()) => (
+            verify_mtp_transaction_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+                Path::new(&args[9]),
+                Path::new(&args[10]),
+                Path::new(&args[11]),
+                Path::new(&args[12]),
+                Path::new(&args[13]),
+                Path::new(&args[14]),
+                Path::new(&args[15]),
+                Path::new(&args[16]),
+                Path::new(&args[17]),
+                Path::new(&args[18]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(19),
         ),
         Some("bench-ngram-transport") if (7..=8).contains(&args.len()) => (
             benchmark_ngram_transport(
@@ -358,6 +388,19 @@ fn main() {
         ),
         Some("verify-token-text-continuation") if (9..=10).contains(&args.len()) => (
             verify_token_text_continuation_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(9),
+        ),
+        Some("verify-token-text-transaction") if (9..=10).contains(&args.len()) => (
+            verify_token_text_transaction_fixture(
                 Path::new(&args[2]),
                 Path::new(&args[3]),
                 Path::new(&args[4]),

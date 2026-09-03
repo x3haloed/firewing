@@ -23,6 +23,7 @@ mod hyper_connection;
 mod metal_bf16;
 mod metal_moe;
 mod mtp;
+mod mtp_transaction;
 mod ngram;
 mod overlap_bound;
 mod ple;
@@ -72,6 +73,7 @@ pub use mtp::{
     MtpProposalVerificationReport, verify_mtp_causal_prefill_fixture,
     verify_mtp_input_fusion_fixture, verify_mtp_proposal_fixture,
 };
+pub use mtp_transaction::{MtpTransactionVerificationReport, verify_mtp_transaction_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
@@ -89,7 +91,7 @@ pub use text_output::{TextOutputVerificationReport, verify_text_output_fixture};
 pub use token_text_endpoint::{
     CatalogTokenTextEndpointReport, EndpointLayerTiming, TokenTextEndpointVerificationReport,
     benchmark_catalog_token_text_endpoint, verify_token_text_continuation_fixture,
-    verify_token_text_endpoint_fixture,
+    verify_token_text_endpoint_fixture, verify_token_text_transaction_fixture,
 };
 
 #[derive(Debug, Deserialize)]

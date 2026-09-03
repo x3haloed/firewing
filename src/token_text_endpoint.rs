@@ -24,6 +24,7 @@ const HC_HIDDEN: usize = HIDDEN * HC_COUNT;
 const VOCAB: usize = 248_320;
 const TOKEN_IDS: [usize; 2] = [16_207, 22_856];
 const THREE_TOKEN_IDS: [usize; 3] = [16_207, 22_856, 369];
+const FOUR_TOKEN_IDS: [usize; 4] = [16_207, 22_856, 369, 264];
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -410,6 +411,7 @@ fn verify_token_text_endpoint_fixture_with_expected_outputs(
     let token_count_word = match expected_token_ids.len() {
         2 => "two",
         3 => "three",
+        4 => "four",
         _ => return Err("unsupported endpoint token count".to_owned()),
     };
     let past_lengths = (0..expected_token_ids.len()).collect::<Vec<_>>();
@@ -683,6 +685,31 @@ pub fn verify_token_text_continuation_fixture(
         "qwen3_8_flash_next_firewing_three_token_cached_text_logits",
         "qwen3_8_flash_next_firewing_three_token_cached_text_logits_verification",
         &THREE_TOKEN_IDS,
+    )
+    .map(|(report, _)| report)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn verify_token_text_transaction_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    tokenizer_fixture_path: &Path,
+    ngram_fixture_path: &Path,
+    ngram_row_fixture_path: &Path,
+    ple_fixture_path: &Path,
+    fixture_path: &Path,
+) -> Result<TokenTextEndpointVerificationReport, String> {
+    verify_token_text_endpoint_fixture_with_expected_outputs(
+        checkpoint_dir,
+        model_lock_path,
+        tokenizer_fixture_path,
+        ngram_fixture_path,
+        ngram_row_fixture_path,
+        ple_fixture_path,
+        fixture_path,
+        "qwen3_8_flash_next_firewing_four_token_cached_text_logits",
+        "qwen3_8_flash_next_firewing_four_token_cached_text_logits_verification",
+        &FOUR_TOKEN_IDS,
     )
     .map(|(report, _)| report)
 }

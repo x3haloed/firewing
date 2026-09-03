@@ -302,6 +302,9 @@ def build_fixture(
         for handle in handles.values():
             handle.close()
 
+    token_count_word = {2: "two", 3: "three", 4: "four"}.get(len(tokens))
+    if token_count_word is None:
+        raise ValueError("PLE fixture supports only two, three, or four tokens")
     fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
@@ -333,7 +336,7 @@ def build_fixture(
             "token_state_dtype": "I64",
         },
         "case": {
-            "name": f"layer_1_{'two' if len(tokens) == 2 else 'three'}_token_ple",
+            "name": f"layer_1_{token_count_word}_token_ple",
             "tensors": tensor_records,
             "steps": steps,
         },

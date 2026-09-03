@@ -178,6 +178,9 @@ def build_fixture(
             }
         )
 
+    token_count_word = {2: "two", 3: "three", 4: "four"}.get(len(steps))
+    if token_count_word is None:
+        raise ValueError("PLE attention fixture supports only two, three, or four token steps")
     fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,
@@ -204,7 +207,7 @@ def build_fixture(
             "recurrent_state_dtype": "F32",
         },
         "case": {
-            "name": f"layer_1_{'two' if len(steps) == 2 else 'three'}_token_ple_attention_residual",
+            "name": f"layer_1_{token_count_word}_token_ple_attention_residual",
             "tensors": tensors,
             "steps": steps,
         },
