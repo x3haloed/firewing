@@ -72,3 +72,8 @@ future and initial contents remain free, all misses launch without layer
 dependencies, and fixed model work remains omitted. The next cheap experiment
 must measure causal initial-cache and eviction policies from prior route history
 before any production cache implementation.
+
+**Superseded by FW-0053:** compressed-capacity accounting plus free hit traffic
+did not establish an executable representation. FW-0053 finds a favorable
+mixed compressed/decoded incumbent, but requires physical replay of all hit
+decodes and representation transitions before causal-policy implementation.

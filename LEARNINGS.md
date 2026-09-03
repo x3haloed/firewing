@@ -485,6 +485,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   a component implementation, not endpoint TPS, and does not resolve the
   offline cache's causality. See
   [`experiments/FW-0052-exact-metal-swiglu-fusion.md`](experiments/FW-0052-exact-metal-swiglu-fusion.md).
+- FW-0053 corrects FW-0051's free compressed-cache-hit abstraction without
+  rejecting the lossless branch. A capacity-respecting offline MILP chooses
+  645 compressed and 811 decoded-BF16 retention intervals, with 464 misses and
+  4.259 GB maximum mixed residency. It charges 1,109 decodes / 10.902 GB of
+  reconstructed source traffic, yet favorable physical and ideal decode paths
+  balance at 892.344 and 892.048 ms. Perfect overlap with 607.624 ms of exact
+  Metal therefore retains a 4.482576-TPS bound with only 107.656 ms of
+  fixed-work headroom. FW-0051's direct causal-policy follow-up is superseded:
+  physically replay mixed hit decodes, representation transitions, and actual
+  installation first. See
+  [`experiments/FW-0053-mixed-representation-cache-oracle.md`](experiments/FW-0053-mixed-representation-cache-oracle.md).
 
 ## Prediction errors
 
@@ -508,11 +519,12 @@ These unresolved distinctions can still change the next decision:
   and FW-0049 establishes that physical transformed decoding plus inverse
   shuffle can overlap four rows of routed Metal above 4 TPS. FW-0050 supplies
   a capacity-respecting offline schedule at the same compulsory-miss count.
-  FW-0051 physically replays that schedule above 4 TPS. FW-0052 reduces the
-  exact resident routed-compute projection to 151.906 ms/token, but that
-  component result is not yet integrated into the physical overlap path.
-  Causality, actual resident cache installation, and full endpoint work remain
-  unresolved.
+  FW-0051 physically replays only misses above 4 TPS, and FW-0052 reduces exact
+  resident routed compute. FW-0053 repairs the representation ledger with a
+  mixed compressed/decoded offline schedule that still bounds at 4.483 TPS,
+  but its all-hit decode traffic and representation transitions have not been
+  physically replayed. Causality, actual resident cache installation, and full
+  endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;

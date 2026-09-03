@@ -322,6 +322,14 @@ target/release/firewing bench-capacity-cache-overlap \
   /Users/chad/Models/firewing/evidence/FW-0050/capacity-cache-milp-4fa77fd.json \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Mixed compressed/decoded capacity oracle (offline bound, not endpoint TPS)
+.venv/bin/python tools/analyze_executable_cache_milp.py \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1-manifest-6271f3d.json \
+  /Users/chad/Models/firewing/evidence/FW-0051/capacity-cache-overlap-d671bd1.json \
+  /Users/chad/Models/firewing/evidence/FW-0052/metal-swiglu-c2bac85.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
