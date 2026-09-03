@@ -310,6 +310,18 @@ target/release/firewing bench-sequential-shuffle-overlap \
   /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1.fwz \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON
+
+# Exact FW-0050 capacity-respecting offline cache physical replay
+# (not endpoint TPS or a causal cache)
+target/release/firewing bench-capacity-cache-overlap \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  kernels/bf16_gemv.metal \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1-manifest-6271f3d.json \
+  /Users/chad/Models/firewing/evidence/FW-0049/q2-sequential-bf16-shuffle-zstd1.fwz \
+  /Users/chad/Models/firewing/evidence/FW-0050/capacity-cache-milp-4fa77fd.json \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

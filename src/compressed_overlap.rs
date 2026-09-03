@@ -48,6 +48,9 @@ const FW0048_SHA256: &str = "592d5b4e4c45f3733977a9a068c660dd23f90c877f5df1e0afa
 const SEQUENTIAL_RECORDS: usize = 1097;
 const SEQUENTIAL_COMPRESSED_BYTES: usize = 7_381_296_763;
 const SEQUENTIAL_PHYSICAL_BYTES: usize = 7_388_381_184;
+const FW0050_RECEIPT_SHA256: &str =
+    "ed4ae0d2137bde9393b9aad1556910360bf1e5689de56df5c1f32a82a691159e";
+const FW0050_IMPLEMENTATION_COMMIT: &str = "4fa77fd3ed24171b862914f826c958279110acb7";
 
 #[derive(Deserialize)]
 struct Manifest {
@@ -148,6 +151,46 @@ struct SequentialTransaction {
     ordinal: usize,
     accepted_tokens: usize,
     target_rows: Vec<Vec<Vec<String>>>,
+}
+
+#[derive(Deserialize)]
+struct CacheReceipt {
+    schema_version: u32,
+    semantic: String,
+    implementation_commit: String,
+    model: String,
+    revision: String,
+    manifest_sha256: String,
+    container_sha256: String,
+    cache_semantic: String,
+    initial_cache_semantic: String,
+    event_order: String,
+    events: usize,
+    accesses: usize,
+    unique_experts: usize,
+    retention_intervals_selected: usize,
+    misses: usize,
+    compressed_cache_bytes: usize,
+    maximum_boundary_resident_compressed_bytes: usize,
+    miss_compressed_bytes: usize,
+    miss_physical_bytes: usize,
+    selected_retention_intervals: Vec<RetentionInterval>,
+    misses_by_event: Vec<Vec<String>>,
+    batch_size: usize,
+    concurrency: usize,
+    q: usize,
+    #[serde(rename = "A")]
+    accepted: usize,
+    #[serde(rename = "sum_equivalent_U")]
+    union: f64,
+    performance_claim: Option<String>,
+}
+
+#[derive(Clone, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+struct RetentionInterval {
+    identity: String,
+    after_event: isize,
+    hit_event: usize,
 }
 
 #[derive(Clone, Deserialize)]
@@ -263,6 +306,8 @@ pub struct SequentialShuffleOverlapReport {
     pub builder_commit: &'static str,
     pub manifest_sha256: &'static str,
     pub container_sha256: &'static str,
+    pub cache_receipt_sha256: Option<&'static str>,
+    pub schedule_semantic: &'static str,
     pub device_name: String,
     pub codec: &'static str,
     pub exact_transform: &'static str,
@@ -654,6 +699,173 @@ fn build_sequential_schedule(manifest: &SequentialManifest) -> Result<Sequential
                 .unwrap_or(usize::MAX)
     {
         return Err("sequential-overlap initial cache selection mismatch".to_owned());
+    }
+    Ok(SequentialSchedule {
+        misses,
+        initial_count: initial.len(),
+        initial_bytes,
+    })
+}
+
+fn sequential_events(manifest: &SequentialManifest) -> Vec<Vec<String>> {
+    manifest
+        .transactions
+        .iter()
+        .flat_map(|transaction| transaction.target_rows.iter())
+        .flat_map(|row| row.iter())
+        .cloned()
+        .collect()
+}
+
+fn load_capacity_schedule(
+    path: &Path,
+    manifest: &SequentialManifest,
+) -> Result<SequentialSchedule, String> {
+    if sha256_file(path)? != FW0050_RECEIPT_SHA256 {
+        return Err("capacity-overlap cache receipt hash mismatch".to_owned());
+    }
+    let receipt: CacheReceipt =
+        serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed capacity-overlap cache receipt: {error}"))?;
+    if receipt.schema_version != 1
+        || receipt.semantic
+            != "qwen3_8_flash_next_two_q2_bf16_shuffle_capacity_respecting_offline_cache_milp"
+        || receipt.implementation_commit != FW0050_IMPLEMENTATION_COMMIT
+        || receipt.model != MODEL
+        || receipt.revision != REVISION
+        || receipt.manifest_sha256 != SEQUENTIAL_MANIFEST_SHA256
+        || receipt.container_sha256 != SEQUENTIAL_CONTAINER_SHA256
+        || receipt.cache_semantic
+            != "whole_compressed_expert_frames_retained_between_ordered_layer_events"
+        || receipt.initial_cache_semantic != "free_offline_future_known_capacity_respecting"
+        || receipt.event_order
+            != "transaction_then_target_row_then_layer_with_simultaneous_top10_event"
+        || receipt.events != LAYERS * 4
+        || receipt.accesses != LAYERS * TOP_K * 4
+        || receipt.unique_experts != SEQUENTIAL_RECORDS
+        || receipt.retention_intervals_selected != 1456
+        || receipt.misses != 464
+        || receipt.compressed_cache_bytes != CACHE_BYTES
+        || receipt.maximum_boundary_resident_compressed_bytes != 4_258_752_496
+        || receipt.miss_compressed_bytes != 3_122_618_255
+        || receipt.miss_physical_bytes != 3_124_527_104
+        || receipt.batch_size != 1
+        || receipt.concurrency != 1
+        || receipt.q != 2
+        || receipt.accepted != 4
+        || receipt.union != (697.0 + 741.0) / 480.0
+        || receipt.performance_claim.is_some()
+    {
+        return Err("capacity-overlap cache receipt identity mismatch".to_owned());
+    }
+    let events = sequential_events(manifest);
+    if receipt.misses_by_event.len() != events.len() {
+        return Err("capacity-overlap cache event count mismatch".to_owned());
+    }
+    let records = manifest
+        .records
+        .iter()
+        .map(|record| (record.identity.clone(), record))
+        .collect::<BTreeMap<_, _>>();
+    let mut occurrences = BTreeMap::<String, Vec<usize>>::new();
+    for (event_index, event) in events.iter().enumerate() {
+        for identity in event {
+            occurrences
+                .entry(identity.clone())
+                .or_default()
+                .push(event_index);
+        }
+    }
+    let mut expected = BTreeSet::new();
+    for (identity, positions) in occurrences {
+        let mut previous = -1_isize;
+        for position in positions {
+            expected.insert(RetentionInterval {
+                identity: identity.clone(),
+                after_event: previous,
+                hit_event: position,
+            });
+            previous = position as isize;
+        }
+    }
+    let selected = receipt
+        .selected_retention_intervals
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if selected.len() != receipt.selected_retention_intervals.len()
+        || !selected.is_subset(&expected)
+        || expected.len() != receipt.accesses
+    {
+        return Err("capacity-overlap retention interval mismatch".to_owned());
+    }
+    let mut boundary_bytes = vec![0_usize; events.len()];
+    for interval in &selected {
+        let record = records
+            .get(&interval.identity)
+            .ok_or_else(|| "capacity-overlap unknown retained identity".to_owned())?;
+        for bytes in boundary_bytes
+            .iter_mut()
+            .take(interval.hit_event + 1)
+            .skip((interval.after_event + 1) as usize)
+        {
+            *bytes = bytes
+                .checked_add(record.compressed_bytes)
+                .ok_or_else(|| "capacity-overlap resident byte overflow".to_owned())?;
+        }
+    }
+    if boundary_bytes.iter().copied().max().unwrap_or(0)
+        != receipt.maximum_boundary_resident_compressed_bytes
+        || boundary_bytes.iter().any(|bytes| *bytes > CACHE_BYTES)
+    {
+        return Err("capacity-overlap capacity certificate mismatch".to_owned());
+    }
+    let mut misses = Vec::new();
+    for (event_index, identities) in receipt.misses_by_event.iter().enumerate() {
+        let declared = identities.iter().cloned().collect::<BTreeSet<_>>();
+        if declared.len() != identities.len() {
+            return Err("capacity-overlap duplicate event miss".to_owned());
+        }
+        let expected_misses = expected
+            .iter()
+            .filter(|interval| interval.hit_event == event_index && !selected.contains(*interval))
+            .map(|interval| interval.identity.clone())
+            .collect::<BTreeSet<_>>();
+        if declared != expected_misses {
+            return Err("capacity-overlap event miss schedule mismatch".to_owned());
+        }
+        for identity in identities {
+            misses.push(
+                (*records
+                    .get(identity)
+                    .ok_or_else(|| "capacity-overlap unknown miss identity".to_owned())?)
+                .clone(),
+            );
+        }
+    }
+    let initial = selected
+        .iter()
+        .filter(|interval| interval.after_event == -1)
+        .collect::<Vec<_>>();
+    let initial_bytes = initial
+        .iter()
+        .map(|interval| records[&interval.identity].compressed_bytes)
+        .sum::<usize>();
+    if initial.len() != 633
+        || initial_bytes > CACHE_BYTES
+        || misses.len() != receipt.misses
+        || misses
+            .iter()
+            .map(|record| record.compressed_bytes)
+            .sum::<usize>()
+            != receipt.miss_compressed_bytes
+        || misses
+            .iter()
+            .map(|record| record.physical_bytes)
+            .sum::<usize>()
+            != receipt.miss_physical_bytes
+    {
+        return Err("capacity-overlap replay byte ledger mismatch".to_owned());
     }
     Ok(SequentialSchedule {
         misses,
@@ -1154,6 +1366,48 @@ pub fn benchmark_sequential_shuffle_overlap(
     container_path: &Path,
     implementation_commit: &str,
 ) -> Result<SequentialShuffleOverlapReport, String> {
+    benchmark_sequential_shuffle_overlap_impl(
+        checkpoint_dir,
+        mixture_fixture_path,
+        kernel_path,
+        manifest_path,
+        container_path,
+        None,
+        implementation_commit,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_capacity_cache_overlap(
+    checkpoint_dir: &Path,
+    mixture_fixture_path: &Path,
+    kernel_path: &Path,
+    manifest_path: &Path,
+    container_path: &Path,
+    cache_receipt_path: &Path,
+    implementation_commit: &str,
+) -> Result<SequentialShuffleOverlapReport, String> {
+    benchmark_sequential_shuffle_overlap_impl(
+        checkpoint_dir,
+        mixture_fixture_path,
+        kernel_path,
+        manifest_path,
+        container_path,
+        Some(cache_receipt_path),
+        implementation_commit,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn benchmark_sequential_shuffle_overlap_impl(
+    checkpoint_dir: &Path,
+    mixture_fixture_path: &Path,
+    kernel_path: &Path,
+    manifest_path: &Path,
+    container_path: &Path,
+    cache_receipt_path: Option<&Path>,
+    implementation_commit: &str,
+) -> Result<SequentialShuffleOverlapReport, String> {
     if implementation_commit.len() != 40
         || !implementation_commit
             .bytes()
@@ -1172,7 +1426,20 @@ pub fn benchmark_sequential_shuffle_overlap(
     let container = File::open(container_path).map_err(|error| error.to_string())?;
     verify_transformed_frames(&container, &manifest.records)?;
     drop(container);
-    let schedule = build_sequential_schedule(&manifest)?;
+    let (schedule, cache_receipt_sha256, schedule_semantic) = if let Some(path) = cache_receipt_path
+    {
+        (
+            load_capacity_schedule(path, &manifest)?,
+            Some(FW0050_RECEIPT_SHA256),
+            "capacity_respecting_offline_interval_milp_incumbent",
+        )
+    } else {
+        (
+            build_sequential_schedule(&manifest)?,
+            None,
+            "largest_fitting_static_union_without_post_load_capacity",
+        )
+    };
     let authority_verification_wall_time_ns = authority_started.elapsed().as_nanos();
     safety.checkpoint("authority_complete", true)?;
 
@@ -1265,15 +1532,40 @@ pub fn benchmark_sequential_shuffle_overlap(
     let device_name = runner.device_name().to_owned();
     drop(runner);
     let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
+    let (semantic, favorable_grants) = if cache_receipt_path.is_some() {
+        (
+            "qwen3_8_flash_next_two_q2_exact_bf16_shuffle_zstd1_capacity_cache_parallel_physical_metal_overlap_favorable_bound",
+            vec![
+                "the complete two-transaction future is known and the FW-0050 capacity-respecting initial frames are installed into cache for free",
+                "the offline FW-0050 retention schedule is replayed without charging cache metadata or hit traffic",
+                "all scheduled misses may begin before target layer dependencies reveal routes",
+                "the exact layer-0 top10 Metal workload stands in for all 192 target layer-row executions",
+                "MTP fixed endpoint work attention shared experts routing ngram sampling rollback and synchronization are free",
+            ],
+        )
+    } else {
+        (
+            "qwen3_8_flash_next_two_q2_exact_bf16_shuffle_zstd1_parallel_physical_metal_overlap_favorable_bound",
+            vec![
+                "the complete two-transaction future is known and the largest fitting whole compressed frames are installed into cache for free",
+                "every distinct frame outside the free initial cache is loaded exactly once without causal layer dependencies or eviction",
+                "cache metadata and all cache-hit traffic are free",
+                "the exact layer-0 top10 Metal workload stands in for all 192 target layer-row executions",
+                "MTP fixed endpoint work attention shared experts routing ngram sampling rollback and synchronization are free",
+            ],
+        )
+    };
     Ok(SequentialShuffleOverlapReport {
         schema_version: 1,
-        semantic: "qwen3_8_flash_next_two_q2_exact_bf16_shuffle_zstd1_parallel_physical_metal_overlap_favorable_bound",
+        semantic,
         implementation_commit: implementation_commit.to_owned(),
         model: MODEL,
         revision: REVISION,
         builder_commit: SEQUENTIAL_BUILDER_COMMIT,
         manifest_sha256: SEQUENTIAL_MANIFEST_SHA256,
         container_sha256: SEQUENTIAL_CONTAINER_SHA256,
+        cache_receipt_sha256,
+        schedule_semantic,
         device_name,
         codec: "zstd_0.13.3_bulk_decompressor_independent_frames",
         exact_transform: "bf16_even_bytes_then_odd_bytes_per_expert",
@@ -1321,13 +1613,7 @@ pub fn benchmark_sequential_shuffle_overlap(
         q: 2,
         accepted: 4,
         union: (697.0 + 741.0) / 480.0,
-        favorable_grants: vec![
-            "the complete two-transaction future is known and the largest fitting whole compressed frames are installed into cache for free",
-            "every distinct frame outside the free initial cache is loaded exactly once without causal layer dependencies or eviction",
-            "cache metadata and all cache-hit traffic are free",
-            "the exact layer-0 top10 Metal workload stands in for all 192 target layer-row executions",
-            "MTP fixed endpoint work attention shared experts routing ngram sampling rollback and synchronization are free",
-        ],
+        favorable_grants,
         host_safety_policy,
         host_safety_snapshots,
         performance_claim: None,

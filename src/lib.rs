@@ -51,7 +51,8 @@ pub use attention_residual::{
 pub use checkpoint_catalog::{CheckpointCatalogReport, benchmark_checkpoint_catalog};
 pub use compressed_overlap::{
     CompressedOverlapTrial, ParallelZstdOverlapReport, SequentialShuffleOverlapReport,
-    benchmark_parallel_zstd_overlap, benchmark_sequential_shuffle_overlap,
+    benchmark_capacity_cache_overlap, benchmark_parallel_zstd_overlap,
+    benchmark_sequential_shuffle_overlap,
 };
 pub use decoder_layer::{DecoderLayerVerificationReport, verify_decoder_layer_fixture};
 pub use decoder_layer1::{DecoderLayer1VerificationReport, verify_decoder_layer1_fixture};
