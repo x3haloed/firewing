@@ -5,12 +5,17 @@ use std::path::Path;
 use tokenizers::Tokenizer;
 
 mod expert;
+mod expert_acquisition;
 mod ngram;
 mod router;
 
 pub use expert::{
     ExpertVerificationReport, MixtureVerificationReport, SparseMoeVerificationReport,
     verify_expert_fixture, verify_mixture_fixture, verify_sparse_moe_fixture,
+};
+pub use expert_acquisition::{
+    ExpertAcquisitionBenchmarkReport, ExpertAcquisitionSummary, ExpertAcquisitionTrial,
+    benchmark_expert_acquisition,
 };
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,

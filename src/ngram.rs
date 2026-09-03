@@ -216,19 +216,19 @@ struct SparseRequest {
 }
 
 #[derive(Clone, Copy)]
-struct AlignedReadPlan {
-    physical_offset: u64,
-    physical_bytes: usize,
-    logical_offset: usize,
+pub(crate) struct AlignedReadPlan {
+    pub(crate) physical_offset: u64,
+    pub(crate) physical_bytes: usize,
+    pub(crate) logical_offset: usize,
 }
 
-struct AlignedBuffer {
+pub(crate) struct AlignedBuffer {
     pointer: *mut u8,
     capacity: usize,
 }
 
 impl AlignedBuffer {
-    fn new(capacity: usize, alignment: usize) -> Result<Self, String> {
+    pub(crate) fn new(capacity: usize, alignment: usize) -> Result<Self, String> {
         let mut pointer = std::ptr::null_mut();
         // SAFETY: posix_memalign initializes `pointer` on success; both values
         // are nonzero powers/multiples fixed by the validated read plan.
@@ -242,7 +242,7 @@ impl AlignedBuffer {
         })
     }
 
-    fn bytes_mut(&mut self) -> &mut [u8] {
+    pub(crate) fn bytes_mut(&mut self) -> &mut [u8] {
         // SAFETY: the allocation is live, exclusive, and exactly `capacity` bytes.
         unsafe { std::slice::from_raw_parts_mut(self.pointer, self.capacity) }
     }
@@ -916,7 +916,7 @@ pub fn verify_ngram_rows(
 }
 
 #[cfg(target_os = "macos")]
-fn process_disk_bytes_read() -> Result<u64, String> {
+pub(crate) fn process_disk_bytes_read() -> Result<u64, String> {
     let mut usage = RusageInfoV2::default();
     // SAFETY: `usage` has Darwin's rusage_info_v2 layout and is exclusively borrowed.
     let result = unsafe {
@@ -933,11 +933,11 @@ fn process_disk_bytes_read() -> Result<u64, String> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn process_disk_bytes_read() -> Result<u64, String> {
+pub(crate) fn process_disk_bytes_read() -> Result<u64, String> {
     Err("Darwin process disk counters are required".to_owned())
 }
 
-fn aligned_read_plan(
+pub(crate) fn aligned_read_plan(
     offset: u64,
     logical_bytes: usize,
     file_bytes: u64,
@@ -968,7 +968,11 @@ fn aligned_read_plan(
     })
 }
 
-fn read_exact_at(file: &File, mut destination: &mut [u8], mut offset: u64) -> Result<(), String> {
+pub(crate) fn read_exact_at(
+    file: &File,
+    mut destination: &mut [u8],
+    mut offset: u64,
+) -> Result<(), String> {
     while !destination.is_empty() {
         let count = file
             .read_at(destination, offset)
@@ -985,7 +989,7 @@ fn read_exact_at(file: &File, mut destination: &mut [u8], mut offset: u64) -> Re
 }
 
 #[cfg(target_os = "macos")]
-fn set_uncached(file: &File) -> Result<(), String> {
+pub(crate) fn set_uncached(file: &File) -> Result<(), String> {
     use std::os::fd::AsRawFd;
     let descriptor = file.as_raw_fd();
     // SAFETY: fcntl receives a live descriptor and Darwin's documented flags.
@@ -1001,11 +1005,11 @@ fn set_uncached(file: &File) -> Result<(), String> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn set_uncached(_file: &File) -> Result<(), String> {
+pub(crate) fn set_uncached(_file: &File) -> Result<(), String> {
     Err("Darwin F_NOCACHE transport is required".to_owned())
 }
 
-fn invalidate_plan(file: &File, plan: AlignedReadPlan) -> Result<(), String> {
+pub(crate) fn invalidate_plan(file: &File, plan: AlignedReadPlan) -> Result<(), String> {
     // SAFETY: the plan is page-aligned, bounded by the verified file size, and
     // the file remains live for the mapping.
     let mapping = unsafe {
@@ -1046,7 +1050,11 @@ fn invalidate_plan(file: &File, plan: AlignedReadPlan) -> Result<(), String> {
     Ok(())
 }
 
-fn resident_pages(file: &File, plan: AlignedReadPlan, page_bytes: usize) -> Result<u64, String> {
+pub(crate) fn resident_pages(
+    file: &File,
+    plan: AlignedReadPlan,
+    page_bytes: usize,
+) -> Result<u64, String> {
     // SAFETY: the plan is page-aligned, bounded, and the file remains live.
     let mapping = unsafe {
         memmap2::MmapOptions::new()
