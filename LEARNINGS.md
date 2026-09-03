@@ -114,6 +114,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   injection/add boundaries; the MLP half, a complete decoder layer, PLE,
   full-attention layers, and endpoint TPS remain unresolved. See
   [`experiments/FW-0016-layer0-attention-residual.md`](experiments/FW-0016-layer0-attention-residual.md).
+- FW-0017 supersedes FW-0016's unresolved complete-layer boundary: the native
+  path now exactly executes the entire real layer-0 decoder for an initial and
+  cached token. The actual post-attention activations selected 20 disjoint
+  experts across the two steps; all 32 BF16 layer captures and 20 weighted
+  expert outputs matched while 351,401,408 unique payload bytes were
+  authenticated. This establishes one complete stateful decoder layer, not
+  accumulated multi-layer parity, PLE, full attention, logits, an endpoint, or
+  TPS. See
+  [`experiments/FW-0017-layer0-complete-decoder.md`](experiments/FW-0017-layer0-complete-decoder.md).
 
 ## Prediction errors
 
