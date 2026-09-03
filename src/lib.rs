@@ -11,6 +11,7 @@ mod expert;
 mod expert_acquisition;
 mod hyper_connection;
 mod ngram;
+mod ple;
 mod router;
 
 pub use attention_residual::{
@@ -32,6 +33,7 @@ pub use ngram::{
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
     verify_ngram_rows,
 };
+pub use ple::{PleVerificationReport, verify_ple_fixture};
 pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
 
 #[derive(Debug, Deserialize)]

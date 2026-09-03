@@ -275,7 +275,7 @@ fn pytorch_inner_square_sum(values: &[f32]) -> f32 {
     result
 }
 
-fn grouped_rms(input: &[u16], weight: &[u16], epsilon: f32) -> Vec<u16> {
+pub(crate) fn grouped_rms(input: &[u16], weight: &[u16], epsilon: f32) -> Vec<u16> {
     let mut output = Vec::with_capacity(HC_HIDDEN);
     for group in 0..HC_COUNT {
         let input = &input[group * HIDDEN..(group + 1) * HIDDEN];
