@@ -424,6 +424,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   A causal cache carried across sequential q2 transactions is now mandatory.
   See
   [`experiments/FW-0046-parallel-zstd-physical-overlap.md`](experiments/FW-0046-parallel-zstd-physical-overlap.md).
+- FW-0047 reverses FW-0046's single-transaction capacity survivor for
+  untransformed zstd-1. Across both exact q2 transactions, 1,097 distinct
+  experts occupy 8.386 GB compressed. Even a free fractional future-known
+  4.261-GB cache leaves 4.125 GB to read, yielding only a 3.394966-TPS
+  storage-only ceiling for aggregate `A=4` with decoding and all compute free.
+  A reset clairvoyant cache per transaction was therefore not a durable
+  premise. Continue only if an exact transform lowers the sequential union to
+  roughly 72.0% of source bytes; causal cache construction remains premature.
+  See
+  [`experiments/FW-0047-sequential-q2-zstd-storage-oracle.md`](experiments/FW-0047-sequential-q2-zstd-storage-oracle.md).
 
 ## Prediction errors
 
@@ -441,8 +451,10 @@ These unresolved distinctions can still change the next decision:
   raw-BF16 q2 residency on the first transaction but does not measure a
   production route distribution. FW-0045 establishes an exact zstd-1 size
   reduction on that union, and FW-0046 resolves parallel physical decoding as
-  fast enough under a future-known cache. Causal sequential cache behavior,
-  actual resident capacity, and full endpoint work remain unresolved.
+  fast enough under a future-known cache. FW-0047 then rejects that exact
+  representation across two sequential transactions even under a fractional
+  cache oracle. Better exact transforms, causal cache behavior, actual resident
+  capacity, and full endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;

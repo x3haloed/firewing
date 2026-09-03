@@ -1,7 +1,7 @@
 # FW-0047 - Sequential q2 zstd storage oracle
 
-- Status: implementation ready; measurement pending
-- Disposition: unexecuted
+- Status: completed
+- Disposition: rejected for untransformed zstd-1 on the frozen sequential prefix
 - Date: 2026-09-03
 - Parent experiments: FW-0043, FW-0046
 - Exactness: L1 source-exact zstd-1 sizes; impossible-favorable fractional cache oracle
@@ -32,4 +32,34 @@ production acceptance distribution or endpoint TPS.
 
 ## Result
 
-Pending a clean-commit run.
+The two transactions share 321 layer-expert identities and contain 1,097
+distinct experts. The analyzer reuses all 687 immutable FW-0046 frame sizes,
+then compresses and exactly round-trips the remaining 410 source experts.
+Their combined 10,783,948,800 source bytes become 8,386,402,510 zstd-1 bytes,
+a stable 77.7675% ratio.
+
+One impossible-favorable 4,260,902,888-byte fractional cache leaves
+4,125,499,622 bytes outside residency. At FW-0044's favorable 3.501-GB/s raw
+physical rate, those bytes alone require 1.178215 seconds. Aggregate `A=4`
+therefore has a storage-only ceiling of **3.394966 accepted TPS**, below the
+4-TPS median gate before decompression, compute, or any endpoint work.
+
+Raw receipt:
+`/Users/chad/Models/firewing/evidence/FW-0047/sequential-zstd-oracle-1a635e5.json`
+
+Receipt SHA-256:
+`b9dea3412892e0970195b32dc54c2dce9508cc52ec71d3987538c7bb45a8fc2c`
+
+## Decision
+
+Reject untransformed per-expert zstd-1 as sufficient for the frozen sequential
+prefix. This reverses FW-0046's single-transaction survivor: resetting free
+future-known contents per transaction hid the cross-transaction capacity
+deficit. It does not reject zstd-1 as a codec component after a different exact
+byte transform, nor does two transactions establish the sustained route
+distribution.
+
+To reach four storage-only TPS under the same favorable assumptions, the
+1,097-expert union must fit within approximately 7.762 GB—an overall ratio near
+72.0%, about 7.4% smaller than the current compressed representation. Test an
+exact BF16 byte-shuffle transform before any causal cache or resident runtime.
