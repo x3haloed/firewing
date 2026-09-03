@@ -190,6 +190,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   accumulated layers 0 through 1, not later layers, logits, an endpoint, or
   TPS. See
   [`experiments/FW-0024-accumulated-layers0-1.md`](experiments/FW-0024-accumulated-layers0-1.md).
+- FW-0025 extends exact accumulated execution through layer 2 using reusable
+  arbitrary-layer linear-attention and MLP verifier paths. Native layer 2
+  consumes the actual two FW-0024 outputs, owns fresh convolution and recurrent
+  state, selects twenty experts in two disjoint routes, and matches 14 BF16 plus
+  two F32 attention captures, 32 decoder captures, and twenty weighted-expert
+  hashes. The full layers-0-through-2 replay authenticates 1,119,893,824
+  logical payload bytes. This proves the reusable linear-layer path on one
+  additional accumulated layer, not the layer-3 full-attention transition,
+  later layers, logits, an endpoint, or TPS. See
+  [`experiments/FW-0025-accumulated-layer2.md`](experiments/FW-0025-accumulated-layer2.md).
 
 ## Prediction errors
 

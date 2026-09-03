@@ -1,7 +1,7 @@
 # FW-0025 - Accumulated linear-attention layer 2
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: pass
 - Date: 2026-09-03
 - Parent experiment: FW-0024
 - Exactness: L0 bit-identical component semantics
@@ -75,11 +75,8 @@ cargo run --release -- verify-accumulated-layer2 \
   /Users/chad/Models/firewing/evidence/FW-0025/accumulated-layer2.json
 ```
 
-The abbreviated commands may resolve already locked FW-0024 component paths
-from the committed fixture; final commands will list any additional explicit
-authorities required by the verifier. Batch size and concurrency are one.
-Accepted tokens, `A`, `U`, and measured TPS are zero because this is an
-accumulated correctness fixture.
+Batch size and concurrency are one. Accepted tokens, `A`, `U`, and measured
+TPS are zero because this is an accumulated correctness fixture.
 
 ## Gates
 
@@ -103,15 +100,31 @@ prefill, modality processing, latency, and TPS.
 
 ## Result
 
-The source-derived fixture executes successfully. Layer 2 selects
+The source-derived fixture executes successfully and regenerates
+byte-identically. Layer 2 selects
 `[379, 377, 122, 262, 72, 52, 50, 152, 389, 139]` for the initial token and
 `[243, 107, 494, 365, 102, 116, 200, 444, 140, 142]` for the cached token; the
 two routes are disjoint. Each attention input hash exactly equals FW-0024's
 corresponding final layer-1 output hash, and every dense tensor carries the
-layer-2 prefix. The fixture regenerates byte-identically, has SHA-256
+layer-2 prefix. The fixture has SHA-256
 `35eee9f43098affe4081130f72b48b547e3e610f9b155ac8034c9a770ab3c601`,
-and all 51 Python tests pass. Native verification is pending.
+and all 51 Python tests pass.
+
+At commit `571a24a`, the release-mode native verifier independently replays
+FW-0024, feeds its exact two layer-1 outputs into layer 2, and matches all six
+explicit cross-stage links. Layer 2 matches 14 BF16 and two F32 attention
+captures, 32 complete-decoder BF16 captures, and twenty weighted-expert
+hashes. It authenticates 351,401,408 layer-2 logical payload bytes in addition
+to FW-0024's 768,492,416 parent bytes, or 1,119,893,824 bytes in total. The
+external receipt is
+`/Users/chad/Models/firewing/evidence/FW-0025/accumulated-layer2.json`, SHA-256
+`636ced9d49324fb7bc90bc4374f694ebef762bfe94fb519fc311ea4b6f9539a1`.
+The final suite has 51 Python and 37 Rust tests; Clippy passes with warnings
+denied.
 
 ## Decision
 
-Pending.
+Pass. The arbitrary-layer linear-attention and MLP verifier paths preserve
+exact behavior while extending the accumulated execution through layer 2.
+Proceed to the first accumulated full-attention/QSA boundary at layer 3. This
+correctness result does not establish later-layer, endpoint, or TPS behavior.
