@@ -115,3 +115,9 @@ states and freezes layer 2's complete linear-attention decoder with its own
 weights and recurrent cache. Every recorded dense and expert-bank tensor is
 layer-2-owned; the fixture stores only hashes, metadata, and arithmetic input
 specifications.
+
+`accumulated/qwen3_8_flash_next_layer3.json` consumes FW-0025's final layer-2
+states and crosses into layer 3's full-attention decoder. Its second step
+retains the first step's real indexer, key, and value caches at position one;
+the fixture freezes only hashes and layer-3-owned tensor metadata, keeping the
+separate 2,080-position active-QSA authority intact.

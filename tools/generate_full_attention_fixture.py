@@ -127,6 +127,7 @@ def explicit_step(
     position_embeddings: tuple[torch.Tensor, torch.Tensor],
     attention_mask: torch.Tensor,
     cache: DynamicCache,
+    layer: int = LAYER,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     full_cos, full_sin = position_embeddings
     current_cos = full_cos[:, -1:, :]
@@ -140,7 +141,7 @@ def explicit_step(
     index_q_rotated = apply_rotary_pos_emb(
         index_q_normed, cos=current_cos, sin=current_sin, unsqueeze_dim=2
     ).contiguous()
-    raw_keys = cache.update_indexer(raw_current, LAYER).contiguous()
+    raw_keys = cache.update_indexer(raw_current, layer).contiguous()
 
     visible = attention_mask == 0
     visible_indices = torch.nonzero(visible[0, 0, 0], as_tuple=False).flatten()
@@ -194,7 +195,7 @@ def explicit_step(
     )
     query_rotated = query_rotated.contiguous()
     key_rotated = key_rotated.contiguous()
-    key_cache, value_cache = cache.update(key_rotated, value_projection, LAYER)
+    key_cache, value_cache = cache.update(key_rotated, value_projection, layer)
     repeated_keys = repeat_kv(key_cache, HEADS // KV_HEADS).contiguous()
     repeated_values = repeat_kv(value_cache, HEADS // KV_HEADS).contiguous()
     attention_scores = torch.matmul(query_rotated, repeated_keys.transpose(2, 3)) / math.sqrt(HEAD_DIM)

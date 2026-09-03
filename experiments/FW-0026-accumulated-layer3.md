@@ -54,7 +54,20 @@ Planned commands:
 .venv/bin/python tools/generate_accumulated_layer3_fixture.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --model-lock spec/model.lock.json \
+  --ngram-fixture fixtures/ngram/qwen3_8_flash_next.json \
+  --ngram-row-fixture fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  --layer0-hyper-fixture fixtures/hyper_connection/qwen3_8_flash_next_layer0.json \
+  --layer0-deltanet-fixture fixtures/deltanet/qwen3_8_flash_next_layer0_decode.json \
+  --layer0-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer0.json \
+  --layer0-sparse-moe-fixture fixtures/sparse_moe/qwen3_8_flash_next_layer0.json \
+  --layer0-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer0.json \
+  --ple-fixture fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  --layer1-attention-fixture fixtures/attention_residual/qwen3_8_flash_next_layer1_ple.json \
+  --layer1-fixture fixtures/decoder_layer/qwen3_8_flash_next_layer1_ple.json \
+  --layers01-fixture fixtures/accumulated/qwen3_8_flash_next_layers0_1.json \
   --layer2-fixture fixtures/accumulated/qwen3_8_flash_next_layer2.json \
+  --full-attention-fixture fixtures/full_attention/qwen3_8_flash_next_layer3.json \
+  --attention-residual-fixture fixtures/attention_residual/qwen3_8_flash_next_layer3.json \
   --output fixtures/accumulated/qwen3_8_flash_next_layer3.json
 
 cargo run --release -- verify-accumulated-layer3 \
@@ -94,7 +107,20 @@ prefill, modality processing, latency, and TPS.
 
 ## Result
 
-Pending.
+The source-derived fixture executes successfully and regenerates
+byte-identically. Layer 3 selects
+`[208, 282, 174, 419, 343, 106, 250, 25, 38, 140]` for the initial token and
+`[360, 65, 448, 357, 327, 170, 436, 298, 82, 213]` for the cached token; the
+routes are disjoint. Both attention hyper-input hashes exactly equal FW-0025's
+corresponding final layer-2 output hashes. The cached case freezes an indexer
+cache of shape `[1, 2, 128]`, key and value caches of shape `[1, 2, 2, 256]`,
+and selection of both visible tokens with no excluded blocks.
+
+The fixture SHA-256 is
+`5b457ee60daafb8a69093e3177e2e56896cea0348bdf9b8c5d876860ae28794f`.
+All 55 Python tests pass. The generalized generators also reproduce FW-0019's
+full-attention and FW-0020's residual fixtures byte-for-byte. Independent
+native verification is pending.
 
 ## Decision
 

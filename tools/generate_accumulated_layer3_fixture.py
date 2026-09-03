@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate accumulated layer-2 linear-decoder evidence from FW-0024 outputs."""
+"""Generate accumulated layer-3 full-attention evidence from FW-0025 outputs."""
 
 from __future__ import annotations
 
@@ -12,16 +12,13 @@ from typing import Any
 import transformers
 
 if __package__:
-    from tools.generate_accumulated_layers01_fixture import build_fixture as build_layers01
-    from tools.generate_attention_residual_fixture import build_fixture as build_attention
-    from tools.generate_full_decoder_layer3_fixture import (
-        build_fixture as build_decoder,
-        write_json,
-    )
+    from tools.generate_accumulated_layer2_fixture import build_fixture as build_layer2
+    from tools.generate_full_attention_residual_fixture import build_fixture as build_attention
+    from tools.generate_full_decoder_layer3_fixture import build_fixture as build_decoder, write_json
     from tools.generate_ngram_address_fixture import checkpoint_revision, load_model_lock, sha256_file
 else:
-    from generate_accumulated_layers01_fixture import build_fixture as build_layers01  # type: ignore[no-redef]
-    from generate_attention_residual_fixture import build_fixture as build_attention  # type: ignore[no-redef]
+    from generate_accumulated_layer2_fixture import build_fixture as build_layer2  # type: ignore[no-redef]
+    from generate_full_attention_residual_fixture import build_fixture as build_attention  # type: ignore[no-redef]
     from generate_full_decoder_layer3_fixture import (  # type: ignore[no-redef]
         build_fixture as build_decoder,
         write_json,
@@ -30,9 +27,9 @@ else:
 
 
 MODEL = "Qwen/Qwen3.8-Flash-Next"
-SEMANTIC = "qwen3_8_flash_next_accumulated_layer2_cached_decode"
-ATTENTION_SEMANTIC = "qwen3_8_flash_next_layer2_attention_accumulated_from_layer1"
-DECODER_SEMANTIC = "qwen3_8_flash_next_layer2_complete_accumulated_from_layer1"
+SEMANTIC = "qwen3_8_flash_next_accumulated_layer3_cached_decode"
+ATTENTION_SEMANTIC = "qwen3_8_flash_next_layer3_attention_accumulated_from_layer2"
+DECODER_SEMANTIC = "qwen3_8_flash_next_layer3_complete_accumulated_from_layer2"
 
 
 def build_fixture(
@@ -49,119 +46,119 @@ def build_fixture(
     layer1_attention_fixture_path: Path,
     layer1_fixture_path: Path,
     layers01_fixture_path: Path,
-    *,
-    _return_outputs: bool = False,
-) -> dict[str, Any] | tuple[dict[str, Any], list[Any]]:
+    layer2_fixture_path: Path,
+    full_attention_fixture_path: Path,
+    attention_residual_fixture_path: Path,
+) -> dict[str, Any]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
     if revision != lock["revision"]:
         raise ValueError("checkpoint revision does not match model lock")
-    layers01_result = build_layers01(
+
+    layer2_result = build_layer2(
         checkpoint_dir,
         model_lock_path,
         ngram_fixture_path,
         ngram_row_fixture_path,
+        layer0_hyper_fixture_path,
+        layer0_deltanet_fixture_path,
         layer0_attention_fixture_path,
         layer0_sparse_moe_fixture_path,
         layer0_fixture_path,
         ple_fixture_path,
         layer1_attention_fixture_path,
         layer1_fixture_path,
+        layers01_fixture_path,
         _return_outputs=True,
     )
-    if not isinstance(layers01_result, tuple):
-        raise AssertionError("FW-0024 outputs were not returned")
-    generated_layers01, layer1_outputs = layers01_result
-    if generated_layers01 != json.loads(layers01_fixture_path.read_text(encoding="utf-8")):
-        raise ValueError("regenerated FW-0024 parent disagrees with committed fixture")
+    if not isinstance(layer2_result, tuple):
+        raise AssertionError("FW-0025 outputs were not returned")
+    generated_layer2, layer2_outputs = layer2_result
+    if generated_layer2 != json.loads(layer2_fixture_path.read_text(encoding="utf-8")):
+        raise ValueError("regenerated FW-0025 parent disagrees with committed fixture")
 
-    attention_reference = {
-        "layers01_fixture_sha256": sha256_file(layers01_fixture_path),
-        "hidden_source": "accumulated.layer1_output",
+    parent_reference = {
+        "layer2_fixture_sha256": sha256_file(layer2_fixture_path),
+        "hidden_source": "accumulated.layer2_output",
+        "cache_source": "sequential_layer3_decode",
     }
     attention_result = build_attention(
         checkpoint_dir,
         model_lock_path,
-        layer0_hyper_fixture_path,
-        layer0_deltanet_fixture_path,
-        _layer=2,
-        _hidden_overrides=layer1_outputs,
+        full_attention_fixture_path,
+        _hidden_overrides=layer2_outputs,
+        _past_lengths=(0, 1),
+        _modes=("initial", "cached_incremental"),
         _semantic=ATTENTION_SEMANTIC,
-        _reference_hashes=attention_reference,
+        _reference_hashes=parent_reference,
+        _require_committed_parent=False,
+        _sequential_cache=True,
         _return_outputs=True,
     )
     if not isinstance(attention_result, tuple):
-        raise AssertionError("layer-2 attention outputs were not returned")
-    layer2_attention, post_attention = attention_result
+        raise AssertionError("layer-3 attention outputs were not returned")
+    layer3_attention, post_attention = attention_result
     decoder_result = build_decoder(
         checkpoint_dir,
         model_lock_path,
-        layer0_attention_fixture_path,
-        layers01_fixture_path,
-        _parent_execution=(layer2_attention, post_attention),
+        full_attention_fixture_path,
+        attention_residual_fixture_path,
+        _parent_execution=(layer3_attention, post_attention),
         _parent_semantic=ATTENTION_SEMANTIC,
-        _layer=2,
-        _layer_type="linear_attention",
+        _layer=3,
+        _layer_type="full_attention",
         _semantic=DECODER_SEMANTIC,
-        _reference_hashes={
-            "layers01_fixture_sha256": sha256_file(layers01_fixture_path),
-            "hidden_source": "accumulated.layer1_output",
-        },
-        _modes=("initial_chunk", "cached_recurrent"),
+        _reference_hashes=parent_reference,
+        _modes=("initial", "cached_incremental"),
         _require_committed_parent=False,
         _return_outputs=True,
     )
     if not isinstance(decoder_result, tuple):
-        raise AssertionError("layer-2 decoder outputs were not returned")
-    layer2_decoder, layer2_outputs = decoder_result
+        raise AssertionError("layer-3 decoder outputs were not returned")
+    layer3_decoder, layer3_outputs = decoder_result
 
     steps = []
     for ordinal in range(2):
         steps.append(
             {
                 "ordinal": ordinal,
-                "mode": "initial_chunk" if ordinal == 0 else "cached_recurrent",
-                "input_spec": [
-                    {"multiplier": 43, "add": 17, "modulus": 263, "center": 131, "divisor": 128, "sparse_stride": 1},
-                    {"multiplier": 61, "add": 29, "modulus": 277, "center": 138, "divisor": 128, "sparse_stride": 1},
-                ][ordinal],
-                "selected_experts": layer2_decoder["steps"][ordinal]["selected_experts"],
+                "mode": "initial" if ordinal == 0 else "cached_incremental",
+                "position": ordinal,
+                "past_length": ordinal,
+                "selected_experts": layer3_decoder["steps"][ordinal]["selected_experts"],
                 "captures": {
-                    "layer1_output": generated_layers01["steps"][ordinal]["captures"]["layer1_output"],
-                    "post_attention": layer2_attention["case"]["steps"][ordinal]["captures"]["composed_output"],
-                    "layer2_output": layer2_decoder["steps"][ordinal]["captures"]["layer_output"],
+                    "layer2_output": generated_layer2["steps"][ordinal]["captures"]["layer2_output"],
+                    "post_attention": layer3_attention["cases"][ordinal]["captures"]["composed_output"],
+                    "layer3_output": layer3_decoder["steps"][ordinal]["captures"]["layer_output"],
                 },
             }
         )
-    fixture = {
+    return {
         "schema_version": 1,
         "semantic": SEMANTIC,
         "model": MODEL,
         "revision": revision,
         "reference": {
-            "implementation": "source_derived_huggingface_transformers_qwen4_exp",
+            "implementation": "source_derived_and_official_huggingface_transformers_qwen4_exp",
             "transformers_version": transformers.__version__,
             "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextDecoderLayer.forward",
             "model_lock_sha256": sha256_file(model_lock_path),
-            "layers01_fixture_sha256": sha256_file(layers01_fixture_path),
+            "layer2_fixture_sha256": sha256_file(layer2_fixture_path),
         },
         "configuration": {
-            "layer": 2,
-            "layer_type": "linear_attention",
+            "layer": 3,
+            "layer_type": "full_attention",
             "ple_applied": False,
             "hidden_size": 2560,
             "hc_count": 4,
             "boundary_dtype": "BF16",
-            "recurrent_state_dtype": "F32",
+            "cache_lengths": [0, 1],
         },
-        "attention": layer2_attention,
-        "decoder": layer2_decoder,
+        "attention": layer3_attention,
+        "decoder": layer3_decoder,
         "steps": steps,
     }
-    if _return_outputs:
-        return fixture, layer2_outputs
-    return fixture
 
 
 def main() -> int:
@@ -179,6 +176,9 @@ def main() -> int:
     parser.add_argument("--layer1-attention-fixture", required=True, type=Path)
     parser.add_argument("--layer1-fixture", required=True, type=Path)
     parser.add_argument("--layers01-fixture", required=True, type=Path)
+    parser.add_argument("--layer2-fixture", required=True, type=Path)
+    parser.add_argument("--full-attention-fixture", required=True, type=Path)
+    parser.add_argument("--attention-residual-fixture", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     fixture = build_fixture(
@@ -195,6 +195,9 @@ def main() -> int:
         args.layer1_attention_fixture,
         args.layer1_fixture,
         args.layers01_fixture,
+        args.layer2_fixture,
+        args.full_attention_fixture,
+        args.attention_residual_fixture,
     )
     write_json(args.output, fixture)
     print(json.dumps({

@@ -11,6 +11,7 @@ from typing import Any
 
 import torch
 import transformers
+from transformers import DynamicCache
 from transformers.models.qwen4_exp.configuration_qwen4_exp import Qwen4ExpTextConfig
 from transformers.models.qwen4_exp.modeling_qwen4_exp import (
     Qwen4ExpTextAttention,
@@ -81,16 +82,33 @@ def build_fixture(
     model_lock_path: Path,
     full_attention_fixture_path: Path,
     *,
+    _hidden_overrides: list[torch.Tensor] | None = None,
+    _past_lengths: tuple[int, int] = (0, LONG_PAST),
+    _modes: tuple[str, str] = ("initial", "active_qsa_pruning"),
+    _semantic: str = SEMANTIC,
+    _reference_hashes: dict[str, str] | None = None,
+    _require_committed_parent: bool = True,
+    _sequential_cache: bool = False,
     _return_outputs: bool = False,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
-    parent = json.loads(full_attention_fixture_path.read_text(encoding="utf-8"))
+    parent = (
+        json.loads(full_attention_fixture_path.read_text(encoding="utf-8"))
+        if _require_committed_parent
+        else None
+    )
     if (
         revision != lock["revision"]
-        or parent.get("revision") != revision
-        or parent.get("semantic") != "qwen3_8_flash_next_layer3_full_attention_qsa"
+        or (_require_committed_parent and parent is not None and parent.get("revision") != revision)
+        or (
+            _require_committed_parent
+            and parent is not None
+            and parent.get("semantic") != "qwen3_8_flash_next_layer3_full_attention_qsa"
+        )
+        or (_hidden_overrides is not None and len(_hidden_overrides) != 2)
+        or (_sequential_cache and _past_lengths != (0, 1))
     ):
         raise ValueError("layer-3 attention-residual parent authority mismatch")
     config_path = checkpoint_dir / "config.json"
@@ -142,13 +160,25 @@ def build_fixture(
 
     cases = []
     composed_outputs = []
-    for ordinal, (past_length, input_spec) in enumerate(zip((0, LONG_PAST), INPUT_SPECS, strict=True)):
-        hyper_input = make_hyper_input(input_spec)
+    sequential_caches = (
+        (DynamicCache(config=config), DynamicCache(config=config), DynamicCache(config=config))
+        if _sequential_cache
+        else None
+    )
+    for ordinal, (past_length, input_spec) in enumerate(zip(_past_lengths, INPUT_SPECS, strict=True)):
+        hyper_input = (
+            _hidden_overrides[ordinal]
+            if _hidden_overrides is not None
+            else make_hyper_input(input_spec)
+        )
         positions = torch.arange(past_length + 1, dtype=torch.int64).view(1, -1)
         attention_mask = torch.zeros((1, 1, 1, past_length + 1), dtype=torch.bfloat16)
-        explicit_cache = prepare_cache(config, past_length)
-        official_cache = prepare_cache(config, past_length)
-        indexer_cache = prepare_cache(config, past_length)
+        if sequential_caches is None:
+            explicit_cache = prepare_cache(config, past_length)
+            official_cache = prepare_cache(config, past_length)
+            indexer_cache = prepare_cache(config, past_length)
+        else:
+            explicit_cache, official_cache, indexer_cache = sequential_caches
         with torch.no_grad():
             mixed_input, preserved, injection_weights = hyper(hyper_input)
             position_embeddings = rotary(mixed_input, positions)
@@ -158,6 +188,7 @@ def build_fixture(
                 position_embeddings,
                 attention_mask,
                 explicit_cache,
+                LAYER,
             )
             official_mask = attention.indexer(
                 mixed_input, position_embeddings, attention_mask, indexer_cache
@@ -193,7 +224,7 @@ def build_fixture(
         cases.append(
             {
                 "ordinal": ordinal,
-                "mode": "initial" if not past_length else "active_qsa_pruning",
+                "mode": _modes[ordinal],
                 "position": past_length,
                 "past_length": past_length,
                 "input_spec": input_spec,
@@ -204,7 +235,7 @@ def build_fixture(
 
     fixture = {
         "schema_version": 1,
-        "semantic": SEMANTIC,
+        "semantic": _semantic,
         "model": MODEL,
         "revision": revision,
         "reference": {
@@ -218,7 +249,11 @@ def build_fixture(
             "config_sha256": sha256_file(config_path),
             "tensor_index_sha256": sha256_file(index_path),
             "model_lock_sha256": sha256_file(model_lock_path),
-            "full_attention_fixture_sha256": sha256_file(full_attention_fixture_path),
+            **(
+                _reference_hashes
+                if _reference_hashes is not None
+                else {"full_attention_fixture_sha256": sha256_file(full_attention_fixture_path)}
+            ),
         },
         "configuration": {
             "layer": LAYER,
@@ -226,7 +261,7 @@ def build_fixture(
             "hidden_size": HIDDEN,
             "hc_count": HC_COUNT,
             "boundary_dtype": "BF16",
-            "active_qsa_past_length": LONG_PAST,
+            "active_qsa_past_length": _past_lengths[1],
         },
         "tensors": tensors,
         "cases": cases,

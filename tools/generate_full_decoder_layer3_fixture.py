@@ -60,7 +60,11 @@ def build_fixture(
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
     revision = checkpoint_revision(checkpoint_dir)
-    parent = json.loads(attention_residual_fixture_path.read_text(encoding="utf-8"))
+    parent = (
+        json.loads(attention_residual_fixture_path.read_text(encoding="utf-8"))
+        if _require_committed_parent
+        else None
+    )
     if _parent_execution is None:
         generated, post_attention = build_attention_residual(
             checkpoint_dir,
@@ -74,6 +78,7 @@ def build_fixture(
     if (
         revision != lock["revision"]
         or (_require_committed_parent and parent != generated)
+        or authority is None
         or authority.get("revision") != revision
         or authority.get("semantic") != _parent_semantic
     ):
