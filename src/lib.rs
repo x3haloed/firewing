@@ -9,6 +9,7 @@ mod accumulated_layer3;
 mod accumulated_layers01;
 mod accumulated_layers4_47;
 mod attention_residual;
+mod checkpoint_catalog;
 mod decoder_layer;
 mod decoder_layer1;
 mod decoder_layer3;
@@ -42,6 +43,7 @@ pub use accumulated_layers4_47::{
 pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,
 };
+pub use checkpoint_catalog::{CheckpointCatalogReport, benchmark_checkpoint_catalog};
 pub use decoder_layer::{DecoderLayerVerificationReport, verify_decoder_layer_fixture};
 pub use decoder_layer1::{DecoderLayer1VerificationReport, verify_decoder_layer1_fixture};
 pub use decoder_layer3::{DecoderLayer3VerificationReport, verify_decoder_layer3_fixture};
