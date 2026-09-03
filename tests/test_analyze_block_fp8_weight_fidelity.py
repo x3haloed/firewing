@@ -46,6 +46,16 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         with self.assertRaises(AnalysisError):
             block_int8_weight(torch.zeros((128, 128), dtype=torch.bfloat16), 0)
 
+    def test_finer_int8_scale_ledgers_are_monotonic(self) -> None:
+        weight = torch.full((128, 128), 2.0, dtype=torch.bfloat16)
+        _, scales16, bytes16 = block_int8_weight(weight, 16)
+        _, scales8, bytes8 = block_int8_weight(weight, 8)
+        self.assertEqual(tuple(scales16.shape), (8, 8))
+        self.assertEqual(tuple(scales8.shape), (16, 16))
+        self.assertEqual(bytes16, 128 * 128 + 64 * 4)
+        self.assertEqual(bytes8, 128 * 128 + 256 * 4)
+        self.assertLess(bytes16, bytes8)
+
 
 if __name__ == "__main__":
     unittest.main()
