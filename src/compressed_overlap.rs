@@ -52,6 +52,13 @@ const SEQUENTIAL_PHYSICAL_BYTES: usize = 7_388_381_184;
 const FW0050_RECEIPT_SHA256: &str =
     "ed4ae0d2137bde9393b9aad1556910360bf1e5689de56df5c1f32a82a691159e";
 const FW0050_IMPLEMENTATION_COMMIT: &str = "4fa77fd3ed24171b862914f826c958279110acb7";
+const FW0053_RECEIPT_SHA256: &str =
+    "a61d498af5512c3fcbdc3447d8217383ddacf39361cdea553a41a79d9a10cb3f";
+const FW0053_IMPLEMENTATION_COMMIT: &str = "5f69eee3ca1db5c4b7285a376a9c9b95f3325f60";
+const FW0051_RECEIPT_SHA256: &str =
+    "59dcef0b2c78da0dbb7521ce0c824632b86d894bc9db8b6140a0ef24294d0644";
+const FW0052_RECEIPT_SHA256: &str =
+    "d8561eae477282e59cf1ed32828f993ef0f99bafd6457f053e53f6df3221100b";
 
 #[derive(Deserialize)]
 struct Manifest {
@@ -187,6 +194,57 @@ struct CacheReceipt {
     performance_claim: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct ExecutableCacheReceipt {
+    schema_version: u32,
+    semantic: String,
+    implementation_commit: String,
+    model: String,
+    revision: String,
+    manifest_sha256: String,
+    container_sha256: String,
+    fw_0051_receipt_sha256: String,
+    fw_0052_receipt_sha256: String,
+    cache_semantic: String,
+    initial_cache_semantic: String,
+    event_order: String,
+    events: usize,
+    accesses: usize,
+    unique_experts: usize,
+    compressed_retention_intervals: usize,
+    decoded_retention_intervals: usize,
+    misses: usize,
+    source_manifest_compressed_cache_budget_bytes: usize,
+    mixed_representation_capacity_bytes: usize,
+    free_initial_compressed_frames: usize,
+    free_initial_decoded_frames: usize,
+    maximum_boundary_resident_bytes: usize,
+    physical_miss_bytes: usize,
+    decode_accesses: usize,
+    decoded_source_bytes: usize,
+    selected_retention_intervals: Vec<ExecutableRetentionInterval>,
+    misses_by_event: Vec<Vec<String>>,
+    compressed_hits_by_event: Vec<Vec<String>>,
+    decoded_hits_by_event: Vec<Vec<String>>,
+    batch_size: usize,
+    concurrency: usize,
+    q: usize,
+    #[serde(rename = "A")]
+    accepted: usize,
+    #[serde(rename = "sum_equivalent_U")]
+    union: f64,
+    performance_claim: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+struct ExecutableRetentionInterval {
+    identity: String,
+    after_event: isize,
+    hit_event: usize,
+    representation: String,
+    residency_bytes: usize,
+}
+
 #[derive(Clone, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 struct RetentionInterval {
     identity: String,
@@ -215,6 +273,21 @@ struct WorkerResult {
     physical_bytes: usize,
     source_bytes: usize,
     frames: usize,
+}
+
+#[derive(Default)]
+struct ExecutableWorkerResult {
+    pread_ns: u128,
+    decompression_ns: u128,
+    inverse_shuffle_ns: u128,
+    install_copy_ns: u128,
+    physical_compressed_bytes: usize,
+    cache_compressed_bytes: usize,
+    physical_bytes: usize,
+    source_bytes: usize,
+    install_bytes: usize,
+    miss_frames: usize,
+    compressed_hit_frames: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -339,6 +412,93 @@ pub struct SequentialShuffleOverlapReport {
     pub accepted_bound_tps_p10: String,
     pub accepted_bound_tps_median: String,
     pub accepted_bound_tps_p90: String,
+    pub metal_warmups: usize,
+    pub metal_executions_per_candidate: usize,
+    pub maximum_phase_scoped_staging_bytes: usize,
+    pub cache_state: &'static str,
+    pub batch_size: usize,
+    pub concurrency: usize,
+    pub sampling: &'static str,
+    pub q: usize,
+    #[serde(rename = "A")]
+    pub accepted: usize,
+    #[serde(rename = "sum_equivalent_U")]
+    pub union: f64,
+    pub favorable_grants: Vec<&'static str>,
+    pub host_safety_policy: HostSafetyPolicy,
+    pub host_safety_snapshots: Vec<HostSafetySnapshot>,
+    pub performance_claim: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecutableCacheOverlapTrial {
+    pub mode: &'static str,
+    pub sample_ordinal: usize,
+    pub workers: usize,
+    pub miss_frames: usize,
+    pub compressed_hit_frames: usize,
+    pub decoded_hit_frames: usize,
+    pub physical_miss_compressed_bytes: usize,
+    pub cache_hit_compressed_bytes: usize,
+    pub requested_physical_bytes: usize,
+    pub decoded_source_bytes: usize,
+    pub installed_source_bytes: usize,
+    pub complete_wall_time_ns: u128,
+    pub compute_wall_time_ns: Option<u128>,
+    pub summed_pread_time_ns: u128,
+    pub maximum_worker_pread_time_ns: u128,
+    pub summed_decompression_time_ns: u128,
+    pub maximum_worker_decompression_time_ns: u128,
+    pub summed_inverse_shuffle_time_ns: u128,
+    pub maximum_worker_inverse_shuffle_time_ns: u128,
+    pub summed_install_copy_time_ns: u128,
+    pub maximum_worker_install_copy_time_ns: u128,
+    pub process_disk_bytes_read: u64,
+    pub physical_read_amplification_bytes: u64,
+    pub cold_prepare_wall_time_ns: u128,
+    pub resident_page_instances_before: u64,
+    pub resident_page_instances_after: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecutableCacheOverlapReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub implementation_commit: String,
+    pub model: &'static str,
+    pub revision: &'static str,
+    pub manifest_sha256: &'static str,
+    pub container_sha256: &'static str,
+    pub executable_cache_receipt_sha256: &'static str,
+    pub device_name: String,
+    pub codec: &'static str,
+    pub exact_transform: &'static str,
+    pub page_bytes: usize,
+    pub mixed_representation_capacity_bytes: usize,
+    pub installed_compressed_cache_frames: usize,
+    pub installed_compressed_cache_bytes: usize,
+    pub miss_frames: usize,
+    pub compressed_hit_frames: usize,
+    pub decoded_hit_frames: usize,
+    pub decode_accesses: usize,
+    pub miss_physical_bytes: usize,
+    pub decoded_source_bytes: usize,
+    pub authority_verification_wall_time_ns: u128,
+    pub cache_install_wall_time_ns: u128,
+    pub exact_round_trips: usize,
+    pub interleaved_trials: Vec<ExecutableCacheOverlapTrial>,
+    pub control_p10_wall_time_ns: u128,
+    pub control_median_wall_time_ns: u128,
+    pub control_p90_wall_time_ns: u128,
+    pub candidate_p10_wall_time_ns: u128,
+    pub candidate_median_wall_time_ns: u128,
+    pub candidate_p90_wall_time_ns: u128,
+    pub accepted_bound_tps: Vec<String>,
+    pub accepted_bound_tps_p10: String,
+    pub accepted_bound_tps_median: String,
+    pub accepted_bound_tps_p90: String,
+    pub passes_four_tps_p10: bool,
+    pub passes_four_tps_median: bool,
     pub metal_warmups: usize,
     pub metal_executions_per_candidate: usize,
     pub maximum_phase_scoped_staging_bytes: usize,
@@ -876,6 +1036,245 @@ fn load_capacity_schedule(
     })
 }
 
+struct ExecutableSchedule {
+    misses: Vec<Record>,
+    compressed_hits: Vec<Record>,
+    decoded_hit_count: usize,
+    initial_compressed: Vec<Record>,
+    maximum_resident_bytes: usize,
+}
+
+fn load_executable_schedule(
+    path: &Path,
+    manifest: &SequentialManifest,
+) -> Result<ExecutableSchedule, String> {
+    if sha256_file(path)? != FW0053_RECEIPT_SHA256 {
+        return Err("executable-overlap cache receipt hash mismatch".to_owned());
+    }
+    let receipt: ExecutableCacheReceipt =
+        serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("malformed executable cache receipt: {error}"))?;
+    if receipt.schema_version != 1
+        || receipt.semantic
+            != "qwen3_8_flash_next_two_q2_mixed_compressed_decoded_executable_cache_offline_milp"
+        || receipt.implementation_commit != FW0053_IMPLEMENTATION_COMMIT
+        || receipt.model != MODEL
+        || receipt.revision != REVISION
+        || receipt.manifest_sha256 != SEQUENTIAL_MANIFEST_SHA256
+        || receipt.container_sha256 != SEQUENTIAL_CONTAINER_SHA256
+        || receipt.fw_0051_receipt_sha256 != FW0051_RECEIPT_SHA256
+        || receipt.fw_0052_receipt_sha256 != FW0052_RECEIPT_SHA256
+        || receipt.cache_semantic
+            != "each_retention_interval_selects_compressed_decoded_bf16_or_absent"
+        || receipt.initial_cache_semantic != "free_offline_future_known_representation_and_contents"
+        || receipt.event_order
+            != "transaction_then_target_row_then_layer_with_simultaneous_top10_event"
+        || receipt.events != LAYERS * 4
+        || receipt.accesses != LAYERS * TOP_K * 4
+        || receipt.unique_experts != SEQUENTIAL_RECORDS
+        || receipt.compressed_retention_intervals != 645
+        || receipt.decoded_retention_intervals != 811
+        || receipt.misses != 464
+        || receipt.source_manifest_compressed_cache_budget_bytes != CACHE_BYTES
+        || receipt.mixed_representation_capacity_bytes != CACHE_BYTES
+        || receipt.free_initial_compressed_frames != 633
+        || receipt.free_initial_decoded_frames != 0
+        || receipt.maximum_boundary_resident_bytes != 4_259_199_939
+        || receipt.physical_miss_bytes != 3_124_527_104
+        || receipt.decode_accesses != 1_109
+        || receipt.decoded_source_bytes != 10_901_913_600
+        || receipt.batch_size != 1
+        || receipt.concurrency != 1
+        || receipt.q != 2
+        || receipt.accepted != 4
+        || receipt.union != (697.0 + 741.0) / 480.0
+        || receipt.performance_claim.is_some()
+    {
+        return Err("executable-overlap cache receipt identity mismatch".to_owned());
+    }
+    let events = sequential_events(manifest);
+    if receipt.misses_by_event.len() != events.len()
+        || receipt.compressed_hits_by_event.len() != events.len()
+        || receipt.decoded_hits_by_event.len() != events.len()
+    {
+        return Err("executable-overlap event count mismatch".to_owned());
+    }
+    let records = manifest
+        .records
+        .iter()
+        .map(|record| (record.identity.clone(), record))
+        .collect::<BTreeMap<_, _>>();
+    let mut occurrences = BTreeMap::<String, Vec<usize>>::new();
+    for (event_index, event) in events.iter().enumerate() {
+        for identity in event {
+            occurrences
+                .entry(identity.clone())
+                .or_default()
+                .push(event_index);
+        }
+    }
+    let mut expected = BTreeSet::new();
+    for (identity, positions) in occurrences {
+        let mut previous = -1_isize;
+        for position in positions {
+            expected.insert(RetentionInterval {
+                identity: identity.clone(),
+                after_event: previous,
+                hit_event: position,
+            });
+            previous = position as isize;
+        }
+    }
+    let mut selected = BTreeMap::new();
+    for row in &receipt.selected_retention_intervals {
+        let interval = RetentionInterval {
+            identity: row.identity.clone(),
+            after_event: row.after_event,
+            hit_event: row.hit_event,
+        };
+        if !expected.contains(&interval) || selected.insert(interval, row).is_some() {
+            return Err("executable-overlap retention interval mismatch".to_owned());
+        }
+        let record = records
+            .get(&row.identity)
+            .ok_or_else(|| "executable-overlap unknown retained identity".to_owned())?;
+        let expected_bytes = match row.representation.as_str() {
+            "compressed" => record.compressed_bytes,
+            "decoded_bf16" => EXPERT_BYTES,
+            _ => return Err("executable-overlap unknown representation".to_owned()),
+        };
+        if row.residency_bytes != expected_bytes {
+            return Err("executable-overlap representation byte mismatch".to_owned());
+        }
+    }
+    if selected.len()
+        != receipt.compressed_retention_intervals + receipt.decoded_retention_intervals
+    {
+        return Err("executable-overlap selected interval count mismatch".to_owned());
+    }
+
+    let mut boundary_bytes = vec![0_usize; events.len()];
+    for (interval, row) in &selected {
+        for bytes in boundary_bytes
+            .iter_mut()
+            .take(interval.hit_event + 1)
+            .skip((interval.after_event + 1) as usize)
+        {
+            *bytes = bytes
+                .checked_add(row.residency_bytes)
+                .ok_or_else(|| "executable-overlap resident byte overflow".to_owned())?;
+        }
+    }
+    let maximum_resident_bytes = boundary_bytes.iter().copied().max().unwrap_or(0);
+    if maximum_resident_bytes != receipt.maximum_boundary_resident_bytes
+        || boundary_bytes.iter().any(|bytes| *bytes > CACHE_BYTES)
+    {
+        return Err("executable-overlap capacity certificate mismatch".to_owned());
+    }
+
+    let mut misses = Vec::new();
+    let mut compressed_hits = Vec::new();
+    let mut decoded_hit_count = 0_usize;
+    for (event_index, event) in events.iter().enumerate() {
+        let event_misses = &receipt.misses_by_event[event_index];
+        let event_compressed = &receipt.compressed_hits_by_event[event_index];
+        let event_decoded = &receipt.decoded_hits_by_event[event_index];
+        let declared_misses = event_misses.iter().cloned().collect::<BTreeSet<_>>();
+        let declared_compressed = event_compressed.iter().cloned().collect::<BTreeSet<_>>();
+        let declared_decoded = event_decoded.iter().cloned().collect::<BTreeSet<_>>();
+        if declared_misses.len() != event_misses.len()
+            || declared_compressed.len() != event_compressed.len()
+            || declared_decoded.len() != event_decoded.len()
+            || !declared_misses.is_disjoint(&declared_compressed)
+            || !declared_misses.is_disjoint(&declared_decoded)
+            || !declared_compressed.is_disjoint(&declared_decoded)
+        {
+            return Err("executable-overlap duplicate event access".to_owned());
+        }
+        let expected_event = expected
+            .iter()
+            .filter(|interval| interval.hit_event == event_index)
+            .cloned()
+            .collect::<Vec<_>>();
+        let expected_misses = expected_event
+            .iter()
+            .filter(|interval| !selected.contains_key(*interval))
+            .map(|interval| interval.identity.clone())
+            .collect::<BTreeSet<_>>();
+        let expected_compressed = expected_event
+            .iter()
+            .filter(|interval| {
+                selected
+                    .get(*interval)
+                    .is_some_and(|row| row.representation == "compressed")
+            })
+            .map(|interval| interval.identity.clone())
+            .collect::<BTreeSet<_>>();
+        let expected_decoded = expected_event
+            .iter()
+            .filter(|interval| {
+                selected
+                    .get(*interval)
+                    .is_some_and(|row| row.representation == "decoded_bf16")
+            })
+            .map(|interval| interval.identity.clone())
+            .collect::<BTreeSet<_>>();
+        if declared_misses != expected_misses
+            || declared_compressed != expected_compressed
+            || declared_decoded != expected_decoded
+            || declared_misses
+                .union(&declared_compressed)
+                .cloned()
+                .collect::<BTreeSet<_>>()
+                .union(&declared_decoded)
+                .cloned()
+                .collect::<BTreeSet<_>>()
+                != event.iter().cloned().collect::<BTreeSet<_>>()
+        {
+            return Err("executable-overlap event partition mismatch".to_owned());
+        }
+        for identity in event_misses {
+            misses.push((*records[identity]).clone());
+        }
+        for identity in event_compressed {
+            compressed_hits.push((*records[identity]).clone());
+        }
+        decoded_hit_count += event_decoded.len();
+    }
+    let initial_compressed = selected
+        .iter()
+        .filter(|(interval, row)| interval.after_event == -1 && row.representation == "compressed")
+        .map(|(interval, _)| (*records[&interval.identity]).clone())
+        .collect::<Vec<_>>();
+    let initial_identities = initial_compressed
+        .iter()
+        .map(|record| record.identity.clone())
+        .collect::<BTreeSet<_>>();
+    if misses.len() != receipt.misses
+        || compressed_hits.len() != receipt.compressed_retention_intervals
+        || decoded_hit_count != receipt.decoded_retention_intervals
+        || initial_compressed.len() != receipt.free_initial_compressed_frames
+        || compressed_hits
+            .iter()
+            .any(|record| !initial_identities.contains(&record.identity))
+        || misses
+            .iter()
+            .map(|record| record.physical_bytes)
+            .sum::<usize>()
+            != receipt.physical_miss_bytes
+        || (misses.len() + compressed_hits.len()) * EXPERT_BYTES != receipt.decoded_source_bytes
+    {
+        return Err("executable-overlap replay ledger mismatch".to_owned());
+    }
+    Ok(ExecutableSchedule {
+        misses,
+        compressed_hits,
+        decoded_hit_count,
+        initial_compressed,
+        maximum_resident_bytes,
+    })
+}
+
 struct Schedule {
     misses: Vec<Record>,
     first_count: usize,
@@ -1003,6 +1402,295 @@ fn physical_read_amplification(requested: usize, actual: u64) -> Result<u64, Str
         ));
     }
     Ok(actual - requested)
+}
+
+fn preload_compressed_cache(
+    container: &File,
+    records: &[Record],
+) -> Result<(BTreeMap<String, Vec<u8>>, u128), String> {
+    let started = Instant::now();
+    let mut cache = BTreeMap::new();
+    for record in records {
+        let mut frame = vec![0_u8; record.compressed_bytes];
+        read_exact_at(container, &mut frame, record.offset)?;
+        if format!("{:x}", Sha256::digest(&frame)) != record.frame_sha256
+            || cache.insert(record.identity.clone(), frame).is_some()
+        {
+            return Err("executable-overlap initial cache identity mismatch".to_owned());
+        }
+    }
+    Ok((cache, started.elapsed().as_nanos()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_executable_trial(
+    container_path: &Path,
+    schedule: &ExecutableSchedule,
+    compressed_cache: &BTreeMap<String, Vec<u8>>,
+    sample_ordinal: usize,
+    overlap: bool,
+    metal_executions: usize,
+    runner: &ExactResidentTop10Runner,
+) -> Result<ExecutableCacheOverlapTrial, String> {
+    let file = File::open(container_path).map_err(|error| error.to_string())?;
+    let file_bytes = file.metadata().map_err(|error| error.to_string())?.len();
+    let miss_plans = schedule
+        .misses
+        .iter()
+        .map(|record| {
+            aligned_read_plan(
+                record.offset,
+                record.compressed_bytes,
+                file_bytes,
+                PAGE_BYTES,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if schedule
+        .misses
+        .iter()
+        .zip(&miss_plans)
+        .any(|(record, plan)| plan.physical_bytes != record.physical_bytes)
+    {
+        return Err("executable-overlap aligned plan mismatch".to_owned());
+    }
+    let plans = schedule
+        .misses
+        .iter()
+        .zip(&miss_plans)
+        .map(|(record, plan)| (record.identity.clone(), *plan))
+        .collect::<BTreeMap<_, _>>();
+    if plans.len() != schedule.misses.len() {
+        return Err("executable-overlap repeated physical miss".to_owned());
+    }
+    let (cold_prepare_wall_time_ns, resident_before, resident_after) =
+        cold_prepare(&file, &miss_plans)?;
+    set_uncached(&file)?;
+
+    let tasks = schedule
+        .misses
+        .iter()
+        .map(|record| (record, true))
+        .chain(
+            schedule
+                .compressed_hits
+                .iter()
+                .map(|record| (record, false)),
+        )
+        .collect::<Vec<_>>();
+    let maximum_physical = miss_plans
+        .iter()
+        .map(|plan| plan.physical_bytes)
+        .max()
+        .unwrap_or(1);
+    let ready = Arc::new(Barrier::new(WORKERS + 1));
+    let start = Arc::new(Barrier::new(WORKERS + 1));
+    let (results, complete_wall_time_ns, compute_wall_time_ns, disk_bytes) =
+        std::thread::scope(|scope| -> Result<_, String> {
+            let mut joins = Vec::with_capacity(WORKERS);
+            for worker in 0..WORKERS {
+                let ready = Arc::clone(&ready);
+                let start = Arc::clone(&start);
+                let file = &file;
+                let tasks = &tasks;
+                let plans = &plans;
+                joins.push(
+                    scope.spawn(move || -> Result<ExecutableWorkerResult, String> {
+                        let mut encoded = AlignedBuffer::new(maximum_physical, PAGE_BYTES)?;
+                        let mut shuffled = vec![0_u8; EXPERT_BYTES];
+                        let mut reconstructed = vec![0_u8; EXPERT_BYTES];
+                        let mut install = vec![0_u8; EXPERT_BYTES];
+                        let mut decompressor =
+                            zstd::bulk::Decompressor::new().map_err(|error| error.to_string())?;
+                        ready.wait();
+                        start.wait();
+                        let mut result = ExecutableWorkerResult::default();
+                        for index in (worker..tasks.len()).step_by(WORKERS) {
+                            let (record, physical_miss) = tasks[index];
+                            if physical_miss {
+                                let plan = plans[&record.identity];
+                                let pread_started = Instant::now();
+                                read_exact_at(
+                                    file,
+                                    &mut encoded.bytes_mut()[..plan.physical_bytes],
+                                    plan.physical_offset,
+                                )?;
+                                result.pread_ns += pread_started.elapsed().as_nanos();
+                                result.physical_compressed_bytes += record.compressed_bytes;
+                                result.physical_bytes += plan.physical_bytes;
+                                result.miss_frames += 1;
+                            } else {
+                                result.cache_compressed_bytes += record.compressed_bytes;
+                                result.compressed_hit_frames += 1;
+                            }
+                            let source = if physical_miss {
+                                let plan = plans[&record.identity];
+                                &encoded.bytes_mut()[plan.logical_offset
+                                    ..plan.logical_offset + record.compressed_bytes]
+                            } else {
+                                compressed_cache
+                                    .get(&record.identity)
+                                    .ok_or_else(|| {
+                                        "executable-overlap missing compressed cache frame"
+                                            .to_owned()
+                                    })?
+                                    .as_slice()
+                            };
+                            let decode_started = Instant::now();
+                            let count = decompressor
+                                .decompress_to_buffer(source, &mut shuffled)
+                                .map_err(|error| error.to_string())?;
+                            result.decompression_ns += decode_started.elapsed().as_nanos();
+                            if count != EXPERT_BYTES {
+                                return Err("executable-overlap decoded byte mismatch".to_owned());
+                            }
+                            let shuffle_started = Instant::now();
+                            unshuffle_bf16(&shuffled, &mut reconstructed)?;
+                            result.inverse_shuffle_ns += shuffle_started.elapsed().as_nanos();
+                            let install_started = Instant::now();
+                            install.copy_from_slice(&reconstructed);
+                            result.install_copy_ns += install_started.elapsed().as_nanos();
+                            std::hint::black_box(&install);
+                            result.source_bytes += count;
+                            result.install_bytes += count;
+                        }
+                        Ok(result)
+                    }),
+                );
+            }
+            ready.wait();
+            let disk_before = process_disk_bytes_read()?;
+            let wall_started = Instant::now();
+            start.wait();
+            let compute_wall_time_ns = if overlap {
+                let compute_started = Instant::now();
+                for _ in 0..metal_executions {
+                    runner.execute_exact()?;
+                }
+                Some(compute_started.elapsed().as_nanos())
+            } else {
+                None
+            };
+            let results = joins
+                .into_iter()
+                .map(|join| {
+                    join.join()
+                        .map_err(|_| "executable-overlap worker panicked".to_owned())?
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let wall = wall_started.elapsed().as_nanos();
+            let disk = process_disk_bytes_read()?
+                .checked_sub(disk_before)
+                .ok_or_else(|| "executable-overlap disk counter moved backwards".to_owned())?;
+            Ok((results, wall, compute_wall_time_ns, disk))
+        })?;
+
+    let physical_compressed_bytes = results
+        .iter()
+        .map(|result| result.physical_compressed_bytes)
+        .sum::<usize>();
+    let cache_compressed_bytes = results
+        .iter()
+        .map(|result| result.cache_compressed_bytes)
+        .sum::<usize>();
+    let physical_bytes = results
+        .iter()
+        .map(|result| result.physical_bytes)
+        .sum::<usize>();
+    let source_bytes = results
+        .iter()
+        .map(|result| result.source_bytes)
+        .sum::<usize>();
+    let install_bytes = results
+        .iter()
+        .map(|result| result.install_bytes)
+        .sum::<usize>();
+    let miss_frames = results
+        .iter()
+        .map(|result| result.miss_frames)
+        .sum::<usize>();
+    let compressed_hit_frames = results
+        .iter()
+        .map(|result| result.compressed_hit_frames)
+        .sum::<usize>();
+    let expected_physical_compressed = schedule
+        .misses
+        .iter()
+        .map(|record| record.compressed_bytes)
+        .sum::<usize>();
+    let expected_cache_compressed = schedule
+        .compressed_hits
+        .iter()
+        .map(|record| record.compressed_bytes)
+        .sum::<usize>();
+    let expected_physical = schedule
+        .misses
+        .iter()
+        .map(|record| record.physical_bytes)
+        .sum::<usize>();
+    let expected_source = tasks.len() * EXPERT_BYTES;
+    if physical_compressed_bytes != expected_physical_compressed
+        || cache_compressed_bytes != expected_cache_compressed
+        || physical_bytes != expected_physical
+        || source_bytes != expected_source
+        || install_bytes != expected_source
+        || miss_frames != schedule.misses.len()
+        || compressed_hit_frames != schedule.compressed_hits.len()
+    {
+        return Err("executable-overlap timed byte ledger mismatch".to_owned());
+    }
+    let read_amplification = physical_read_amplification(physical_bytes, disk_bytes)?;
+    Ok(ExecutableCacheOverlapTrial {
+        mode: if overlap {
+            "mixed_cache_physical_decode_install_exact_metal_overlap"
+        } else {
+            "mixed_cache_physical_decode_install_control"
+        },
+        sample_ordinal,
+        workers: WORKERS,
+        miss_frames,
+        compressed_hit_frames,
+        decoded_hit_frames: schedule.decoded_hit_count,
+        physical_miss_compressed_bytes: physical_compressed_bytes,
+        cache_hit_compressed_bytes: cache_compressed_bytes,
+        requested_physical_bytes: physical_bytes,
+        decoded_source_bytes: source_bytes,
+        installed_source_bytes: install_bytes,
+        complete_wall_time_ns,
+        compute_wall_time_ns,
+        summed_pread_time_ns: results.iter().map(|result| result.pread_ns).sum(),
+        maximum_worker_pread_time_ns: results
+            .iter()
+            .map(|result| result.pread_ns)
+            .max()
+            .unwrap_or(0),
+        summed_decompression_time_ns: results.iter().map(|result| result.decompression_ns).sum(),
+        maximum_worker_decompression_time_ns: results
+            .iter()
+            .map(|result| result.decompression_ns)
+            .max()
+            .unwrap_or(0),
+        summed_inverse_shuffle_time_ns: results
+            .iter()
+            .map(|result| result.inverse_shuffle_ns)
+            .sum(),
+        maximum_worker_inverse_shuffle_time_ns: results
+            .iter()
+            .map(|result| result.inverse_shuffle_ns)
+            .max()
+            .unwrap_or(0),
+        summed_install_copy_time_ns: results.iter().map(|result| result.install_copy_ns).sum(),
+        maximum_worker_install_copy_time_ns: results
+            .iter()
+            .map(|result| result.install_copy_ns)
+            .max()
+            .unwrap_or(0),
+        process_disk_bytes_read: disk_bytes,
+        physical_read_amplification_bytes: read_amplification,
+        cold_prepare_wall_time_ns,
+        resident_page_instances_before: resident_before,
+        resident_page_instances_after: resident_after,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1631,6 +2319,184 @@ fn benchmark_sequential_shuffle_overlap_impl(
         accepted: 4,
         union: (697.0 + 741.0) / 480.0,
         favorable_grants,
+        host_safety_policy,
+        host_safety_snapshots,
+        performance_claim: None,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn benchmark_executable_cache_overlap(
+    checkpoint_dir: &Path,
+    mixture_fixture_path: &Path,
+    kernel_path: &Path,
+    manifest_path: &Path,
+    container_path: &Path,
+    executable_cache_receipt_path: &Path,
+    implementation_commit: &str,
+) -> Result<ExecutableCacheOverlapReport, String> {
+    if implementation_commit.len() != 40
+        || !implementation_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("implementation commit must be a full hexadecimal Git hash".to_owned());
+    }
+    let mut safety = HostSafetyMonitor::start_normative(vec![PersistentResidencyDeclaration {
+        object: "mixed_compressed_cache_and_exact_layer0_top10_metal_probe".to_owned(),
+        maximum_bytes: 4_357_729_751,
+        lifetime: "executable_cache_overlap_measurement_series".to_owned(),
+        eviction_order: 1,
+    }])?;
+    let authority_started = Instant::now();
+    let manifest = load_sequential_manifest(manifest_path, container_path)?;
+    let container = File::open(container_path).map_err(|error| error.to_string())?;
+    verify_transformed_frames(&container, &manifest.records)?;
+    let schedule = load_executable_schedule(executable_cache_receipt_path, &manifest)?;
+    let authority_verification_wall_time_ns = authority_started.elapsed().as_nanos();
+    safety.checkpoint("authority_complete", true)?;
+
+    let (compressed_cache, cache_install_wall_time_ns) =
+        preload_compressed_cache(&container, &schedule.initial_compressed)?;
+    let installed_compressed_cache_bytes = compressed_cache.values().map(Vec::len).sum::<usize>();
+    if installed_compressed_cache_bytes != schedule.maximum_resident_bytes {
+        return Err("executable-overlap installed cache byte mismatch".to_owned());
+    }
+    drop(container);
+    let runner =
+        ExactResidentTop10Runner::install(checkpoint_dir, mixture_fixture_path, kernel_path)?;
+    safety.checkpoint("cache_and_metal_install_complete", false)?;
+    for _ in 0..3 {
+        runner.execute_exact()?;
+    }
+    safety.checkpoint("metal_warmups_complete", false)?;
+
+    let metal_executions = LAYERS * 4;
+    let order = [false, true, true, false, false, true];
+    let mut controls = 0;
+    let mut candidates = 0;
+    let mut interleaved_trials = Vec::with_capacity(order.len());
+    for overlap in order {
+        let ordinal = if overlap {
+            let value = candidates;
+            candidates += 1;
+            value
+        } else {
+            let value = controls;
+            controls += 1;
+            value
+        };
+        interleaved_trials.push(run_executable_trial(
+            container_path,
+            &schedule,
+            &compressed_cache,
+            ordinal,
+            overlap,
+            metal_executions,
+            &runner,
+        )?);
+        safety.checkpoint(
+            &format!(
+                "{}_{}_complete",
+                if overlap { "candidate" } else { "control" },
+                ordinal
+            ),
+            false,
+        )?;
+    }
+    let control = interleaved_trials
+        .iter()
+        .filter(|trial| trial.mode == "mixed_cache_physical_decode_install_control")
+        .map(|trial| trial.complete_wall_time_ns)
+        .collect::<Vec<_>>();
+    let candidate = interleaved_trials
+        .iter()
+        .filter(|trial| trial.mode == "mixed_cache_physical_decode_install_exact_metal_overlap")
+        .map(|trial| trial.complete_wall_time_ns)
+        .collect::<Vec<_>>();
+    if control.len() != SAMPLES || candidate.len() != SAMPLES {
+        return Err("executable-overlap sample ledger mismatch".to_owned());
+    }
+    let accepted_tps = candidate
+        .iter()
+        .map(|wall| 4_000_000_000_f64 / *wall as f64)
+        .collect::<Vec<_>>();
+    let mut ordered_tps = accepted_tps.clone();
+    ordered_tps.sort_by(f64::total_cmp);
+    let format_tps = |value: f64| format!("{value:.6}");
+    let device_name = runner.device_name().to_owned();
+    let maximum_physical = schedule
+        .misses
+        .iter()
+        .map(|record| record.physical_bytes)
+        .max()
+        .unwrap_or(0);
+    let miss_physical_bytes = schedule
+        .misses
+        .iter()
+        .map(|record| record.physical_bytes)
+        .sum::<usize>();
+    let decoded_source_bytes =
+        (schedule.misses.len() + schedule.compressed_hits.len()) * EXPERT_BYTES;
+    drop(runner);
+    drop(compressed_cache);
+    let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
+    Ok(ExecutableCacheOverlapReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_two_q2_mixed_cache_all_decode_install_exact_metal_physical_overlap_favorable_bound",
+        implementation_commit: implementation_commit.to_owned(),
+        model: MODEL,
+        revision: REVISION,
+        manifest_sha256: SEQUENTIAL_MANIFEST_SHA256,
+        container_sha256: SEQUENTIAL_CONTAINER_SHA256,
+        executable_cache_receipt_sha256: FW0053_RECEIPT_SHA256,
+        device_name,
+        codec: "zstd_0.13.3_bulk_decompressor_independent_frames",
+        exact_transform: "bf16_even_bytes_then_odd_bytes_per_expert",
+        page_bytes: PAGE_BYTES,
+        mixed_representation_capacity_bytes: CACHE_BYTES,
+        installed_compressed_cache_frames: schedule.initial_compressed.len(),
+        installed_compressed_cache_bytes,
+        miss_frames: schedule.misses.len(),
+        compressed_hit_frames: schedule.compressed_hits.len(),
+        decoded_hit_frames: schedule.decoded_hit_count,
+        decode_accesses: schedule.misses.len() + schedule.compressed_hits.len(),
+        miss_physical_bytes,
+        decoded_source_bytes,
+        authority_verification_wall_time_ns,
+        cache_install_wall_time_ns,
+        exact_round_trips: SEQUENTIAL_RECORDS,
+        interleaved_trials,
+        control_p10_wall_time_ns: quantile(&control, 1, 10),
+        control_median_wall_time_ns: quantile(&control, 1, 2),
+        control_p90_wall_time_ns: quantile(&control, 9, 10),
+        candidate_p10_wall_time_ns: quantile(&candidate, 1, 10),
+        candidate_median_wall_time_ns: quantile(&candidate, 1, 2),
+        candidate_p90_wall_time_ns: quantile(&candidate, 9, 10),
+        accepted_bound_tps: accepted_tps.into_iter().map(format_tps).collect(),
+        accepted_bound_tps_p10: format_tps(ordered_tps[0]),
+        accepted_bound_tps_median: format_tps(ordered_tps[1]),
+        accepted_bound_tps_p90: format_tps(ordered_tps[2]),
+        passes_four_tps_p10: ordered_tps[0] >= 4.0,
+        passes_four_tps_median: ordered_tps[1] >= 4.0,
+        metal_warmups: 3,
+        metal_executions_per_candidate: metal_executions,
+        maximum_phase_scoped_staging_bytes: WORKERS * (maximum_physical + 3 * EXPERT_BYTES),
+        cache_state: "actual_4.259_gb_application_compressed_cache_range_invalidated_misses_preallocated_decode_inverse_and_install_buffers",
+        batch_size: 1,
+        concurrency: 1,
+        sampling: "greedy",
+        q: 2,
+        accepted: 4,
+        union: (697.0 + 741.0) / 480.0,
+        favorable_grants: vec![
+            "the complete two-transaction future and FW-0053 mixed representation schedule are known",
+            "633 compressed initial frames are installed before timing; decoded retention is certified but not dynamically materialized",
+            "all 1109 required decodes may run without target layer dependencies",
+            "decoded installation is represented by a full source-sized copy into per-worker shared-memory staging",
+            "the exact fixed layer-0 top10 Metal workload stands in for all 192 target layer-row executions",
+            "cache metadata transitions fixed endpoint work MTP attention shared experts routing ngram sampling rollback and synchronization are free",
+        ],
         host_safety_policy,
         host_safety_snapshots,
         performance_claim: None,
