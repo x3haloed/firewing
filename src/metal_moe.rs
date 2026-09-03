@@ -1,6 +1,5 @@
 use crate::expert::{
-    InputSpec, bf16_hash, from_bf16, linear_bf16, make_hidden, read_expert_slice, swiglu_bf16,
-    to_bf16,
+    InputSpec, bf16_hash, from_bf16, make_hidden, read_expert_slice, swiglu_bf16, to_bf16,
 };
 use crate::host_safety::{
     HostSafetyMonitor, HostSafetyPolicy, HostSafetySnapshot, PersistentResidencyDeclaration,
@@ -18,8 +17,8 @@ const INTERMEDIATE: usize = 640;
 const EXPERTS: usize = 512;
 const TOP_K: usize = 10;
 const MEASUREMENTS: usize = 30;
-const CONTROL_MEASUREMENTS: usize = 5;
 const WARMUPS: usize = 3;
+const BF16_VALUES: usize = 1 << 16;
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -60,6 +59,12 @@ struct GemvShape {
     columns: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct SwiGluShape {
+    count: u32,
+}
+
 struct InstalledExpert {
     expert: usize,
     route_weight_bf16: f32,
@@ -73,9 +78,12 @@ struct InstalledExpert {
 
 struct Runtime {
     queue: metal::CommandQueue,
-    pipeline: metal::ComputePipelineState,
+    gemv_pipeline: metal::ComputePipelineState,
+    swiglu_pipeline: metal::ComputePipelineState,
     gate_shape: Buffer,
     down_shape: Buffer,
+    swiglu_shape: Buffer,
+    silu_lut: Buffer,
     hidden: Buffer,
     installed: Vec<InstalledExpert>,
     device_name: String,
@@ -105,9 +113,15 @@ impl Runtime {
         let function = library
             .get_function("firewing_bf16_gemv_exact", None)
             .map_err(|error| format!("Metal function lookup failed: {error}"))?;
-        let pipeline = device
+        let gemv_pipeline = device
             .new_compute_pipeline_state_with_function(&function)
             .map_err(|error| format!("Metal pipeline creation failed: {error}"))?;
+        let swiglu_function = library
+            .get_function("firewing_bf16_swiglu_lut_exact", None)
+            .map_err(|error| format!("Metal SwiGLU function lookup failed: {error}"))?;
+        let swiglu_pipeline = device
+            .new_compute_pipeline_state_with_function(&swiglu_function)
+            .map_err(|error| format!("Metal SwiGLU pipeline creation failed: {error}"))?;
         let compile_wall_time_ns = compile_started.elapsed().as_nanos();
         let shared = MTLResourceOptions::StorageModeShared;
         let buffer_value = |shape: &GemvShape| {
@@ -125,6 +139,20 @@ impl Runtime {
             rows: HIDDEN as u32,
             columns: INTERMEDIATE as u32,
         });
+        let swiglu_shape_value = SwiGluShape {
+            count: INTERMEDIATE as u32,
+        };
+        let swiglu_shape = device.new_buffer_with_data(
+            (&swiglu_shape_value as *const SwiGluShape).cast(),
+            std::mem::size_of::<SwiGluShape>() as u64,
+            shared,
+        );
+        let silu_lut = build_silu_lut();
+        let silu_lut = device.new_buffer_with_data(
+            silu_lut.as_ptr().cast(),
+            std::mem::size_of_val(silu_lut.as_slice()) as u64,
+            shared,
+        );
         let hidden_buffer = device.new_buffer_with_data(
             hidden.as_ptr().cast(),
             std::mem::size_of_val(hidden) as u64,
@@ -180,9 +208,12 @@ impl Runtime {
         let install_wall_time_ns = install_started.elapsed().as_nanos();
         Ok(Self {
             queue: device.new_command_queue(),
-            pipeline,
+            gemv_pipeline,
+            swiglu_pipeline,
             gate_shape,
             down_shape,
+            swiglu_shape,
+            silu_lut,
             hidden: hidden_buffer,
             installed,
             device_name: device.name().to_owned(),
@@ -200,7 +231,7 @@ impl Runtime {
         shape: &Buffer,
         rows: usize,
     ) {
-        encoder.set_compute_pipeline_state(&self.pipeline);
+        encoder.set_compute_pipeline_state(&self.gemv_pipeline);
         encoder.set_buffer(0, Some(weights), 0);
         encoder.set_buffer(1, Some(input), 0);
         encoder.set_buffer(2, Some(output), 0);
@@ -209,7 +240,7 @@ impl Runtime {
         encoder.dispatch_thread_groups(MTLSize::new(rows as u64, 1, 1), MTLSize::new(32, 1, 1));
     }
 
-    fn execute(&self) -> Result<MixtureCaptures, String> {
+    fn execute_two_transaction(&self) -> Result<MixtureCaptures, String> {
         let gate_command = self.queue.new_command_buffer();
         let gate_encoder = gate_command.new_compute_command_encoder();
         for expert in &self.installed {
@@ -273,6 +304,62 @@ impl Runtime {
             ));
         }
 
+        self.capture_mixture()
+    }
+
+    fn execute_one_transaction(&self) -> Result<MixtureCaptures, String> {
+        let command = self.queue.new_command_buffer();
+        let gate_encoder = command.new_compute_command_encoder();
+        for expert in &self.installed {
+            self.dispatch_projection(
+                gate_encoder,
+                &expert.gate_up_weight,
+                &self.hidden,
+                &expert.gate_up,
+                &self.gate_shape,
+                INTERMEDIATE * 2,
+            );
+        }
+        gate_encoder.end_encoding();
+
+        let swiglu_encoder = command.new_compute_command_encoder();
+        swiglu_encoder.set_compute_pipeline_state(&self.swiglu_pipeline);
+        for expert in &self.installed {
+            swiglu_encoder.set_buffer(0, Some(&expert.gate_up), 0);
+            swiglu_encoder.set_buffer(1, Some(&expert.activated), 0);
+            swiglu_encoder.set_buffer(2, Some(&self.silu_lut), 0);
+            swiglu_encoder.set_buffer(3, Some(&self.swiglu_shape), 0);
+            swiglu_encoder.dispatch_threads(
+                MTLSize::new(INTERMEDIATE as u64, 1, 1),
+                MTLSize::new(256, 1, 1),
+            );
+        }
+        swiglu_encoder.end_encoding();
+
+        let down_encoder = command.new_compute_command_encoder();
+        for expert in &self.installed {
+            self.dispatch_projection(
+                down_encoder,
+                &expert.down_weight,
+                &expert.activated,
+                &expert.down,
+                &self.down_shape,
+                HIDDEN,
+            );
+        }
+        down_encoder.end_encoding();
+        command.commit();
+        command.wait_until_completed();
+        if command.status() != MTLCommandBufferStatus::Completed {
+            return Err(format!(
+                "Metal MoE fused transaction failed: {:?}",
+                command.status()
+            ));
+        }
+        self.capture_mixture()
+    }
+
+    fn capture_mixture(&self) -> Result<MixtureCaptures, String> {
         let mut mixture = vec![to_bf16(0.0); HIDDEN];
         let mut weighted_hashes = Vec::with_capacity(TOP_K);
         for expert in &self.installed {
@@ -293,6 +380,15 @@ impl Runtime {
             mixture,
         })
     }
+}
+
+fn build_silu_lut() -> Vec<u16> {
+    (0..BF16_VALUES)
+        .map(|bits| {
+            let gate = from_bf16(bits as u16);
+            to_bf16(gate / (1.0 + (-gate).exp()))
+        })
+        .collect()
 }
 
 struct MixtureCaptures {
@@ -341,48 +437,12 @@ impl ExactResidentTop10Runner {
     }
 
     pub(crate) fn execute_exact(&self) -> Result<(), String> {
-        let captures = self.runtime.execute()?;
+        let captures = self.runtime.execute_one_transaction()?;
         require_exact(&self.runtime, &captures, &self.mixture_hash)
     }
 
     pub(crate) fn device_name(&self) -> &str {
         &self.runtime.device_name
-    }
-}
-
-fn execute_control(runtime: &Runtime) -> MixtureCaptures {
-    let hidden =
-        unsafe { std::slice::from_raw_parts(runtime.hidden.contents().cast::<u16>(), HIDDEN) };
-    let mut mixture = vec![to_bf16(0.0); HIDDEN];
-    let mut weighted_hashes = Vec::with_capacity(TOP_K);
-    for expert in &runtime.installed {
-        let gate_weight = unsafe {
-            std::slice::from_raw_parts(
-                expert.gate_up_weight.contents().cast::<u16>(),
-                INTERMEDIATE * 2 * HIDDEN,
-            )
-        };
-        let down_weight = unsafe {
-            std::slice::from_raw_parts(
-                expert.down_weight.contents().cast::<u16>(),
-                HIDDEN * INTERMEDIATE,
-            )
-        };
-        let gate_up = linear_bf16(gate_weight, hidden, INTERMEDIATE * 2, HIDDEN);
-        let activated = swiglu_bf16(&gate_up[..INTERMEDIATE], &gate_up[INTERMEDIATE..]);
-        let down = linear_bf16(down_weight, &activated, HIDDEN, INTERMEDIATE);
-        let weighted = down
-            .iter()
-            .map(|value| to_bf16(from_bf16(*value) * expert.route_weight_bf16))
-            .collect::<Vec<_>>();
-        weighted_hashes.push((expert.expert, bf16_hash(&weighted)));
-        for (output, contribution) in mixture.iter_mut().zip(weighted) {
-            *output = to_bf16(from_bf16(*output) + from_bf16(contribution));
-        }
-    }
-    MixtureCaptures {
-        weighted_hashes,
-        mixture,
     }
 }
 
@@ -432,6 +492,8 @@ pub struct MetalTop10MoeReport {
     pub logical_resident_source_bytes: usize,
     pub persistent_metal_buffer_bytes: usize,
     pub command_buffers_per_candidate: usize,
+    pub command_buffers_per_control: usize,
+    pub silu_lut_bytes: usize,
     pub compile_wall_time_ns: u128,
     pub authority_verification_wall_time_ns: u128,
     pub install_and_hash_wall_time_ns: u128,
@@ -473,7 +535,7 @@ pub fn benchmark_metal_top10_moe(
     }
     let mut safety = HostSafetyMonitor::start_normative(vec![PersistentResidencyDeclaration {
         object: "top10_real_bf16_expert_weights_and_metal_working_buffers".to_owned(),
-        maximum_bytes: 98_398_736,
+        maximum_bytes: 98_529_812,
         lifetime: "benchmark_measurement_series".to_owned(),
         eviction_order: 1,
     }])?;
@@ -512,23 +574,30 @@ pub fn benchmark_metal_top10_moe(
     safety.checkpoint("metal_install_complete", false)?;
 
     for _ in 0..WARMUPS {
-        require_exact(&runtime, &runtime.execute()?, &case.mixture_bf16_sha256)?;
+        require_exact(
+            &runtime,
+            &runtime.execute_two_transaction()?,
+            &case.mixture_bf16_sha256,
+        )?;
+        require_exact(
+            &runtime,
+            &runtime.execute_one_transaction()?,
+            &case.mixture_bf16_sha256,
+        )?;
     }
     safety.checkpoint("warmups_complete", false)?;
 
-    let mut control_wall_times_ns = Vec::with_capacity(CONTROL_MEASUREMENTS);
+    let mut control_wall_times_ns = Vec::with_capacity(MEASUREMENTS);
     let mut candidate_wall_times_ns = Vec::with_capacity(MEASUREMENTS);
-    for _ in 0..CONTROL_MEASUREMENTS {
+    for _ in 0..MEASUREMENTS {
         let started = Instant::now();
-        let control = execute_control(&runtime);
+        let control = runtime.execute_two_transaction()?;
         control_wall_times_ns.push(started.elapsed().as_nanos());
         require_exact(&runtime, &control, &case.mixture_bf16_sha256)?;
-        for _ in 0..(MEASUREMENTS / CONTROL_MEASUREMENTS) {
-            let started = Instant::now();
-            let candidate = runtime.execute()?;
-            candidate_wall_times_ns.push(started.elapsed().as_nanos());
-            require_exact(&runtime, &candidate, &case.mixture_bf16_sha256)?;
-        }
+        let started = Instant::now();
+        let candidate = runtime.execute_one_transaction()?;
+        candidate_wall_times_ns.push(started.elapsed().as_nanos());
+        require_exact(&runtime, &candidate, &case.mixture_bf16_sha256)?;
     }
     safety.checkpoint("measurements_complete", false)?;
     let control_median = quantile(&control_wall_times_ns, 1, 2);
@@ -542,8 +611,8 @@ pub fn benchmark_metal_top10_moe(
     drop(runtime);
     let (host_safety_policy, host_safety_snapshots) = safety.finish()?;
     Ok(MetalTop10MoeReport {
-        schema_version: 1,
-        semantic: "qwen3_8_flash_next_real_top10_moe_exact_resident_metal_two_transaction",
+        schema_version: 2,
+        semantic: "qwen3_8_flash_next_real_top10_moe_exact_resident_metal_one_transaction_lut_swiglu",
         implementation_commit: implementation_commit.to_owned(),
         kernel_sha256: format!(
             "{:x}",
@@ -557,8 +626,10 @@ pub fn benchmark_metal_top10_moe(
         exact_mixture_hashes_per_execution: 1,
         exact_candidate_measurements: MEASUREMENTS + WARMUPS,
         logical_resident_source_bytes: 98_304_000,
-        persistent_metal_buffer_bytes: 98_398_736,
-        command_buffers_per_candidate: 2,
+        persistent_metal_buffer_bytes: 98_529_812,
+        command_buffers_per_candidate: 1,
+        command_buffers_per_control: 2,
+        silu_lut_bytes: BF16_VALUES * std::mem::size_of::<u16>(),
         compile_wall_time_ns,
         authority_verification_wall_time_ns,
         install_and_hash_wall_time_ns,
@@ -592,5 +663,19 @@ mod tests {
         assert_eq!(quantile(&values, 1, 10), 30);
         assert_eq!(quantile(&values, 1, 2), 150);
         assert_eq!(quantile(&values, 9, 10), 260);
+    }
+
+    #[test]
+    fn silu_lut_preserves_cpu_bf16_boundary_for_every_finite_gate() {
+        let lut = build_silu_lut();
+        assert_eq!(lut.len(), BF16_VALUES);
+        for (bits, actual) in lut.iter().enumerate() {
+            let gate = bits as u16;
+            if gate & 0x7f80 == 0x7f80 {
+                continue;
+            }
+            let expected = swiglu_bf16(&[gate], &[0x3f80]);
+            assert_eq!(*actual, expected[0], "gate bits {bits:#06x}");
+        }
     }
 }

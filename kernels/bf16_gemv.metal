@@ -44,3 +44,22 @@ kernel void firewing_bf16_gemv_exact(
         output[row] = firewing_bf16((partial[0] + partial[1]) + (partial[2] + partial[3]));
     }
 }
+
+struct SwiGluShape {
+    uint count;
+};
+
+// The LUT contains the CPU-authoritative BF16-rounded SiLU result for every
+// possible BF16 gate bit pattern. This avoids depending on Metal exp() while
+// preserving the exact boundary-before-multiply semantic.
+kernel void firewing_bf16_swiglu_lut_exact(
+    device const ushort *gate_up [[buffer(0)]],
+    device ushort *activated [[buffer(1)]],
+    device const ushort *silu_lut [[buffer(2)]],
+    constant SwiGluShape &shape [[buffer(3)]],
+    uint index [[thread_position_in_grid]]) {
+    if (index >= shape.count) return;
+    const float silu = as_type<float>(uint(silu_lut[gate_up[index]]) << 16);
+    const float up = as_type<float>(uint(gate_up[shape.count + index]) << 16);
+    activated[index] = firewing_bf16(silu * up);
+}
