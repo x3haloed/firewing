@@ -544,6 +544,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   bypass that failure. A finer frozen scale-grid sweep is the next cheap
   discriminator. See
   [`experiments/FW-0059-modified-block32-int8-weight-fidelity.md`](experiments/FW-0059-modified-block32-int8-weight-fidelity.md).
+- FW-0060 rejects 16x16 and 8x8 symmetric INT8 at 1.3479% and 1.1676%
+  real-mixture relative L2. All individual experts pass, but fidelity returns
+  diminish as F32 scale overhead grows. Test 4x4 once as the last plain-INT8
+  grid with a material byte advantage; 2x2 already consumes BF16-equivalent
+  bytes before metadata. See
+  [`experiments/FW-0060-modified-fine-grid-int8-frontier.md`](experiments/FW-0060-modified-fine-grid-int8-frontier.md).
 
 ## Prediction errors
 
@@ -581,8 +587,9 @@ These unresolved distinctions can still change the next decision:
   endpoint work remain unresolved. FW-0057 and FW-0058 separately reject naive
   block-128 E4M3 and symmetric INT8 weights as modified escape hatches on the
   first real-mixture fidelity rung. FW-0059 further rejects a 32x32 INT8 scale
-  grid at 1.528% mixture error; a finer-grid boundary and more capable
-  calibrated, outlier-aware, or recovered formats remain unresolved.
+  grid at 1.528% mixture error, and FW-0060 rejects 16x16 and 8x8 at 1.348%
+  and 1.168%. The last useful 4x4 boundary and more capable calibrated,
+  outlier-aware, or recovered formats remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
@@ -599,9 +606,10 @@ These unresolved distinctions can still change the next decision:
   endpoint extent order. Evidence: the FW-0036 receipt and experiment record.
 - Expected: reducing symmetric INT8 scale sharing from 128x128 to 32x32 would
   clear the frozen 1% layer-0 mixture gate. Observed: all experts clear their 2%
-  gate, but the mixture remains at 1.5282%. Uncertain: whether a finer scale
-  grid can pass while retaining enough byte advantage to change the Firewing 4
-  traffic bound. Evidence: FW-0058 and FW-0059 receipts and records.
+  gate, but the mixture remains at 1.5282%; 16x16 and 8x8 improve it only to
+  1.3479% and 1.1676%. Uncertain: whether the last useful 4x4 scale grid can
+  pass while retaining enough byte advantage to change the Firewing 4 traffic
+  bound. Evidence: FW-0058 through FW-0060 receipts and records.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

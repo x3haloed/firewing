@@ -371,7 +371,7 @@ target/release/firewing bench-executable-cache-overlap \
   REPORT_JSON \
   --weight-format block_int8
 
-# Finer 32x32 scale-grid variant
+# Finer scale-grid variant (BLOCK may be 8, 16, or 32)
 .venv/bin/python tools/analyze_block_fp8_weight_fidelity.py \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json \
@@ -379,7 +379,7 @@ target/release/firewing bench-executable-cache-overlap \
   IMPLEMENTATION_COMMIT \
   REPORT_JSON \
   --weight-format block_int8 \
-  --block-size 32
+  --block-size BLOCK
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires
