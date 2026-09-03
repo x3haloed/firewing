@@ -1,7 +1,7 @@
 # FW-0019 - Real layer-3 full attention and QSA
 
-- Status: planned
-- Disposition: unexecuted
+- Status: in progress
+- Disposition: reference fixture passed; native integration pending
 - Date: 2026-09-03
 - Parent experiments: FW-0014, FW-0017, FW-0018
 - Exactness: L0 bit-identical component semantics
@@ -94,8 +94,21 @@ latency, and TPS.
 
 ## Result
 
-Pending execution.
+The two-case reference fixture passes. A source-derived explicit path exactly
+matches the official Transformers module's output, selected-token mask, raw
+indexer cache, rotated main-key cache, and value cache. It freezes nine real
+tensor identities and 31 captures per case. Regeneration is byte-identical;
+39 Python tests pass.
+
+The first 2,052-position draft falsified the assumption that a one-block
+exclusion would be unambiguous: three blocks had exact zero scores after the
+indexer's ReLU aggregation, tying across the top-k boundary. The retained
+2,080-position case excludes eight blocks and has an untied boundary. Native
+work has begun with independently tested 128/256-wide RMSNorm, BF16-staged
+partial RoPE, and fail-closed top-k selection primitives; full fixture parity
+is pending.
 
 ## Decision
 
-Pending. No performance default follows from component parity.
+Continue to native checkpoint integration. No performance default follows
+from reference parity or isolated semantic primitives.
