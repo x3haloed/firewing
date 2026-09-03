@@ -54,3 +54,8 @@ FW-0013 transport trace.
 normalization, low-rank input mixing, and block-injection weights to four real
 layer-0 checkpoint tensors. It stores tensor identities and exact capture
 hashes, never checkpoint-derived payload bytes.
+
+`deltanet/qwen3_8_flash_next_layer0_decode.json` binds two consecutive
+layer-0 Gated DeltaNet calls to real weights and exact projection,
+depthwise-convolution, recurrent-state, gated-normalization, and output hashes.
+It exercises initial-state construction followed by cached single-token decode.

@@ -1,0 +1,549 @@
+{
+  "case": {
+    "layer": 0,
+    "name": "layer_0_two_token_cached_decode",
+    "steps": [
+      {
+        "captures": {
+          "a_projection": {
+            "dtype": "BF16",
+            "sha256": "f61d5b5d236ea21a6ca75ac2c54f310a5f7a3c82736b8aeee6c2617c06233ae6",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "b_projection": {
+            "dtype": "BF16",
+            "sha256": "ee0f3565e958b44a3df18afbb26362ac75a9f5b750d2047b485893b66b29bac5",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "beta": {
+            "dtype": "BF16",
+            "sha256": "460afb028e36b4e537a8083b8198ef6c1916bb1d88a2a5e575da8464586a85d8",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "convolution_state": {
+            "dtype": "BF16",
+            "sha256": "7bdc0722c7987e9ccdae09db37b3f73b286d806e28af405a6ea881e40985985e",
+            "shape": [
+              1,
+              10240,
+              4
+            ]
+          },
+          "convolved_qkv": {
+            "dtype": "BF16",
+            "sha256": "64ca1cef76aefff1b4fcae86af57f931f2dc7d523f6a50429f92bfdbd0fda733",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "core_attention": {
+            "dtype": "BF16",
+            "sha256": "4dfec521eb421db7bf778ae0e35027d9982812cae935c46cad3811bc1ac65ef8",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "decay": {
+            "dtype": "F32",
+            "sha256": "417563f938314c63ae74b980b2b8e0e3f971a7c997ef145b353e96702710f5bc",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "gated_norm": {
+            "dtype": "BF16",
+            "sha256": "6f40d61712522447d4dd0218bf47770cef05bd52ff9ced65c13f7040e224c3a9",
+            "shape": [
+              48,
+              128
+            ]
+          },
+          "hidden_states": {
+            "dtype": "BF16",
+            "sha256": "63f5c4ee2ada3a51a1476c7995354c346901e753a8db512854595afcba8d72cc",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "key": {
+            "dtype": "BF16",
+            "sha256": "39ad83b1b04f15f940008add1082c02b7bc13943e0c0fa7c313abda71cbef7fe",
+            "shape": [
+              1,
+              1,
+              16,
+              128
+            ]
+          },
+          "key_normalized": {
+            "dtype": "BF16",
+            "sha256": "536b0bbd9f146e0bd859a2115b47ee6b1ae0cec1a29617020d386af6b3fc5272",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "key_repeated": {
+            "dtype": "BF16",
+            "sha256": "bf7b9520b364a9b407891956e5339ed710ef3979d285a86d08fc62a4b52ca7a5",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "mixed_qkv_projection": {
+            "dtype": "BF16",
+            "sha256": "a64f5fd916fd0f8a8d357460ef137cdff04217696f19881f127c399da8ddde43",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "output": {
+            "dtype": "BF16",
+            "sha256": "fc501b7cf69efab73adfeef4b92b94cffb5dcd4580f51eee1d92e777c5985b02",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "query": {
+            "dtype": "BF16",
+            "sha256": "fead821ce3065f61f4ea7e6e377563be83b6d6a1151e317a1cc4f559127f8b07",
+            "shape": [
+              1,
+              1,
+              16,
+              128
+            ]
+          },
+          "query_normalized": {
+            "dtype": "BF16",
+            "sha256": "891bf9723d933679977773ea0c2cd4f2aea7d891a8428cfc79d45e852a013083",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "query_repeated": {
+            "dtype": "BF16",
+            "sha256": "0f8a474493224ac3d9c77a4cc81c621d637a68d837c8300260c85d04ece08cea",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "recurrent_state": {
+            "dtype": "F32",
+            "sha256": "9893c6c05913945ae2fd6a18e893aba01b1e60e4e359512e192a4d42a3f9819a",
+            "shape": [
+              1,
+              48,
+              128,
+              128
+            ]
+          },
+          "value": {
+            "dtype": "BF16",
+            "sha256": "4c58acc64d513d49be5dd5864728b9dac434586c2450e2eef5d84e2b0df8f809",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "z_projection": {
+            "dtype": "BF16",
+            "sha256": "1cd34e094128a861e9ac08743dfb29124eccb199e0da4e57ea15536ed1b6dd0d",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          }
+        },
+        "input_spec": {
+          "add": 23,
+          "center": 134,
+          "divisor": 128,
+          "modulus": 269,
+          "multiplier": 47,
+          "sparse_stride": 1
+        },
+        "mode": "initial_chunk",
+        "ordinal": 0
+      },
+      {
+        "captures": {
+          "a_projection": {
+            "dtype": "BF16",
+            "sha256": "3ee93dd0cd83f688e06eeb92e4d0c8e70a14772d484e924f3b66f76857292a39",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "b_projection": {
+            "dtype": "BF16",
+            "sha256": "f6b71baa8a25996036dccc15b35da7363f46e319a17ba7746ef744e568b38d33",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "beta": {
+            "dtype": "BF16",
+            "sha256": "c5c01d86b4751b009fd9ce8a9032442ecc8a08a88f652f09fffd327faa9a8a6b",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "convolution_state": {
+            "dtype": "BF16",
+            "sha256": "a52014a160a65198220773a5612c52af817c5efe183008287fb27fe84ab615e3",
+            "shape": [
+              1,
+              10240,
+              4
+            ]
+          },
+          "convolved_qkv": {
+            "dtype": "BF16",
+            "sha256": "43002bed90c621b0718475d3926864bcb6d145a42068285753b91d58db1d6923",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "core_attention": {
+            "dtype": "BF16",
+            "sha256": "36917c09d763a9d85df57d68d95dfb8305f2116087a9698929366718a0f3ac89",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "decay": {
+            "dtype": "F32",
+            "sha256": "763222e441d03793d68376d8dba007f9769f892cdf8aa8b203a900a647d05671",
+            "shape": [
+              1,
+              1,
+              48
+            ]
+          },
+          "gated_norm": {
+            "dtype": "BF16",
+            "sha256": "cc5050732e8b6fcfe027338ca0610c2ba0bd1ffc7d79310e62b49de087d7f160",
+            "shape": [
+              48,
+              128
+            ]
+          },
+          "hidden_states": {
+            "dtype": "BF16",
+            "sha256": "e0c564845e02b8966e51510187f87a8214005da8bc2c7c200874ea95bb88d844",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "key": {
+            "dtype": "BF16",
+            "sha256": "fdeababa63907dcf8347d89b2f487675652e71924d1662930769a17070a36b6d",
+            "shape": [
+              1,
+              1,
+              16,
+              128
+            ]
+          },
+          "key_normalized": {
+            "dtype": "BF16",
+            "sha256": "b503e4da1f6fa4b792a1a02767f8b83337f0821d45230230458b7393f68c3423",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "key_repeated": {
+            "dtype": "BF16",
+            "sha256": "1eba124d56fc8960a8da746561b0ddf2fcde02873d1d4fd8a5da7ff23d6d62c7",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "mixed_qkv_projection": {
+            "dtype": "BF16",
+            "sha256": "1a39ae37808656336167fc869b50106928e7d631c6df761315c681f1e89dd761",
+            "shape": [
+              1,
+              1,
+              10240
+            ]
+          },
+          "output": {
+            "dtype": "BF16",
+            "sha256": "34813835f8a8457001ef5c76773e4626a2f424c3d4ab75c3891128475e3a690e",
+            "shape": [
+              1,
+              1,
+              2560
+            ]
+          },
+          "query": {
+            "dtype": "BF16",
+            "sha256": "2e1d329b4c705b25392627e988c82a3112796ee6df2d27a14e4b9b3e46fbe394",
+            "shape": [
+              1,
+              1,
+              16,
+              128
+            ]
+          },
+          "query_normalized": {
+            "dtype": "BF16",
+            "sha256": "5c5a4a359a79e3f61267aa4f676b971d97922fdcf1115a2070dfb9afe161eae9",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "query_repeated": {
+            "dtype": "BF16",
+            "sha256": "1e723a72033a73274c30b3e9cb2f895728fdc178d10ec2cafb20d785349ede5e",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "recurrent_state": {
+            "dtype": "F32",
+            "sha256": "9ab5ea33c3bb0d8431444b9eebbaf3388422c461b116241f00546df4486a763a",
+            "shape": [
+              1,
+              48,
+              128,
+              128
+            ]
+          },
+          "value": {
+            "dtype": "BF16",
+            "sha256": "c8ce50f739958764d496b07eb96c5d9857a726aa7963173c2e4b28f30e7a5432",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          },
+          "z_projection": {
+            "dtype": "BF16",
+            "sha256": "802781ca2192c8fb72c956f5ad122872290e9db31740839edbc4f7dcc03352a5",
+            "shape": [
+              1,
+              1,
+              48,
+              128
+            ]
+          }
+        },
+        "input_spec": {
+          "add": 31,
+          "center": 135,
+          "divisor": 128,
+          "modulus": 271,
+          "multiplier": 59,
+          "sparse_stride": 1
+        },
+        "mode": "cached_recurrent",
+        "ordinal": 1
+      }
+    ],
+    "tensors": {
+      "A_log": {
+        "dtype": "BF16",
+        "payload_sha256": "70321a473849317d44b1d1f3a97b85dffb29212f0311cf271ba99ee385a69aa5",
+        "shape": [
+          48
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.A_log"
+      },
+      "conv1d.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "03ed6a7d743e9f51badcc42abbf17a1c078472ca00960da23eb9774370e7c3de",
+        "shape": [
+          10240,
+          1,
+          4
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.conv1d.weight"
+      },
+      "dt_bias": {
+        "dtype": "BF16",
+        "payload_sha256": "e7e2aaccdf79b62e05bc72c88fe044ac389bcb61b9d70cbf9d93956919dfefb9",
+        "shape": [
+          48
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.dt_bias"
+      },
+      "in_proj_a.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "ec10ca960d290d70340b9434f0b985ec04f063611a2c5a3953d2fe49ba1411ec",
+        "shape": [
+          48,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_a.weight"
+      },
+      "in_proj_b.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "62c86d7c3add11380399b53389e2206a310501fa5fd20a0e07aab76424c8dbf8",
+        "shape": [
+          48,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_b.weight"
+      },
+      "in_proj_qkv.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "888098eea25ace0873f7af3fb8a923060016296e7ccddd27a532fe650af1e795",
+        "shape": [
+          10240,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_qkv.weight"
+      },
+      "in_proj_z.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "6b00c7036d08bb999e29bc9177f7373fe8f5774fe244a116d680ef4079f370c4",
+        "shape": [
+          6144,
+          2560
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.in_proj_z.weight"
+      },
+      "norm.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "ba3568fc54135876bd054177a12d0742fd3fbab5689633a775d0740c834725c2",
+        "shape": [
+          128
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.norm.weight"
+      },
+      "out_proj.weight": {
+        "dtype": "BF16",
+        "payload_sha256": "61faf46f03e25a68c83cd45860b97bb50d834b30a200474b1a4d3de1aae5bcfe",
+        "shape": [
+          2560,
+          6144
+        ],
+        "shard": "model-00001-of-00131.safetensors",
+        "shard_bytes": 1040155944,
+        "shard_sha256": "3a092d3a9a542093a9c3524023f05f9e1289ccf23324735ce32ae70bf58700ec",
+        "tensor": "model.language_model.layers.0.linear_attn.out_proj.weight"
+      }
+    }
+  },
+  "configuration": {
+    "activation": "silu",
+    "conv_dim": 10240,
+    "hidden_size": 2560,
+    "key_dim": 2048,
+    "linear_conv_kernel_dim": 4,
+    "linear_key_head_dim": 128,
+    "linear_num_key_heads": 16,
+    "linear_num_value_heads": 48,
+    "linear_value_head_dim": 128,
+    "output_gate": "sigmoid",
+    "recurrent_state_dtype": "F32",
+    "value_dim": 6144,
+    "weight_dtype": "BF16"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextGatedDeltaNet.forward",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_gated_deltanet_cached_decode"
+}

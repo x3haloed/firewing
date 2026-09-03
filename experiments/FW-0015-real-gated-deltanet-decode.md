@@ -28,6 +28,8 @@ captured boundary; final-output-only agreement is insufficient.
   `de4b8e4d43b917e7706784d8bb445c9af86a3540`
 - Model lock SHA-256:
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
+- Frozen fixture SHA-256:
+  `d2cb94f6a6d08896cf836efe84f8a5effa9eb17603f077e44cf9ee9bbcc3c93f`
 - Baseline commit: `3deee662b9fdb7f7d03b765b5684ce6a2592d578`
 - Framework reference: Transformers 5.16.1
   `Qwen4ExpTextGatedDeltaNet.forward`, fallback causal-convolution functions,
