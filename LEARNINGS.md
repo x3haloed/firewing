@@ -401,6 +401,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   Expert bytes per accepted token must fall before repeated endpoint work.
   See
   [`experiments/FW-0044-q2-raw-bf16-overlap-bound.md`](experiments/FW-0044-q2-raw-bf16-overlap-bound.md).
+- FW-0045 finds that exact independently framed zstd-1 compression is a real
+  byte-capacity lead but serial decoding is not executable. All 687 q2 target
+  experts round-trip exactly; 6.753 GB becomes 5.252 GB (77.7649%), leaving
+  only 990.9 MB beyond an impossible-favorable 12-GiB fractional cache. At
+  FW-0044 bandwidth, storage plus exact target Metal could retain a 5.064-TPS
+  ceiling. Serial union decompression takes 6.090 seconds, however, and even a
+  proportionally charged, perfectly overlapped miss share bounds acceptance at
+  only 1.740535 TPS. Preserve zstd-1 for a bounded parallel physical
+  read/decode experiment; reject the serial decoder and do not call the size
+  result endpoint TPS. See
+  [`experiments/FW-0045-q2-lossless-expert-codec-bound.md`](experiments/FW-0045-q2-lossless-expert-codec-bound.md).
 
 ## Prediction errors
 
@@ -416,8 +427,10 @@ These unresolved distinctions can still change the next decision:
   acceptance and exact union only for two width-two and two width-four
   `Firewing` transactions on one prompt prefix. FW-0044 additionally rejects
   raw-BF16 q2 residency on the first transaction but does not measure a
-  production route distribution or any reduced representation. FW-0008
-  measured the fixed 14-position n-gram trace at 51.886x physical/useful bytes
+  production route distribution. FW-0045 establishes an exact zstd-1 size
+  reduction on that union but leaves parallel physical decoding unresolved.
+  FW-0008 measured the fixed 14-position n-gram trace at 51.886x
+  physical/useful bytes
   and 1.577 uncached ms/token after verified range invalidation;
   generalization remains open. FW-0013 now rejects the 4,718,592,000-byte raw
   all-miss routed-expert
