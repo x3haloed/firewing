@@ -56,6 +56,16 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertEqual(bytes8, 128 * 128 + 256 * 4)
         self.assertLess(bytes16, bytes8)
 
+    def test_block4_is_last_square_grid_smaller_than_bf16(self) -> None:
+        weight = torch.full((128, 128), 2.0, dtype=torch.bfloat16)
+        decoded4, scales4, bytes4 = block_int8_weight(weight, 4)
+        _, scales2, bytes2 = block_int8_weight(weight, 2)
+        self.assertTrue(torch.equal(decoded4, weight))
+        self.assertEqual(tuple(scales4.shape), (32, 32))
+        self.assertEqual(tuple(scales2.shape), (64, 64))
+        self.assertEqual(bytes4, weight.numel() * 5 // 4)
+        self.assertEqual(bytes2, weight.numel() * 2)
+
 
 if __name__ == "__main__":
     unittest.main()

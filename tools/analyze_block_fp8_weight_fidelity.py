@@ -283,7 +283,7 @@ def main() -> int:
         default="block_fp8",
     )
     parser.add_argument(
-        "--block-size", type=int, choices=(8, 16, 32, 128), default=DEFAULT_BLOCK
+        "--block-size", type=int, choices=(4, 8, 16, 32, 128), default=DEFAULT_BLOCK
     )
     args = parser.parse_args()
     report = analyze(
