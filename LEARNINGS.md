@@ -564,6 +564,11 @@ runtime passing every target gate, including reproducible batch-one decode at
   accumulation. Coarser grids already failed and 2x2 loses all byte advantage.
   Do not build a bank or kernel for this form. See
   [`experiments/FW-0062-modified-block4-int8-real-layers.md`](experiments/FW-0062-modified-block4-int8-real-layers.md).
+- FW-0063 shows that equal-byte INT8 scale topology matters. At the same 62.5%
+  BF16 ratio as 4x4, layer-0 mixture errors are 0.9364% for 1x16, 1.0050% for
+  2x8, 0.9803% for 8x2, and 1.0064% for 16x1. Retain 1x16 alone for the six-case
+  real-layer gate; do not infer deeper fidelity from this local screen. See
+  [`experiments/FW-0063-modified-int8-scale-topology.md`](experiments/FW-0063-modified-int8-scale-topology.md).
 
 ## Prediction errors
 
@@ -604,7 +609,9 @@ These unresolved distinctions can still change the next decision:
   grid at 1.528% mixture error, and FW-0060 rejects 16x16 and 8x8 at 1.348%
   and 1.168%. FW-0061's 4x4 grid initially survives at 0.978%, but FW-0062
   rejects it across real early/middle/late inputs. Plain square-block symmetric
-  INT8 is closed; calibrated, outlier-aware, or recovered formats remain open.
+  INT8 is closed. FW-0063 reopens only rectangular topology: 1x16 and 8x2 pass
+  layer 0 at identical bytes, with 1x16 selected for deeper screening.
+  Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
