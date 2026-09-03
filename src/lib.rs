@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 use tokenizers::Tokenizer;
 
+mod attention_residual;
 mod deltanet;
 mod expert;
 mod expert_acquisition;
@@ -11,6 +12,9 @@ mod hyper_connection;
 mod ngram;
 mod router;
 
+pub use attention_residual::{
+    AttentionResidualVerificationReport, verify_attention_residual_fixture,
+};
 pub use deltanet::{DeltaNetVerificationReport, verify_deltanet_fixture};
 pub use expert::{
     ExpertVerificationReport, MixtureVerificationReport, SparseMoeVerificationReport,

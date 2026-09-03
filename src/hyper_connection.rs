@@ -319,6 +319,103 @@ fn require_capture(
     Ok(())
 }
 
+pub(crate) struct HyperConnectionOutputs {
+    pub hyper_input_normed: Vec<u16>,
+    pub mix_down: Vec<u16>,
+    pub mix_down_scaled: Vec<u16>,
+    pub mix_down_silu: Vec<u16>,
+    pub mix_up: Vec<u16>,
+    pub input_mix: Vec<u16>,
+    pub products: Vec<u16>,
+    pub mixed: Vec<u16>,
+    pub inject: Vec<u16>,
+    pub inject_scaled: Vec<u16>,
+    pub inject_sigmoid: Vec<u16>,
+    pub injection_weights: Vec<u16>,
+}
+
+pub(crate) fn run_hyper_connection(
+    input: &[u16],
+    values: &BTreeMap<String, Vec<u16>>,
+) -> Result<HyperConnectionOutputs, String> {
+    if input.len() != HC_HIDDEN
+        || ![
+            "hc_norm",
+            "input_mix_weight_down",
+            "input_mix_weight_up",
+            "block_inject_weight",
+        ]
+        .iter()
+        .all(|key| values.contains_key(*key))
+    {
+        return Err("invalid hyper-connection runtime inputs".to_owned());
+    }
+    let hyper_input_normed = grouped_rms(input, &values["hc_norm"], 1.0e-6);
+    let mix_down = linear_bf16(
+        &values["input_mix_weight_down"],
+        &hyper_input_normed,
+        HC_LOWRANK,
+        HC_HIDDEN,
+    );
+    let mix_down_scaled: Vec<_> = mix_down
+        .iter()
+        .map(|value| to_bf16(from_bf16(*value) / HC_COUNT as f32))
+        .collect();
+    let mix_down_silu = silu_bf16(&mix_down_scaled);
+    let mix_up = linear_bf16(
+        &values["input_mix_weight_up"],
+        &mix_down_silu,
+        HC_HIDDEN,
+        HC_LOWRANK,
+    );
+    let input_mix: Vec<_> = mix_up.iter().map(|value| sigmoid_bf16(*value)).collect();
+    let products: Vec<_> = input_mix
+        .iter()
+        .zip(&hyper_input_normed)
+        .map(|(left, right)| to_bf16(from_bf16(*left) * from_bf16(*right)))
+        .collect();
+    let mixed = (0..HIDDEN)
+        .map(|column| {
+            let values = (0..HC_COUNT)
+                .map(|group| from_bf16(products[group * HIDDEN + column]))
+                .collect::<Vec<_>>();
+            to_bf16(((values[0] + values[1]) + (values[2] + values[3])) / HC_COUNT as f32)
+        })
+        .collect();
+    let inject = linear_bf16(
+        &values["block_inject_weight"],
+        &hyper_input_normed,
+        HC_COUNT,
+        HC_HIDDEN,
+    );
+    let inject_scaled: Vec<_> = inject
+        .iter()
+        .map(|value| to_bf16(from_bf16(*value) / HC_COUNT as f32))
+        .collect();
+    let inject_sigmoid: Vec<_> = inject_scaled
+        .iter()
+        .map(|value| sigmoid_bf16(*value))
+        .collect();
+    let injection_weights = inject_sigmoid
+        .iter()
+        .map(|value| to_bf16(2.0 * from_bf16(*value)))
+        .collect();
+    Ok(HyperConnectionOutputs {
+        hyper_input_normed,
+        mix_down,
+        mix_down_scaled,
+        mix_down_silu,
+        mix_up,
+        input_mix,
+        products,
+        mixed,
+        inject,
+        inject_scaled,
+        inject_sigmoid,
+        injection_weights,
+    })
+}
+
 pub fn verify_hyper_connection_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -384,7 +481,7 @@ pub fn verify_hyper_connection_fixture(
             "block_inject_weight.weight",
         ),
     ];
-    let mut values = BTreeMap::new();
+    let mut values: BTreeMap<String, Vec<u16>> = BTreeMap::new();
     let mut tensor_payload_bytes = 0;
     for (key, shape, suffix) in expected {
         let tensor = case
@@ -418,78 +515,58 @@ pub fn verify_hyper_connection_fixture(
             return Err(format!("hyper-connection payload mismatch for {key}"));
         }
         tensor_payload_bytes += payload.len() * 2;
-        values.insert(key, payload);
+        values.insert(key.to_owned(), payload);
     }
     let input = make_input(&case.input_spec)?;
     require_capture(&case.expected_bf16_sha256, "hyper_input", &input)?;
-    let normed = grouped_rms(&input, &values["hc_norm"], config.rms_norm_eps);
-    require_capture(&case.expected_bf16_sha256, "hyper_input_normed", &normed)?;
-    let mix_down = linear_bf16(
-        &values["input_mix_weight_down"],
-        &normed,
-        HC_LOWRANK,
-        HC_HIDDEN,
-    );
-    require_capture(&case.expected_bf16_sha256, "mix_down", &mix_down)?;
-    let mix_down_scaled: Vec<_> = mix_down
-        .iter()
-        .map(|value| to_bf16(from_bf16(*value) / HC_COUNT as f32))
-        .collect();
+    let outputs = run_hyper_connection(&input, &values)?;
+    require_capture(
+        &case.expected_bf16_sha256,
+        "hyper_input_normed",
+        &outputs.hyper_input_normed,
+    )?;
+    require_capture(&case.expected_bf16_sha256, "mix_down", &outputs.mix_down)?;
     require_capture(
         &case.expected_bf16_sha256,
         "mix_down_scaled",
-        &mix_down_scaled,
+        &outputs.mix_down_scaled,
     )?;
-    let mix_down_silu = silu_bf16(&mix_down_scaled);
-    require_capture(&case.expected_bf16_sha256, "mix_down_silu", &mix_down_silu)?;
-    let mix_up = linear_bf16(
-        &values["input_mix_weight_up"],
-        &mix_down_silu,
-        HC_HIDDEN,
-        HC_LOWRANK,
-    );
-    require_capture(&case.expected_bf16_sha256, "mix_up", &mix_up)?;
-    let input_mix: Vec<_> = mix_up.iter().map(|value| sigmoid_bf16(*value)).collect();
-    require_capture(&case.expected_bf16_sha256, "input_mix_weight", &input_mix)?;
-    let products: Vec<_> = input_mix
-        .iter()
-        .zip(&normed)
-        .map(|(left, right)| to_bf16(from_bf16(*left) * from_bf16(*right)))
-        .collect();
-    require_capture(&case.expected_bf16_sha256, "mixed_products", &products)?;
-    let mixed: Vec<_> = (0..HIDDEN)
-        .map(|column| {
-            let values = (0..HC_COUNT)
-                .map(|group| from_bf16(products[group * HIDDEN + column]))
-                .collect::<Vec<_>>();
-            to_bf16(((values[0] + values[1]) + (values[2] + values[3])) / HC_COUNT as f32)
-        })
-        .collect();
-    require_capture(&case.expected_bf16_sha256, "mixed_input", &mixed)?;
-    let inject = linear_bf16(&values["block_inject_weight"], &normed, HC_COUNT, HC_HIDDEN);
-    require_capture(&case.expected_bf16_sha256, "inject_projection", &inject)?;
-    let inject_scaled: Vec<_> = inject
-        .iter()
-        .map(|value| to_bf16(from_bf16(*value) / HC_COUNT as f32))
-        .collect();
-    require_capture(&case.expected_bf16_sha256, "inject_scaled", &inject_scaled)?;
-    let inject_sigmoid: Vec<_> = inject_scaled
-        .iter()
-        .map(|value| sigmoid_bf16(*value))
-        .collect();
+    require_capture(
+        &case.expected_bf16_sha256,
+        "mix_down_silu",
+        &outputs.mix_down_silu,
+    )?;
+    require_capture(&case.expected_bf16_sha256, "mix_up", &outputs.mix_up)?;
+    require_capture(
+        &case.expected_bf16_sha256,
+        "input_mix_weight",
+        &outputs.input_mix,
+    )?;
+    require_capture(
+        &case.expected_bf16_sha256,
+        "mixed_products",
+        &outputs.products,
+    )?;
+    require_capture(&case.expected_bf16_sha256, "mixed_input", &outputs.mixed)?;
+    require_capture(
+        &case.expected_bf16_sha256,
+        "inject_projection",
+        &outputs.inject,
+    )?;
+    require_capture(
+        &case.expected_bf16_sha256,
+        "inject_scaled",
+        &outputs.inject_scaled,
+    )?;
     require_capture(
         &case.expected_bf16_sha256,
         "inject_sigmoid",
-        &inject_sigmoid,
+        &outputs.inject_sigmoid,
     )?;
-    let injection_weights: Vec<_> = inject_sigmoid
-        .iter()
-        .map(|value| to_bf16(2.0 * from_bf16(*value)))
-        .collect();
     require_capture(
         &case.expected_bf16_sha256,
         "injection_weights",
-        &injection_weights,
+        &outputs.injection_weights,
     )?;
     Ok(HyperConnectionVerificationReport {
         schema_version: 1,

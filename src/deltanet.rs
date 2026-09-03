@@ -134,9 +134,16 @@ pub struct DeltaNetVerificationReport {
     pub performance_claim: Option<String>,
 }
 
-struct State {
-    convolution: Vec<u16>,
-    recurrent: Vec<f32>,
+pub(crate) struct DeltaNetRuntimeState {
+    pub convolution: Vec<u16>,
+    pub recurrent: Vec<f32>,
+}
+
+pub(crate) fn zero_deltanet_state() -> DeltaNetRuntimeState {
+    DeltaNetRuntimeState {
+        convolution: vec![to_bf16(0.0); CONV_DIM * CONV_KERNEL],
+        recurrent: vec![0.0; RECURRENT_VALUES],
+    }
 }
 
 fn is_hash(value: &str) -> bool {
@@ -157,7 +164,11 @@ fn f32_hash(values: &[f32]) -> String {
     format!("{:x}", digest.finalize())
 }
 
-fn read_tensor(path: &Path, tensor: &str, expected_shape: &[usize]) -> Result<Vec<u16>, String> {
+pub(crate) fn read_tensor(
+    path: &Path,
+    tensor: &str,
+    expected_shape: &[usize],
+) -> Result<Vec<u16>, String> {
     let mut file =
         File::open(path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
     let mut prefix = [0_u8; 8];
@@ -553,6 +564,97 @@ fn gated_norm(core: &[u16], gate: &[u16], weight: &[u16]) -> Vec<u16> {
     output
 }
 
+pub(crate) struct DeltaNetStepOutputs {
+    qkv: Vec<u16>,
+    z: Vec<u16>,
+    b: Vec<u16>,
+    a: Vec<u16>,
+    convolved: Vec<u16>,
+    query: Vec<u16>,
+    key: Vec<u16>,
+    value: Vec<u16>,
+    beta: Vec<u16>,
+    decay: Vec<f32>,
+    query_repeated: Vec<u16>,
+    key_repeated: Vec<u16>,
+    query_normalized: Vec<u16>,
+    key_normalized: Vec<u16>,
+    core: Vec<u16>,
+    normed: Vec<u16>,
+    pub output: Vec<u16>,
+}
+
+pub(crate) fn run_deltanet_step(
+    input: &[u16],
+    weights: &BTreeMap<String, Vec<u16>>,
+    state: &mut DeltaNetRuntimeState,
+    initial_chunk: bool,
+) -> Result<DeltaNetStepOutputs, String> {
+    if input.len() != HIDDEN
+        || ![
+            "A_log",
+            "conv1d.weight",
+            "dt_bias",
+            "in_proj_a.weight",
+            "in_proj_b.weight",
+            "in_proj_qkv.weight",
+            "in_proj_z.weight",
+            "norm.weight",
+            "out_proj.weight",
+        ]
+        .iter()
+        .all(|key| weights.contains_key(*key))
+        || state.convolution.len() != CONV_DIM * CONV_KERNEL
+        || state.recurrent.len() != RECURRENT_VALUES
+    {
+        return Err("invalid DeltaNet runtime inputs".to_owned());
+    }
+    let qkv = linear_bf16(&weights["in_proj_qkv.weight"], input, CONV_DIM, HIDDEN);
+    let z = linear_bf16(&weights["in_proj_z.weight"], input, VALUE_DIM, HIDDEN);
+    let b = linear_bf16(&weights["in_proj_b.weight"], input, V_HEADS, HIDDEN);
+    let a = linear_bf16(&weights["in_proj_a.weight"], input, V_HEADS, HIDDEN);
+    let convolved = convolution(&qkv, &weights["conv1d.weight"], &mut state.convolution);
+    let query = convolved[..KEY_DIM].to_vec();
+    let key = convolved[KEY_DIM..2 * KEY_DIM].to_vec();
+    let value = convolved[2 * KEY_DIM..].to_vec();
+    let beta: Vec<u16> = b.iter().map(|value| sigmoid_bf16(*value)).collect();
+    let decay = decay_values(&a, &weights["dt_bias"], &weights["A_log"])?;
+    let query_repeated = repeat_heads(&query);
+    let key_repeated = repeat_heads(&key);
+    let query_normalized = normalize_heads(&query_repeated);
+    let key_normalized = normalize_heads(&key_repeated);
+    let core = recurrent_step(
+        &query_normalized,
+        &key_normalized,
+        &value,
+        &decay,
+        &beta,
+        &mut state.recurrent,
+        initial_chunk,
+    );
+    let normed = gated_norm(&core, &z, &weights["norm.weight"]);
+    let output = linear_bf16(&weights["out_proj.weight"], &normed, HIDDEN, VALUE_DIM);
+    Ok(DeltaNetStepOutputs {
+        qkv,
+        z,
+        b,
+        a,
+        convolved,
+        query,
+        key,
+        value,
+        beta,
+        decay,
+        query_repeated,
+        key_repeated,
+        query_normalized,
+        key_normalized,
+        core,
+        normed,
+        output,
+    })
+}
+
 pub fn verify_deltanet_fixture(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -614,7 +716,7 @@ pub fn verify_deltanet_fixture(
         ("norm.weight", &[HEAD_DIM]),
         ("out_proj.weight", &[HIDDEN, VALUE_DIM]),
     ];
-    let mut weights = BTreeMap::new();
+    let mut weights: BTreeMap<String, Vec<u16>> = BTreeMap::new();
     let mut tensor_payload_bytes = 0;
     for (local, shape) in expected {
         let tensor = case
@@ -647,12 +749,9 @@ pub fn verify_deltanet_fixture(
             return Err(format!("DeltaNet tensor payload mismatch for {local}"));
         }
         tensor_payload_bytes += payload.len() * 2;
-        weights.insert(local, payload);
+        weights.insert(local.to_owned(), payload);
     }
-    let mut state = State {
-        convolution: vec![to_bf16(0.0); CONV_DIM * CONV_KERNEL],
-        recurrent: vec![0.0; RECURRENT_VALUES],
-    };
+    let mut state = zero_deltanet_state();
     for (ordinal, step) in case.steps.iter().enumerate() {
         if step.ordinal != ordinal
             || step.mode
@@ -667,80 +766,66 @@ pub fn verify_deltanet_fixture(
         }
         let input = make_input(&step.input_spec, ordinal)?;
         require_bf16(step, "hidden_states", &[1, 1, HIDDEN], &input)?;
-        let qkv = linear_bf16(&weights["in_proj_qkv.weight"], &input, CONV_DIM, HIDDEN);
-        require_bf16(step, "mixed_qkv_projection", &[1, 1, CONV_DIM], &qkv)?;
-        let z = linear_bf16(&weights["in_proj_z.weight"], &input, VALUE_DIM, HIDDEN);
-        require_bf16(step, "z_projection", &[1, 1, V_HEADS, HEAD_DIM], &z)?;
-        let b = linear_bf16(&weights["in_proj_b.weight"], &input, V_HEADS, HIDDEN);
-        require_bf16(step, "b_projection", &[1, 1, V_HEADS], &b)?;
-        let a = linear_bf16(&weights["in_proj_a.weight"], &input, V_HEADS, HIDDEN);
-        require_bf16(step, "a_projection", &[1, 1, V_HEADS], &a)?;
-        let convolved = convolution(&qkv, &weights["conv1d.weight"], &mut state.convolution);
+        let outputs = run_deltanet_step(&input, &weights, &mut state, ordinal == 0)?;
+        require_bf16(
+            step,
+            "mixed_qkv_projection",
+            &[1, 1, CONV_DIM],
+            &outputs.qkv,
+        )?;
+        require_bf16(step, "z_projection", &[1, 1, V_HEADS, HEAD_DIM], &outputs.z)?;
+        require_bf16(step, "b_projection", &[1, 1, V_HEADS], &outputs.b)?;
+        require_bf16(step, "a_projection", &[1, 1, V_HEADS], &outputs.a)?;
         require_bf16(
             step,
             "convolution_state",
             &[1, CONV_DIM, CONV_KERNEL],
             &state.convolution,
         )?;
-        require_bf16(step, "convolved_qkv", &[1, 1, CONV_DIM], &convolved)?;
-        let query = &convolved[..KEY_DIM];
-        let key = &convolved[KEY_DIM..2 * KEY_DIM];
-        let value = &convolved[2 * KEY_DIM..];
-        require_bf16(step, "query", &[1, 1, K_HEADS, HEAD_DIM], query)?;
-        require_bf16(step, "key", &[1, 1, K_HEADS, HEAD_DIM], key)?;
-        require_bf16(step, "value", &[1, 1, V_HEADS, HEAD_DIM], value)?;
-        let beta: Vec<_> = b.iter().map(|value| sigmoid_bf16(*value)).collect();
-        require_bf16(step, "beta", &[1, 1, V_HEADS], &beta)?;
-        let decay = decay_values(&a, &weights["dt_bias"], &weights["A_log"])?;
-        require_f32(step, "decay", &[1, 1, V_HEADS], &decay)?;
-        let query_repeated = repeat_heads(query);
-        let key_repeated = repeat_heads(key);
+        require_bf16(step, "convolved_qkv", &[1, 1, CONV_DIM], &outputs.convolved)?;
+        require_bf16(step, "query", &[1, 1, K_HEADS, HEAD_DIM], &outputs.query)?;
+        require_bf16(step, "key", &[1, 1, K_HEADS, HEAD_DIM], &outputs.key)?;
+        require_bf16(step, "value", &[1, 1, V_HEADS, HEAD_DIM], &outputs.value)?;
+        require_bf16(step, "beta", &[1, 1, V_HEADS], &outputs.beta)?;
+        require_f32(step, "decay", &[1, 1, V_HEADS], &outputs.decay)?;
         require_bf16(
             step,
             "query_repeated",
             &[1, 1, V_HEADS, HEAD_DIM],
-            &query_repeated,
+            &outputs.query_repeated,
         )?;
         require_bf16(
             step,
             "key_repeated",
             &[1, 1, V_HEADS, HEAD_DIM],
-            &key_repeated,
+            &outputs.key_repeated,
         )?;
-        let query_normalized = normalize_heads(&query_repeated);
-        let key_normalized = normalize_heads(&key_repeated);
         require_bf16(
             step,
             "query_normalized",
             &[1, 1, V_HEADS, HEAD_DIM],
-            &query_normalized,
+            &outputs.query_normalized,
         )?;
         require_bf16(
             step,
             "key_normalized",
             &[1, 1, V_HEADS, HEAD_DIM],
-            &key_normalized,
+            &outputs.key_normalized,
         )?;
-        let core = recurrent_step(
-            &query_normalized,
-            &key_normalized,
-            value,
-            &decay,
-            &beta,
-            &mut state.recurrent,
-            ordinal == 0,
-        );
         require_f32(
             step,
             "recurrent_state",
             &[1, V_HEADS, HEAD_DIM, HEAD_DIM],
             &state.recurrent,
         )?;
-        require_bf16(step, "core_attention", &[1, 1, V_HEADS, HEAD_DIM], &core)?;
-        let normed = gated_norm(&core, &z, &weights["norm.weight"]);
-        require_bf16(step, "gated_norm", &[V_HEADS, HEAD_DIM], &normed)?;
-        let output = linear_bf16(&weights["out_proj.weight"], &normed, HIDDEN, VALUE_DIM);
-        require_bf16(step, "output", &[1, 1, HIDDEN], &output)?;
+        require_bf16(
+            step,
+            "core_attention",
+            &[1, 1, V_HEADS, HEAD_DIM],
+            &outputs.core,
+        )?;
+        require_bf16(step, "gated_norm", &[V_HEADS, HEAD_DIM], &outputs.normed)?;
+        require_bf16(step, "output", &[1, 1, HIDDEN], &outputs.output)?;
     }
     let bf16_count = case
         .steps
