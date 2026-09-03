@@ -414,6 +414,8 @@ pub(crate) fn verify_token_text_endpoint_fixture_with_expected_outputs(
         4 => "four",
         5 => "five",
         6 => "six",
+        7 => "seven",
+        8 => "eight",
         _ => return Err("unsupported endpoint token count".to_owned()),
     };
     let past_lengths = (0..expected_token_ids.len()).collect::<Vec<_>>();
@@ -827,5 +829,25 @@ mod tests {
             fixture.layers[1].ple.as_ref().unwrap()["case"]["steps"][2]["previous_context"],
             serde_json::json!([16_207, 22_856])
         );
+    }
+
+    #[test]
+    fn committed_second_transaction_target_has_exact_posterior() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../fixtures/endpoint/qwen3_8_flash_next_firewing_eight_token.json"
+        ))
+        .unwrap();
+        assert_eq!(
+            fixture.configuration.token_ids,
+            [16_207, 22_856, 369, 264, 2526, 11, 8581, 11]
+        );
+        let steps = fixture.output["steps"].as_array().unwrap();
+        let posterior = steps
+            .iter()
+            .skip(steps.len() - 4)
+            .map(|step| step["top20_token_ids"][0].as_u64().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(posterior, [11, 45_815, 11, 321]);
+        assert_eq!(fixture.layers.len(), 48);
     }
 }

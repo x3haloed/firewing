@@ -707,4 +707,24 @@ mod tests {
         assert_eq!(fixture.expert_union.combined_union_expert_rows, 1213);
         assert_eq!(fixture.expert_union.one_token_expert_rows, 480);
     }
+
+    #[test]
+    fn committed_second_recursive_transaction_repeats_early_rollback() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../fixtures/mtp/qwen3_8_flash_next_second_recursive_transaction.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture.configuration.q, 4);
+        assert_eq!(fixture.decision.proposal_token_ids, [2526, 11, 8581, 11]);
+        assert_eq!(
+            fixture.decision.target_posterior_token_ids,
+            [11, 45_815, 11, 321]
+        );
+        assert_eq!(fixture.decision.emitted_token_ids, [11, 45_815]);
+        assert_eq!(fixture.decision.retained_proposal_rows, 2);
+        assert_eq!(fixture.decision.rolled_back_proposal_rows, 2);
+        assert!(!fixture.decision.proposal_converged);
+        assert_eq!(fixture.expert_union.combined_union_expert_rows, 1066);
+        assert_eq!(fixture.expert_union.one_token_expert_rows, 480);
+    }
 }

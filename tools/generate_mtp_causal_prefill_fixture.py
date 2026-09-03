@@ -58,7 +58,23 @@ def build_seed(
     endpoint_fixture_path: Path,
     fusion_fixture_path: Path,
 ) -> tuple[dict[str, Any], list[torch.Tensor]]:
-    endpoint_result = build_endpoint(checkpoint_dir, model_lock_path, _return_outputs=True)
+    endpoint_authority = json.loads(endpoint_fixture_path.read_text(encoding="utf-8"))
+    endpoint_token_ids = endpoint_authority.get("configuration", {}).get("token_ids")
+    endpoint_semantic = endpoint_authority.get("semantic")
+    if (
+        endpoint_authority.get("model") != MODEL
+        or not isinstance(endpoint_token_ids, list)
+        or len(endpoint_token_ids) < 2
+        or not isinstance(endpoint_semantic, str)
+    ):
+        raise ValueError("unsupported target endpoint authority for MTP prefill")
+    endpoint_result = build_endpoint(
+        checkpoint_dir,
+        model_lock_path,
+        _return_outputs=True,
+        _token_ids=endpoint_token_ids,
+        _semantic=endpoint_semantic,
+    )
     if not isinstance(endpoint_result, tuple):
         raise AssertionError("endpoint target hiddens were not returned")
     endpoint, target_hiddens = endpoint_result
@@ -66,7 +82,7 @@ def build_seed(
         raise ValueError("regenerated target endpoint disagrees with committed authority")
     target_steps = endpoint["output"]["steps"]
     bonus_token = target_steps[-1]["top20_token_ids"][0]
-    mtp_token_ids = [endpoint["configuration"]["token_ids"][-1], bonus_token]
+    mtp_token_ids = endpoint["configuration"]["token_ids"][1:] + [bonus_token]
 
     scheduler_lock = json.loads(scheduler_lock_path.read_text(encoding="utf-8"))
     if scheduler_lock.get("commit") != SGLANG_COMMIT:
@@ -163,7 +179,7 @@ def build_seed(
             "target_input_token_ids": endpoint["configuration"]["token_ids"],
             "target_next_token_id": bonus_token,
             "mtp_prefill_token_ids": mtp_token_ids,
-            "mtp_positions": [0, 1],
+            "mtp_positions": list(range(len(mtp_token_ids))),
             "cache_mode": "sequential_mtp_prefill",
             "boundary_dtype": "BF16",
         },

@@ -192,7 +192,7 @@ def build_fixture(
         raw_case["text"] != TEXT
         or raw_case["token_ids"] != TOKEN_IDS
         or token_ids[: len(TOKEN_IDS)] != TOKEN_IDS
-        or not 2 <= len(token_ids) <= 6
+        or not 2 <= len(token_ids) <= 8
         or (len(token_ids) >= 3 and token_ids[2] != 369)
         or (len(token_ids) >= 4 and token_ids[3] != 264)
     ):
@@ -367,9 +367,17 @@ def main() -> int:
     args = parser.parse_args()
     token_ids = TOKEN_IDS + args.continuation_token if args.continuation_token is not None else None
     token_count = len(TOKEN_IDS) if token_ids is None else len(token_ids)
-    token_count_word = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}.get(token_count)
+    token_count_word = {
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+    }.get(token_count)
     if token_count_word is None:
-        raise ValueError("endpoint generation supports two through six tokens")
+        raise ValueError("endpoint generation supports two through eight tokens")
     semantic = SEMANTIC if token_count == 2 else f"qwen3_8_flash_next_firewing_{token_count_word}_token_cached_text_logits"
     fixture = build_fixture(
         args.checkpoint_dir,

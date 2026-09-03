@@ -195,9 +195,17 @@ def build_fixture(
             }
         )
 
-    token_count_word = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}.get(len(steps))
+    token_count_word = {
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+    }.get(len(steps))
     if token_count_word is None:
-        raise ValueError("attention residual fixture supports only two through six token steps")
+        raise ValueError("attention residual fixture supports only two through eight token steps")
     fixture = {
         "schema_version": 1,
         "semantic": _semantic,

@@ -302,9 +302,17 @@ def build_fixture(
         for handle in handles.values():
             handle.close()
 
-    token_count_word = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}.get(len(tokens))
+    token_count_word = {
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+    }.get(len(tokens))
     if token_count_word is None:
-        raise ValueError("PLE fixture supports only two through six tokens")
+        raise ValueError("PLE fixture supports only two through eight tokens")
     fixture = {
         "schema_version": 1,
         "semantic": SEMANTIC,

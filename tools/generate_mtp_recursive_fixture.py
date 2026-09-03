@@ -81,13 +81,14 @@ def build_components(
     parent_path: Path,
     fused: list[torch.Tensor],
     refs: dict[str, str],
+    prefill_positions: int,
 ) -> tuple[dict[str, Any], dict[str, Any], list[torch.Tensor]]:
     count = len(fused)
     modes = tuple(
         "mtp_prefill_initial"
         if ordinal == 0
         else "mtp_prefill_cached"
-        if ordinal == 1
+        if ordinal < prefill_positions
         else "mtp_recursive_cached"
         for ordinal in range(count)
     )
@@ -137,6 +138,7 @@ def main() -> int:
     parser.add_argument("--mtp-source-lock", required=True, type=Path)
     parser.add_argument("--scheduler-lock", required=True, type=Path)
     parser.add_argument("--recursive-lock", required=True, type=Path)
+    parser.add_argument("--q", type=int, default=4)
     parser.add_argument("--endpoint-fixture", required=True, type=Path)
     parser.add_argument("--fusion-fixture", required=True, type=Path)
     parser.add_argument("--seed-output", required=True, type=Path)
@@ -145,6 +147,8 @@ def main() -> int:
     parser.add_argument("--logits-output", required=True, type=Path)
     args = parser.parse_args()
     checkpoint_dir = args.checkpoint_dir.resolve()
+    if not 2 <= args.q <= 8:
+        raise ValueError("recursive verification width must be between 2 and 8")
 
     recursive_lock = json.loads(args.recursive_lock.read_text(encoding="utf-8"))
     if recursive_lock.get("commit") != SGLANG_COMMIT:
@@ -195,10 +199,17 @@ def main() -> int:
             )
 
         token_ids = list(base_seed["configuration"]["mtp_prefill_token_ids"])
+        prefill_positions = len(token_ids)
+        total_positions = prefill_positions + args.q - 2
         provisional_refs = {"recursive_source_lock_sha256": sha256_file(args.recursive_lock)}
-        for ordinal in range(2, 4):
+        for ordinal in range(prefill_positions, total_positions):
             _, provisional_decoder, decoder_outputs = build_components(
-                checkpoint_dir, args.model_lock, args.endpoint_fixture, fused, provisional_refs
+                checkpoint_dir,
+                args.model_lock,
+                args.endpoint_fixture,
+                fused,
+                provisional_refs,
+                prefill_positions,
             )
             provisional_output = build_output_fixture(
                 checkpoint_dir,
@@ -234,9 +245,9 @@ def main() -> int:
         "target_input_token_ids": base_seed["configuration"]["target_input_token_ids"],
         "target_next_token_id": base_seed["configuration"]["target_next_token_id"],
         "mtp_input_token_ids": token_ids,
-        "mtp_positions": list(range(4)),
-        "prefill_positions": 2,
-        "recursive_positions": 2,
+        "mtp_positions": list(range(total_positions)),
+        "prefill_positions": prefill_positions,
+        "recursive_positions": args.q - 2,
         "cache_mode": "sequential_mtp_prefill_then_recursive_decode",
         "boundary_dtype": "BF16",
     }
@@ -251,7 +262,12 @@ def main() -> int:
         "recursive_seed_fixture_sha256": sha256_file(args.seed_output),
     }
     attention, decoder, decoder_outputs = build_components(
-        checkpoint_dir, args.model_lock, args.seed_output, fused, shared_refs
+        checkpoint_dir,
+        args.model_lock,
+        args.seed_output,
+        fused,
+        shared_refs,
+        prefill_positions,
     )
     write_json(args.attention_output, attention)
     decoder["reference"]["attention_residual_fixture_sha256"] = sha256_file(args.attention_output)
@@ -273,7 +289,8 @@ def main() -> int:
             {
                 "mtp_input_token_ids": token_ids,
                 "top1_token_ids": proposals,
-                "proposal_vector": [base_seed["configuration"]["target_next_token_id"]] + proposals[1:],
+                "proposal_vector": [base_seed["configuration"]["target_next_token_id"]]
+                + proposals[prefill_positions - 1 :],
                 "outputs": [
                     os.fspath(args.seed_output),
                     os.fspath(args.attention_output),

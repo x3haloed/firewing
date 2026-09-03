@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("--mtp-output", required=True, type=Path)
     parser.add_argument("--acceptance-lock", required=True, type=Path)
     parser.add_argument("--recursive-lock", required=True, type=Path)
+    parser.add_argument("--transaction-index", type=int, choices=(1, 2), default=1)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -33,7 +34,8 @@ def main() -> int:
     if (
         target.get("model") != MODEL
         or target.get("revision") != REVISION
-        or target.get("semantic") != "qwen3_8_flash_next_firewing_six_token_cached_text_logits"
+        or not str(target.get("semantic", "")).startswith("qwen3_8_flash_next_firewing_")
+        or not str(target.get("semantic", "")).endswith("_token_cached_text_logits")
         or target["configuration"]["token_ids"][:4] != [16_207, 22_856, 369, 264]
         or seed.get("semantic") != "qwen3_8_flash_next_recursive_mtp_fusion"
         or draft_decoder.get("semantic") != "qwen3_8_flash_next_recursive_mtp_decoder"
@@ -41,9 +43,13 @@ def main() -> int:
     ):
         raise ValueError("recursive transaction input authority mismatch")
 
+    prefill_positions = seed["configuration"]["prefill_positions"]
+    q = seed["configuration"]["recursive_positions"] + 2
+    if q != Q or len(draft_output["steps"]) != prefill_positions + q - 2:
+        raise ValueError("recursive proposal width or cardinality mismatch")
     draft_top1s = [step["top20_token_ids"][0] for step in draft_output["steps"]]
-    proposal = [seed["configuration"]["target_next_token_id"]] + draft_top1s[1:]
-    if target["configuration"]["token_ids"] != [16_207, 22_856] + proposal:
+    proposal = [seed["configuration"]["target_next_token_id"]] + draft_top1s[prefill_positions - 1 :]
+    if target["configuration"]["token_ids"] != seed["configuration"]["target_input_token_ids"] + proposal:
         raise ValueError("target branch does not follow the recursive proposal vector")
     posterior = top1s(target)[-Q:]
     mismatch = next(
@@ -69,7 +75,7 @@ def main() -> int:
     for layer in target["layers"]:
         routes = layer["decoder"]["steps"][-Q:]
         target_unions.append(len(set().union(*(set(step["selected_experts"]) for step in routes))))
-    draft_routes = draft_decoder["steps"][1:]
+    draft_routes = draft_decoder["steps"][prefill_positions - 1 :]
     draft_unique = len(set().union(*(set(step["selected_experts"]) for step in draft_routes)))
     target_union_rows = sum(target_unions)
     combined_union_rows = target_union_rows + draft_unique
@@ -78,7 +84,7 @@ def main() -> int:
 
     fixture = {
         "schema_version": 1,
-        "semantic": "qwen3_8_flash_next_first_recursive_greedy_mtp_transaction",
+        "semantic": f"qwen3_8_flash_next_{'first' if args.transaction_index == 1 else 'second'}_recursive_greedy_mtp_transaction",
         "model": MODEL,
         "revision": REVISION,
         "reference": {
@@ -95,7 +101,7 @@ def main() -> int:
             "sampling": "greedy",
             "batch_size": 1,
             "concurrency": 1,
-            "q": Q,
+            "q": q,
             "target_layers": TARGET_LAYERS,
             "top_k_experts": 10,
             "expert_payload_bytes": EXPERT_BYTES,
