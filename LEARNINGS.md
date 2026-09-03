@@ -412,6 +412,18 @@ runtime passing every target gate, including reproducible batch-one decode at
   read/decode experiment; reject the serial decoder and do not call the size
   result endpoint TPS. See
   [`experiments/FW-0045-q2-lossless-expert-codec-bound.md`](experiments/FW-0045-q2-lossless-expert-codec-bound.md).
+- FW-0046 reverses FW-0045's decoder rejection only for bounded parallel
+  decoding. A page-aligned source-exact container fits every first-row frame
+  plus 77 of 207 second-only frames in the favorable 4.26-GB compressed cache.
+  Eight workers cold-read 994.6 MB and exactly decompress 1.278 GB in 327.379
+  ms median. When overlapped with 96 exact routed Metal executions, Metal
+  dominates at 401.772 ms and the accepted bound reaches 4.905990/4.977945/
+  5.152521 TPS at p10/median/p90. This is Firewing's first measured 4-TPS-rate
+  architecture survivor, not endpoint TPS: its cache is free and future-known,
+  routes are prefetched noncausally, and all non-routed endpoint work is free.
+  A causal cache carried across sequential q2 transactions is now mandatory.
+  See
+  [`experiments/FW-0046-parallel-zstd-physical-overlap.md`](experiments/FW-0046-parallel-zstd-physical-overlap.md).
 
 ## Prediction errors
 
@@ -428,13 +440,15 @@ These unresolved distinctions can still change the next decision:
   `Firewing` transactions on one prompt prefix. FW-0044 additionally rejects
   raw-BF16 q2 residency on the first transaction but does not measure a
   production route distribution. FW-0045 establishes an exact zstd-1 size
-  reduction on that union but leaves parallel physical decoding unresolved.
+  reduction on that union, and FW-0046 resolves parallel physical decoding as
+  fast enough under a future-known cache. Causal sequential cache behavior,
+  actual resident capacity, and full endpoint work remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
-  physical/useful bytes
-  and 1.577 uncached ms/token after verified range invalidation;
+  physical/useful bytes and 1.577 uncached ms/token after verified range
+  invalidation;
   generalization remains open. FW-0013 now rejects the 4,718,592,000-byte raw
-  all-miss routed-expert
-  path for Firewing 4, but does not measure production route reuse, recoding,
+  all-miss routed-expert path for Firewing 4, but does not measure production
+  route reuse, recoding,
   or speculative union. The census also establishes about 8.624 GB of ordinary
   fixed matrices if none remain resident. These are scoped component results,
   not endpoint measurements.

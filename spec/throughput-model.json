@@ -408,9 +408,37 @@
       "A": 2,
       "U": 1.4520833333333334,
       "performance_claim": null
+    },
+    "q2_parallel_zstd_physical_overlap_bound": {
+      "status": "fw_0046_first_measured_four_tps_rate_architecture_survivor_not_endpoint",
+      "implementation_commit": "121dd5a2d5a34be4ab0198e1045e317051241b31",
+      "builder_commit": "a782e771f3ec4067ad4430865938defcc591108b",
+      "manifest_sha256": "893fa5739e4d4e22f23f5306d2e32ef33bb17af54a7e631fdf5b1286e63cc863",
+      "container_sha256": "bcc410a162445937641f4b5c894eccab9547c23e2cf4e9a3bf233a41edb93b87",
+      "raw_report_sha256": "fa27310db856c9a2ef2cde1ce2f1a66e0be29f7db1a0b0dfe8357f83216c2c51",
+      "free_initial_frames": 557,
+      "free_initial_compressed_bytes": 4258605775,
+      "miss_frames": 130,
+      "miss_compressed_bytes": 993234397,
+      "miss_physical_bytes": 994623488,
+      "miss_source_bytes": 1277952000,
+      "one_worker_control_ms": 1453.407875,
+      "two_worker_control_ms": 865.948583,
+      "four_worker_control_ms": 439.909583,
+      "eight_worker_control_median_ms": 327.379167,
+      "candidate_median_ms": 401.77225,
+      "accepted_bound_tps_p10": 4.90599,
+      "accepted_bound_tps_median": 4.977945,
+      "accepted_bound_tps_p90": 5.152521,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 2,
+      "A": 2,
+      "U": 1.4520833333333334,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0045_zstd1_capacity_survives_parallel_physical_decode_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 through FW-0039 establish the exact Qwen4-Exp MTP proposal path. FW-0040 through FW-0043 independently verify two sequential width-two and width-four transactions; width two uses 1,438 combined expert rows versus width four's 2,279. FW-0044 rejects raw-BF16 q2 residency at 2.598 median accepted TPS under favorable overlap. FW-0045 compresses the exact q2 target union to 77.765%; this reopens the storage/Metal capacity ceiling, but serial CPU decompression limits the favorable bound to 1.741 accepted TPS. Bounded parallel physical read/decode is next. These are frozen-prefix favorable bounds, not production acceptance distributions or endpoint TPS."
+  "status": "fw_0046_parallel_zstd_survives_causal_sequential_cache_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired FW-0007's cache-state failure and measured exact physical bytes. FW-0009 through FW-0012 established real router, routed-expert, mixture, and sparse-MoE semantics. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 through FW-0033 profiled and removed repeated payload authentication while retaining 17.175 GB median physical traffic. FW-0034 through FW-0036 rejected the 12-GiB raw-BF16 residency branch on the frozen two-position trace, with only 1.596 median diagnostic TPS under favorable real overlap. FW-0037 through FW-0039 establish the exact Qwen4-Exp MTP proposal path. FW-0040 through FW-0043 independently verify two sequential width-two and width-four transactions; width two uses 1,438 combined expert rows versus width four's 2,279. FW-0044 rejects raw-BF16 q2 residency at 2.598 median accepted TPS under favorable overlap. FW-0045 compresses the exact q2 target union to 77.765% but rejects serial decompression. FW-0046 cold-reads and parallel-decompresses the exact whole-frame misses under 96 exact Metal executions at 4.978 median accepted TPS, the first measured Firewing-4-rate architecture survivor. Its initial cache remains free and future-known and all non-routed endpoint work is free, so causal sequential cache behavior is next; this is not endpoint TPS."
 }
