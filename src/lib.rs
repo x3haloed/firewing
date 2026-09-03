@@ -10,6 +10,7 @@ mod accumulated_layers01;
 mod accumulated_layers4_47;
 mod attention_residual;
 mod checkpoint_catalog;
+mod compressed_overlap;
 mod decoder_layer;
 mod decoder_layer1;
 mod decoder_layer3;
@@ -48,6 +49,9 @@ pub use attention_residual::{
     AttentionResidualVerificationReport, verify_attention_residual_fixture,
 };
 pub use checkpoint_catalog::{CheckpointCatalogReport, benchmark_checkpoint_catalog};
+pub use compressed_overlap::{
+    CompressedOverlapTrial, ParallelZstdOverlapReport, benchmark_parallel_zstd_overlap,
+};
 pub use decoder_layer::{DecoderLayerVerificationReport, verify_decoder_layer_fixture};
 pub use decoder_layer1::{DecoderLayer1VerificationReport, verify_decoder_layer1_fixture};
 pub use decoder_layer3::{DecoderLayer3VerificationReport, verify_decoder_layer3_fixture};

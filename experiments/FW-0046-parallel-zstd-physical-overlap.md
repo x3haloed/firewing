@@ -21,6 +21,15 @@ gate/up-plus-down payload. Keep the approximately 5.3-GB container and manifest
 outside Git, authenticate every source and encoded frame, and record their
 content hashes.
 
+- Builder commit: `a782e771f3ec4067ad4430865938defcc591108b`
+- Manifest SHA-256:
+  `893fa5739e4d4e22f23f5306d2e32ef33bb17af54a7e631fdf5b1286e63cc863`
+- Container SHA-256:
+  `bcc410a162445937641f4b5c894eccab9547c23e2cf4e9a3bf233a41edb93b87`
+- Source bytes: 6,753,484,800
+- Compressed bytes: 5,251,840,172
+- Page-aligned physical bytes: 5,257,854,976
+
 The native benchmark will use a realizable whole-frame, future-known initial
 cache under the same 12-GiB favorable residency allowance as FW-0044. It will
 invalidate every miss range, require zero resident pages, use `F_NOCACHE=1`
