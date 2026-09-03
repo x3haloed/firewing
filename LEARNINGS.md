@@ -584,6 +584,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   mixture error to 1.2250%, and 0.999 gives 0.9579% versus the control's
   0.9364%. Do not pay for a deeper replay of this dominated mechanism. See
   [`experiments/FW-0066-modified-int8-global-clipping.md`](experiments/FW-0066-modified-int8-global-clipping.md).
+- FW-0067 shows that affine zero points materially improve the first real
+  layer-0 screen. All five 16-weight topologies pass at a 0.65625 byte ratio;
+  8x2 is best at 0.8941% mixture and 0.9374% worst-expert relative L2. Retain
+  8x2 only as the selected first-rung survivor pending the six-case real-layer
+  gate. See
+  [`experiments/FW-0067-modified-affine-uint8-topology.md`](experiments/FW-0067-modified-affine-uint8-topology.md).
 
 ## Prediction errors
 
@@ -630,6 +636,8 @@ These unresolved distinctions can still change the next decision:
   INT8 is closed at this rung.
   Fixed global clipping is also closed by FW-0066; activation-aware or
   error-propagating calibration remains distinct.
+  FW-0067's affine UINT8 zero-point representation survives layer 0 and awaits
+  early/middle/late validation.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
