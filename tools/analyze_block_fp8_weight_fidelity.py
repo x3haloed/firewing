@@ -32,6 +32,7 @@ MIXTURE_SHA256 = "975a9982919297d37dd077f774693c782295cba496542c6adf278182e27b4d
 DEFAULT_BLOCK = 128
 FP8_MAX = 448.0
 INT8_MAX = 127.0
+UINT8_MAX = 255.0
 
 
 def block_fp8_weight(
@@ -100,6 +101,63 @@ def block_int8_weight(
     decoded = (codes.float() * scales[:, :, None, None]).to(torch.bfloat16)
     decoded = decoded.permute(0, 2, 1, 3).reshape(rows, columns).contiguous()
     artifact_bytes = weight.numel() + scales.numel() * 4
+    return decoded, scales.contiguous(), artifact_bytes
+
+
+def block_affine_uint8_weight(
+    weight: torch.Tensor,
+    block: int | tuple[int, int] = DEFAULT_BLOCK,
+) -> tuple[torch.Tensor, torch.Tensor, int]:
+    block_rows, block_columns = (block, block) if isinstance(block, int) else block
+    if (
+        weight.dtype != torch.bfloat16
+        or weight.ndim != 2
+        or block_rows <= 0
+        or block_columns <= 0
+        or weight.shape[0] % block_rows
+        or weight.shape[1] % block_columns
+        or not torch.isfinite(weight.float()).all()
+    ):
+        raise common.AnalysisError(
+            "block-affine-UINT8 weight must be finite aligned BF16 matrix"
+        )
+    rows, columns = weight.shape
+    blocks = (
+        weight.float()
+        .reshape(
+            rows // block_rows,
+            block_rows,
+            columns // block_columns,
+            block_columns,
+        )
+        .permute(0, 2, 1, 3)
+        .contiguous()
+    )
+    minimums = blocks.amin(dim=(2, 3))
+    maximums = blocks.amax(dim=(2, 3))
+    ranges = maximums - minimums
+    constant = ranges == 0
+    affine_scales = torch.clamp(ranges, min=1.0e-10) / UINT8_MAX
+    constant_scales = torch.clamp(maximums.abs(), min=1.0e-10) / INT8_MAX
+    scales = torch.where(constant, constant_scales, affine_scales)
+    affine_zero_points = torch.clamp(torch.round(-minimums / scales), 0, 255)
+    constant_zero_points = torch.where(
+        maximums == 0,
+        torch.zeros_like(maximums),
+        torch.full_like(maximums, 128.0),
+    )
+    zero_points = torch.where(constant, constant_zero_points, affine_zero_points)
+    codes = torch.clamp(
+        torch.round(blocks / scales[:, :, None, None] + zero_points[:, :, None, None]),
+        0,
+        255,
+    ).to(torch.uint8)
+    decoded = (
+        (codes.float() - zero_points[:, :, None, None])
+        * scales[:, :, None, None]
+    ).to(torch.bfloat16)
+    decoded = decoded.permute(0, 2, 1, 3).reshape(rows, columns).contiguous()
+    artifact_bytes = weight.numel() + scales.numel() * 5
     return decoded, scales.contiguous(), artifact_bytes
 
 
@@ -177,7 +235,7 @@ def analyze(
         format_description = (
             f"e4m3fn_per_{block_size}x{block_size}_absmax_f32_scale"
         )
-    elif weight_format == "block_int8":
+    elif weight_format in ("block_int8", "block_uint8_affine"):
         if (block_rows is None) != (block_columns is None):
             raise common.AnalysisError("both rectangular INT8 block dimensions are required")
         shape = (
@@ -185,7 +243,14 @@ def analyze(
             if block_rows is None or block_columns is None
             else (block_rows, block_columns)
         )
-        quantize = lambda weight: block_int8_weight(weight, shape, clip_factor)
+        if weight_format == "block_int8":
+            quantize = lambda weight: block_int8_weight(weight, shape, clip_factor)
+        else:
+            if clip_factor != 1.0:
+                raise common.AnalysisError(
+                    "global clipping is unsupported for affine UINT8"
+                )
+            quantize = lambda weight: block_affine_uint8_weight(weight, shape)
         topology_mode = (
             "modified_block_int8_weight_only"
             if shape == (DEFAULT_BLOCK, DEFAULT_BLOCK)
@@ -195,19 +260,26 @@ def analyze(
                 else f"modified_block{shape[0]}x{shape[1]}_int8_weight_only"
             )
         )
-        mode = (
-            topology_mode
-            if clip_factor == 1.0
-            else topology_mode.replace("modified_", "modified_clipped_")
-        )
-        format_description = (
-            f"symmetric_int8_per_{shape[0]}x{shape[1]}_absmax_f32_scale"
-            if clip_factor == 1.0
-            else (
-                f"symmetric_int8_per_{shape[0]}x{shape[1]}_"
-                f"clipped_{clip_factor:.6f}_absmax_f32_scale"
+        if weight_format == "block_int8":
+            mode = (
+                topology_mode
+                if clip_factor == 1.0
+                else topology_mode.replace("modified_", "modified_clipped_")
             )
-        )
+            format_description = (
+                f"symmetric_int8_per_{shape[0]}x{shape[1]}_absmax_f32_scale"
+                if clip_factor == 1.0
+                else (
+                    f"symmetric_int8_per_{shape[0]}x{shape[1]}_"
+                    f"clipped_{clip_factor:.6f}_absmax_f32_scale"
+                )
+            )
+        else:
+            mode = topology_mode.replace("int8", "affine_uint8")
+            format_description = (
+                f"affine_uint8_per_{shape[0]}x{shape[1]}_minmax_"
+                "f32_scale_u8_zero_point"
+            )
     else:
         raise common.AnalysisError("unknown modified block weight format")
     with safe_open(checkpoint_dir / gate["shard"], framework="pt", device="cpu") as gate_file:
@@ -270,7 +342,7 @@ def analyze(
         "block_size": block_size if block_rows is None else None,
         "block_shape": (
             list(shape)
-            if weight_format == "block_int8"
+            if weight_format in ("block_int8", "block_uint8_affine")
             else [block_size, block_size]
         ),
         "clip_factor": clip_factor if weight_format == "block_int8" else None,
@@ -321,7 +393,7 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument(
         "--weight-format",
-        choices=("block_fp8", "block_int8"),
+        choices=("block_fp8", "block_int8", "block_uint8_affine"),
         default="block_fp8",
     )
     parser.add_argument(

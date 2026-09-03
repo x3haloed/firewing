@@ -5,6 +5,7 @@ import unittest
 import torch
 
 from tools.analyze_block_fp8_weight_fidelity import (
+    block_affine_uint8_weight,
     block_fp8_weight,
     block_int8_weight,
     error_metrics,
@@ -82,6 +83,17 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertLess(decoded[0, 0].item(), weight[0, 0].item())
         with self.assertRaises(AnalysisError):
             block_int8_weight(weight, (4, 4), 1.01)
+
+    def test_affine_uint8_grid_accounts_zero_points_and_constants(self) -> None:
+        weight = torch.full((2, 16), 2.0, dtype=torch.bfloat16)
+        weight[1] = torch.linspace(-1.0, 3.0, 16).to(torch.bfloat16)
+        decoded, scales, artifact_bytes = block_affine_uint8_weight(
+            weight, (1, 16)
+        )
+        self.assertTrue(torch.equal(decoded[0], weight[0]))
+        self.assertEqual(tuple(scales.shape), (2, 1))
+        self.assertEqual(artifact_bytes, weight.numel() + scales.numel() * 5)
+        self.assertLess(error_metrics(decoded, weight)["relative_l2"], 0.01)
 
 
 if __name__ == "__main__":
