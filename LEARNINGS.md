@@ -167,6 +167,17 @@ runtime passing every target gate, including reproducible batch-one decode at
   This closes PLE-bearing attention composition, not layer 1's MLP/MoE half,
   accumulated layers, endpoint behavior, or TPS. See
   [`experiments/FW-0022-layer1-ple-attention-residual.md`](experiments/FW-0022-layer1-ple-attention-residual.md).
+- FW-0023 exactly executes the complete real layer-1 PLE-bearing decoder for
+  an initial and cached token. Its independent native verifier rejected an
+  initially mixed-layer reference whose sole wrong tensor was the layer-3
+  router, before any result was accepted; the corrected generator now requires
+  every dense tensor to carry the layer-1 prefix. The corrected routes select
+  twenty unique experts, all 32 layer captures and twenty weighted outputs
+  match, and 417,091,008 logical payload bytes are authenticated. Together
+  FW-0017, FW-0021, and FW-0023 establish exact layer-local parity for each
+  decoder wrapper variant, not accumulated layers, logits, endpoint behavior,
+  or TPS. See
+  [`experiments/FW-0023-layer1-complete-decoder.md`](experiments/FW-0023-layer1-complete-decoder.md).
 
 ## Prediction errors
 

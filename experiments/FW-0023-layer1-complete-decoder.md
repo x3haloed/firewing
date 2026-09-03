@@ -1,7 +1,7 @@
 # FW-0023 - Complete layer-1 PLE-bearing decoder
 
-- Status: planned
-- Disposition: pending
+- Status: completed
+- Disposition: correctness-repair
 - Date: 2026-09-03
 - Parent experiments: FW-0012, FW-0017, FW-0022
 - Exactness: L0 bit-identical component semantics
@@ -103,8 +103,24 @@ the fixture was regenerated, and a regression test requires every dense tensor
 to carry the layer-1 prefix. No result from the mixed-layer fixture is retained
 as valid evidence.
 
-Native verification is pending.
+At commit `bb76827`, the release-mode native verifier exactly matched all 32
+BF16 layer captures and twenty weighted-expert hashes for the corrected
+fixture. The two routes select twenty unique experts. The verifier
+authenticated 194,816,448 bytes through the FW-0022 parent, 25,666,560 bytes
+of layer-1 MLP hyper/router/shared tensors, and 196,608,000 bytes of selected
+expert payloads, or 417,091,008 verified payload bytes in total. The external
+receipt is `/Users/chad/Models/firewing/evidence/FW-0023/decoder-layer1.json`,
+SHA-256
+`79c065433ed76f3f23b3334f61bb864a0644b6bd69a5d041d4e2147ab0945531`.
+The final suite has 44 Python and 34 Rust tests; Clippy passes with warnings
+denied.
 
 ## Decision
 
-Pending.
+Pass as a correctness repair. The only PLE-bearing decoder wrapper now has
+complete exact layer-local parity across initial and cached decode, and the
+independent verifier prevented a mixed-layer reference from being accepted.
+Together FW-0017, FW-0021, and FW-0023 cover the linear-attention,
+full-attention/QSA, and PLE-bearing decoder variants. Proceed to accumulated
+multi-layer execution. No endpoint or performance claim follows from this
+layer-local result.
