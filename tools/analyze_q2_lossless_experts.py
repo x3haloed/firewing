@@ -144,6 +144,35 @@ def read_exact(path: Path, offset: int, size: int) -> bytes:
     return data
 
 
+def fw0044_constants(prior: dict[str, Any]) -> tuple[list[int], list[float], int]:
+    physical: list[int] = []
+    storage_ms: list[float] = []
+    target_compute_ns = 0
+    trials = prior.get("trials", [])
+    for token in (0, 1):
+        controls = [
+            row
+            for row in trials
+            if row.get("mode") == "storage_only_control" and row.get("token_ordinal") == token
+        ]
+        candidates = [
+            row
+            for row in trials
+            if row.get("mode") == "storage_compute_overlap" and row.get("token_ordinal") == token
+        ]
+        if len(controls) != 3 or len(candidates) != 3:
+            raise AnalysisError("FW-0044 trial count mismatch")
+        physical_values = {row.get("process_disk_bytes_read") for row in controls + candidates}
+        if len(physical_values) != 1 or None in physical_values:
+            raise AnalysisError("FW-0044 physical-byte ledger mismatch")
+        physical.append(physical_values.pop())
+        control_walls = sorted(row["complete_wall_time_ns"] for row in controls)
+        compute_walls = sorted(row["compute_wall_time_ns"] for row in candidates)
+        storage_ms.append(control_walls[1] / 1_000_000)
+        target_compute_ns += compute_walls[1]
+    return physical, storage_ms, target_compute_ns
+
+
 def analyze(
     checkpoint: Path,
     model_lock_path: Path,
@@ -222,22 +251,13 @@ def analyze(
     compressed_bytes = sum(compressed_sizes)
     cache_bytes = RESIDENT_LIMIT_BYTES - FIXED_BYTES
     optimistic_miss_bytes = max(0, compressed_bytes - cache_bytes)
-    raw_physical_bytes = sum(prior["physical_read_bytes_by_trial"])
-    raw_storage_ns = sum(prior["storage_only_median_ms_by_target_row"]) * 1_000_000
+    physical_by_row, storage_ms_by_row, target_compute_ns = fw0044_constants(prior)
+    raw_physical_bytes = sum(physical_by_row)
+    raw_storage_ns = sum(storage_ms_by_row) * 1_000_000
     physical_bytes_per_second = raw_physical_bytes / (raw_storage_ns / 1e9)
     optimistic_storage_ns = optimistic_miss_bytes / physical_bytes_per_second * 1e9
     measured_decode_ns = sum(decompression_ns)
     optimistic_decode_ns = measured_decode_ns * optimistic_miss_bytes / compressed_bytes
-    target_compute_ns = 0
-    for token in (0, 1):
-        values = sorted(
-            row["compute_wall_time_ns"]
-            for row in prior["trials"]
-            if row["mode"] == "storage_compute_overlap" and row["token_ordinal"] == token
-        )
-        if len(values) != 3:
-            raise AnalysisError("FW-0044 target Metal trial count mismatch")
-        target_compute_ns += values[1]
     optimistic_wall_ns = max(optimistic_storage_ns, optimistic_decode_ns, target_compute_ns)
     return {
         "schema_version": 1,
