@@ -17,12 +17,14 @@ mod expert;
 mod expert_acquisition;
 pub mod full_attention;
 mod full_attention_residual;
+mod host_safety;
 mod hyper_connection;
 mod ngram;
 mod ple;
 mod ple_attention_residual;
 mod router;
 mod text_output;
+mod token_text_endpoint;
 
 pub use accumulated_layer2::{
     AccumulatedLayer2VerificationReport, verify_accumulated_layer2_fixture,
@@ -55,6 +57,7 @@ pub use full_attention::{FullAttentionVerificationReport, verify_full_attention_
 pub use full_attention_residual::{
     FullAttentionResidualVerificationReport, verify_full_attention_residual_fixture,
 };
+pub use host_safety::{HostSafetyPolicy, HostSafetySnapshot};
 pub use hyper_connection::{HyperConnectionVerificationReport, verify_hyper_connection_fixture};
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
@@ -67,6 +70,9 @@ pub use ple_attention_residual::{
 };
 pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
 pub use text_output::{TextOutputVerificationReport, verify_text_output_fixture};
+pub use token_text_endpoint::{
+    TokenTextEndpointVerificationReport, verify_token_text_endpoint_fixture,
+};
 
 #[derive(Debug, Deserialize)]
 struct TokenizerFixture {

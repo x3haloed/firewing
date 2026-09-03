@@ -7,7 +7,8 @@ use firewing::{
     verify_full_attention_residual_fixture, verify_hyper_connection_fixture,
     verify_mixture_fixture, verify_ngram_fixture, verify_ngram_rows,
     verify_ple_attention_residual_fixture, verify_ple_fixture, verify_router_fixture,
-    verify_sparse_moe_fixture, verify_text_output_fixture, verify_tokenizer_fixture,
+    verify_sparse_moe_fixture, verify_text_output_fixture, verify_token_text_endpoint_fixture,
+    verify_tokenizer_fixture,
 };
 use std::env;
 use std::fs;
@@ -22,6 +23,9 @@ fn usage() -> ! {
     );
     eprintln!(
         "  firewing verify-text-output CHECKPOINT_DIR MODEL_LOCK NGRAM_FIXTURE NGRAM_ROW_FIXTURE L0_HYPER_FIXTURE L0_DELTANET_FIXTURE L0_ATTENTION_FIXTURE L0_SPARSE_MOE_FIXTURE L0_FIXTURE PLE_FIXTURE L1_ATTENTION_FIXTURE L1_FIXTURE LAYERS01_FIXTURE LAYER2_FIXTURE LAYER3_FIXTURE DECODER_FIXTURE OUTPUT_FIXTURE [REPORT_JSON]"
+    );
+    eprintln!(
+        "  firewing verify-token-text-endpoint CHECKPOINT_DIR MODEL_LOCK TOKENIZER_FIXTURE NGRAM_FIXTURE NGRAM_ROW_FIXTURE PLE_FIXTURE ENDPOINT_FIXTURE [REPORT_JSON]"
     );
     std::process::exit(2);
 }
@@ -266,6 +270,19 @@ fn main() {
             .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
             args.get(19),
         ),
+        Some("verify-token-text-endpoint") if (9..=10).contains(&args.len()) => (
+            verify_token_text_endpoint_fixture(
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                Path::new(&args[5]),
+                Path::new(&args[6]),
+                Path::new(&args[7]),
+                Path::new(&args[8]),
+            )
+            .and_then(|report| serde_json::to_value(report).map_err(|error| error.to_string())),
+            args.get(9),
+        ),
         Some("verify-full-attention") if (5..=6).contains(&args.len()) => (
             verify_full_attention_fixture(
                 Path::new(&args[2]),
@@ -356,6 +373,34 @@ fn main() {
             print!("{serialized}");
         }
         Err(error) => {
+            if let Some(output) = output {
+                let path = Path::new(output);
+                let failed = serde_json::json!({
+                    "schema_version": 1,
+                    "status": "failed",
+                    "error": &error,
+                });
+                let serialized = serde_json::to_string_pretty(&failed)
+                    .expect("failure report serialization cannot fail")
+                    + "\n";
+                let write_result = (|| {
+                    if let Some(parent) = path.parent() {
+                        fs::create_dir_all(parent)?;
+                    }
+                    let temporary = path.with_extension(format!("tmp-{}", std::process::id()));
+                    fs::write(&temporary, serialized)
+                        .and_then(|()| fs::rename(&temporary, path))
+                        .inspect_err(|_| {
+                            let _ = fs::remove_file(&temporary);
+                        })
+                })();
+                if let Err(write_error) = write_result {
+                    eprintln!(
+                        "firewing: cannot preserve failed report {}: {write_error}",
+                        path.display()
+                    );
+                }
+            }
             eprintln!("firewing: {error}");
             std::process::exit(1);
         }

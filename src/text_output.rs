@@ -88,6 +88,18 @@ struct LockedFile {
     lfs_sha256: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct EmbeddedOutput {
+    tensors: BTreeMap<String, Tensor>,
+    steps: Vec<Step>,
+}
+
+pub(crate) struct EmbeddedTextOutputVerification {
+    pub output_verified_payload_bytes: usize,
+    pub top20_token_ids_by_step: Vec<Vec<usize>>,
+    pub top20_cutoff_tie_counts_by_step: Vec<usize>,
+}
+
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct TextOutputVerificationReport {
     pub schema_version: u32,
@@ -190,6 +202,142 @@ fn load_locked_tensor(
     Ok(values)
 }
 
+fn verify_output_core(
+    checkpoint_dir: &Path,
+    lock: &ModelLock,
+    tensors: &BTreeMap<String, Tensor>,
+    steps: &[Step],
+    decoder_outputs: &[Vec<u16>],
+) -> Result<EmbeddedTextOutputVerification, String> {
+    if tensors.len() != 4
+        || steps.len() != 2
+        || decoder_outputs.len() != 2
+        || steps.iter().any(|step| {
+            step.captures.len() != 10
+                || !step.captures.values().all(|value| is_hash(value))
+                || step.top20_token_ids.len() != 20
+                || step.top20_logit_bf16_u16.len() != 20
+                || step.strictly_above_cutoff_token_ids.len() >= 20
+                || step.strictly_above_cutoff_token_ids.len() + step.cutoff_tie_token_ids.len() < 20
+        })
+    {
+        return Err("text output capture schema mismatch".to_owned());
+    }
+    let tensor = |key: &str| {
+        tensors
+            .get(key)
+            .ok_or_else(|| format!("missing text output tensor record {key}"))
+    };
+    let mixer_prefix = "model.language_model.hyper_connection_mixer";
+    let hc_norm = load_locked_tensor(
+        checkpoint_dir,
+        lock,
+        tensor("hc_norm")?,
+        &format!("{mixer_prefix}.hc_norm.weight"),
+        &[HC_HIDDEN],
+    )?;
+    let mix_down = load_locked_tensor(
+        checkpoint_dir,
+        lock,
+        tensor("input_mix_weight_down")?,
+        &format!("{mixer_prefix}.input_mix_weight_down.weight"),
+        &[HC_LOWRANK, HC_HIDDEN],
+    )?;
+    let mix_up = load_locked_tensor(
+        checkpoint_dir,
+        lock,
+        tensor("input_mix_weight_up")?,
+        &format!("{mixer_prefix}.input_mix_weight_up.weight"),
+        &[HC_HIDDEN, HC_LOWRANK],
+    )?;
+    let head = load_locked_tensor(
+        checkpoint_dir,
+        lock,
+        tensor("lm_head")?,
+        "lm_head.weight",
+        &[VOCAB, HIDDEN],
+    )?;
+    let output_bytes = (hc_norm.len() + mix_down.len() + mix_up.len() + head.len()) * 2;
+    let mut ranked = Vec::with_capacity(2);
+    let mut tie_counts = Vec::with_capacity(2);
+    for (ordinal, (step, decoder_output)) in steps.iter().zip(decoder_outputs).enumerate() {
+        if step.ordinal != ordinal {
+            return Err("text output step ordinal mismatch".to_owned());
+        }
+        require_capture(step, "decoder_output", decoder_output)?;
+        let mixed = run_final_mixer(decoder_output, &hc_norm, &mix_down, &mix_up)?;
+        require_mixer_captures(step, &mixed)?;
+        let logits = linear_bf16(&head, &mixed.mixed, VOCAB, HIDDEN);
+        require_capture(step, "logits", &logits)?;
+        let indices = pytorch_topk_bf16(&logits, 20)?;
+        let values = indices
+            .iter()
+            .map(|index| logits[*index])
+            .collect::<Vec<_>>();
+        if indices != step.top20_token_ids || values != step.top20_logit_bf16_u16 {
+            return Err(format!(
+                "text output ranked logits mismatch at step {ordinal}"
+            ));
+        }
+        if values[19] != step.top20_cutoff_bf16_u16 {
+            return Err(format!("text output cutoff mismatch at step {ordinal}"));
+        }
+        let strictly_above = logits
+            .iter()
+            .enumerate()
+            .filter_map(|(index, value)| {
+                (*value != step.top20_cutoff_bf16_u16
+                    && from_bf16(*value) > from_bf16(step.top20_cutoff_bf16_u16))
+                .then_some(index)
+            })
+            .collect::<Vec<_>>();
+        let ties = logits
+            .iter()
+            .enumerate()
+            .filter_map(|(index, value)| (*value == step.top20_cutoff_bf16_u16).then_some(index))
+            .collect::<Vec<_>>();
+        if strictly_above != step.strictly_above_cutoff_token_ids
+            || ties != step.cutoff_tie_token_ids
+        {
+            return Err(format!(
+                "text output cutoff partition mismatch at step {ordinal}"
+            ));
+        }
+        tie_counts.push(ties.len());
+        ranked.push(indices);
+    }
+    Ok(EmbeddedTextOutputVerification {
+        output_verified_payload_bytes: output_bytes,
+        top20_token_ids_by_step: ranked,
+        top20_cutoff_tie_counts_by_step: tie_counts,
+    })
+}
+
+pub(crate) fn verify_embedded_text_output_fixture(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    output: &serde_json::Value,
+    expected_model: &str,
+    expected_revision: &str,
+    decoder_outputs: &[Vec<u16>],
+) -> Result<EmbeddedTextOutputVerification, String> {
+    let fixture: EmbeddedOutput = serde_json::from_value(output.clone())
+        .map_err(|error| format!("malformed embedded text output: {error}"))?;
+    let lock: ModelLock =
+        serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    if lock.model != expected_model || lock.revision != expected_revision {
+        return Err("embedded text output model lock mismatch".to_owned());
+    }
+    verify_output_core(
+        checkpoint_dir,
+        &lock,
+        &fixture.tensors,
+        &fixture.steps,
+        decoder_outputs,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn verify_text_output_fixture(
     checkpoint_dir: &Path,
@@ -240,16 +388,6 @@ pub fn verify_text_output_fixture(
     {
         return Err("text output fixture identity or configuration is unsupported".to_owned());
     }
-    if fixture.steps.iter().any(|step| {
-        step.captures.len() != 10
-            || !step.captures.values().all(|value| is_hash(value))
-            || step.top20_token_ids.len() != 20
-            || step.top20_logit_bf16_u16.len() != 20
-            || step.strictly_above_cutoff_token_ids.len() >= 20
-            || step.strictly_above_cutoff_token_ids.len() + step.cutoff_tie_token_ids.len() < 20
-    }) {
-        return Err("text output capture schema mismatch".to_owned());
-    }
     let lock: ModelLock =
         serde_json::from_slice(&fs::read(model_lock_path).map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -276,92 +414,13 @@ pub fn verify_text_output_fixture(
             layer3_fixture_path,
             decoder_fixture_path,
         )?;
-    let mixer_prefix = "model.language_model.hyper_connection_mixer";
-    let tensor = |key: &str| {
-        fixture
-            .tensors
-            .get(key)
-            .ok_or_else(|| format!("missing text output tensor record {key}"))
-    };
-    let hc_norm = load_locked_tensor(
+    let output = verify_output_core(
         checkpoint_dir,
         &lock,
-        tensor("hc_norm")?,
-        &format!("{mixer_prefix}.hc_norm.weight"),
-        &[HC_HIDDEN],
+        &fixture.tensors,
+        &fixture.steps,
+        &decoder_outputs,
     )?;
-    let mix_down = load_locked_tensor(
-        checkpoint_dir,
-        &lock,
-        tensor("input_mix_weight_down")?,
-        &format!("{mixer_prefix}.input_mix_weight_down.weight"),
-        &[HC_LOWRANK, HC_HIDDEN],
-    )?;
-    let mix_up = load_locked_tensor(
-        checkpoint_dir,
-        &lock,
-        tensor("input_mix_weight_up")?,
-        &format!("{mixer_prefix}.input_mix_weight_up.weight"),
-        &[HC_HIDDEN, HC_LOWRANK],
-    )?;
-    let head = load_locked_tensor(
-        checkpoint_dir,
-        &lock,
-        tensor("lm_head")?,
-        "lm_head.weight",
-        &[VOCAB, HIDDEN],
-    )?;
-    let output_bytes = (hc_norm.len() + mix_down.len() + mix_up.len() + head.len()) * 2;
-
-    let mut ranked = Vec::with_capacity(2);
-    let mut tie_counts = Vec::with_capacity(2);
-    for (ordinal, (step, decoder_output)) in fixture.steps.iter().zip(&decoder_outputs).enumerate()
-    {
-        if step.ordinal != ordinal {
-            return Err("text output step ordinal mismatch".to_owned());
-        }
-        require_capture(step, "decoder_output", decoder_output)?;
-        let mixed = run_final_mixer(decoder_output, &hc_norm, &mix_down, &mix_up)?;
-        require_mixer_captures(step, &mixed)?;
-        let logits = linear_bf16(&head, &mixed.mixed, VOCAB, HIDDEN);
-        require_capture(step, "logits", &logits)?;
-        let indices = pytorch_topk_bf16(&logits, 20)?;
-        let values = indices
-            .iter()
-            .map(|index| logits[*index])
-            .collect::<Vec<_>>();
-        if indices != step.top20_token_ids || values != step.top20_logit_bf16_u16 {
-            return Err(format!(
-                "text output ranked logits mismatch at step {ordinal}"
-            ));
-        }
-        if values[19] != step.top20_cutoff_bf16_u16 {
-            return Err(format!("text output cutoff mismatch at step {ordinal}"));
-        }
-        let strictly_above = logits
-            .iter()
-            .enumerate()
-            .filter_map(|(index, value)| {
-                (*value != step.top20_cutoff_bf16_u16
-                    && from_bf16(*value) > from_bf16(step.top20_cutoff_bf16_u16))
-                .then_some(index)
-            })
-            .collect::<Vec<_>>();
-        let ties = logits
-            .iter()
-            .enumerate()
-            .filter_map(|(index, value)| (*value == step.top20_cutoff_bf16_u16).then_some(index))
-            .collect::<Vec<_>>();
-        if strictly_above != step.strictly_above_cutoff_token_ids
-            || ties != step.cutoff_tie_token_ids
-        {
-            return Err(format!(
-                "text output cutoff partition mismatch at step {ordinal}"
-            ));
-        }
-        tie_counts.push(ties.len());
-        ranked.push(indices);
-    }
     Ok(TextOutputVerificationReport {
         schema_version: 1,
         semantic: "qwen3_8_flash_next_accumulated_decoder_final_mixer_logits_verification",
@@ -374,10 +433,11 @@ pub fn verify_text_output_fixture(
         exact_full_logit_hashes: 2,
         exact_ranked_logit_entries: 2 * 20,
         parent_verified_payload_bytes: parent.total_verified_payload_bytes,
-        output_verified_payload_bytes: output_bytes,
-        total_verified_payload_bytes: parent.total_verified_payload_bytes + output_bytes,
-        top20_token_ids_by_step: ranked,
-        top20_cutoff_tie_counts_by_step: tie_counts,
+        output_verified_payload_bytes: output.output_verified_payload_bytes,
+        total_verified_payload_bytes: parent.total_verified_payload_bytes
+            + output.output_verified_payload_bytes,
+        top20_token_ids_by_step: output.top20_token_ids_by_step,
+        top20_cutoff_tie_counts_by_step: output.top20_cutoff_tie_counts_by_step,
         accepted_tokens: 0,
         performance_claim: None,
     })

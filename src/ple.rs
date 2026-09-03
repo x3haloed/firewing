@@ -431,6 +431,7 @@ fn expected_tensors() -> Vec<(&'static str, &'static str, Vec<usize>)> {
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn verify_ple_fixture_bytes_with_outputs(
     checkpoint_dir: &Path,
     model_lock_path: &Path,
@@ -438,6 +439,7 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
     ngram_row_fixture_path: &Path,
     fixture_bytes: &[u8],
     expected_semantic: &str,
+    expected_token_ids: [i64; 2],
     hidden_overrides: Option<&[Vec<u16>]>,
 ) -> Result<(PleVerificationReport, Vec<Vec<u16>>), String> {
     let fixture: Fixture = serde_json::from_slice(fixture_bytes)
@@ -534,7 +536,7 @@ pub(crate) fn verify_ple_fixture_bytes_with_outputs(
                 } else {
                     "cached_recurrent"
                 }
-            || step.token_id != [42, 43][ordinal]
+            || step.token_id != expected_token_ids[ordinal]
             || step.previous_context != context
             || step.rows.len() != HEADS
             || step.captures.len() != 16
@@ -697,6 +699,7 @@ pub(crate) fn verify_ple_fixture_with_outputs(
         ngram_row_fixture_path,
         &bytes,
         "qwen3_8_flash_next_layer1_ple_cached_decode",
+        [42, 43],
         None,
     )
 }

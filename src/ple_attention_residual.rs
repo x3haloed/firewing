@@ -290,6 +290,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
     ple_fixture_path: &Path,
     fixture_bytes: &[u8],
     expected_semantic: &str,
+    expected_token_ids: [i64; 2],
     hidden_overrides: Option<&[Vec<u16>]>,
     ple_execution: Option<(PleVerificationReport, Vec<Vec<u16>>)>,
 ) -> Result<(PleAttentionResidualVerificationReport, Vec<Vec<u16>>), String> {
@@ -395,7 +396,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_bytes_with_outputs(
                 } else {
                     "cached_recurrent"
                 }
-            || step.token_id != [42, 43][ordinal]
+            || step.token_id != expected_token_ids[ordinal]
             || step.captures.len() != 10
         {
             return Err(format!("PLE-attention step {ordinal} metadata mismatch"));
@@ -507,6 +508,7 @@ pub(crate) fn verify_ple_attention_residual_fixture_with_outputs(
         ple_fixture_path,
         &bytes,
         "qwen3_8_flash_next_layer1_ple_attention_residual_cached_decode",
+        [42, 43],
         None,
         None,
     )

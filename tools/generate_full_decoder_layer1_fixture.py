@@ -39,6 +39,7 @@ def build_fixture(
     attention_residual_fixture_path: Path,
     *,
     _hidden_overrides: list[torch.Tensor] | None = None,
+    _token_ids: list[int] | None = None,
     _semantic: str = SEMANTIC,
     _reference_hashes: dict[str, str] | None = None,
     _return_chain: bool = False,
@@ -50,6 +51,7 @@ def build_fixture(
         ngram_row_fixture_path,
         ple_fixture_path,
         _hidden_overrides=_hidden_overrides,
+        _token_ids=_token_ids,
         _return_chain=True,
     )
     if not isinstance(parent_result, tuple) or len(parent_result) != 3:

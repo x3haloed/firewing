@@ -33,8 +33,9 @@ runtime passing every target gate, including reproducible batch-one decode at
 - FW-0001 pins and verifies the complete internal-SSD checkpoint: 144 files,
   360,023,351,514 bytes, 131 weight shards, 1,658 tensors, and
   179,999,981,459 stored scalar values. Every file passed SHA-256 verification
-  at revision `de4b8e4d43b917e7706784d8bb445c9af86a3540`. No local model
-  endpoint or accepted-TPS measurement exists yet. See
+  at revision `de4b8e4d43b917e7706784d8bb445c9af86a3540`. FW-0029 now provides
+  a bounded two-token native text-to-logits endpoint, but no generation loop or
+  accepted-TPS measurement exists yet. See
   [`experiments/FW-0001-remote-checkpoint-census.md`](experiments/FW-0001-remote-checkpoint-census.md).
 - Qwen's “3.8” is a release number. The official architecture description is
   125B main parameters plus 51B n-gram embeddings, with 6B activated per token;
@@ -231,6 +232,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   closes the output side of the accumulated decoder fixture, not token-derived
   execution, a text endpoint, MTP, or TPS. See
   [`experiments/FW-0028-final-mixer-logits.md`](experiments/FW-0028-final-mixer-logits.md).
+- FW-0029 is the first exact token-derived native text-to-logits path. The
+  native tokenizer maps `Firewing` to `[16207, 22856]`; the verifier reads only
+  those two real embedding rows, reproduces four-stream initialization and
+  token-dependent PLE context, executes all 48 layers with 960 dynamic expert
+  selections, and matches both complete 248,320-value BF16 logit hashes. The
+  chain authenticates 17,068,332,800 logical payload bytes and its final top
+  token `369` decodes to ` is`. This is a bounded two-step correctness endpoint,
+  not a reusable generation loop, prefill implementation, MTP path, quality
+  result, or TPS measurement. See
+  [`experiments/FW-0029-token-text-endpoint.md`](experiments/FW-0029-token-text-endpoint.md).
 
 ## Prediction errors
 

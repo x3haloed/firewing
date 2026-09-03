@@ -134,3 +134,10 @@ untied 248,320-row LM head. It commits complete BF16 vector hashes plus a small
 top-20 diagnostic. Because one rank-20 cutoff contains five equal BF16 logits,
 the fixture also freezes every token strictly above and tied at that cutoff;
 it does not mistake an arbitrary tie ordering for a stable distribution fact.
+
+`endpoint/qwen3_8_flash_next_firewing_two_token.json` is the first token-derived
+whole-text fixture. It binds the native tokenizer's `Firewing` encoding to two
+sparse real embedding rows, repeats each row across four hyper streams, walks
+all 48 layers with independent sequential caches and dynamic routes, and
+continues through the final mixer and complete LM head. The 2.1 MiB fixture is
+hash-only: no embedding, activation, expert, or logit payload is committed.

@@ -6,8 +6,9 @@ Mac mini using its internal SSD, with no companion hardware.
 
 The project is not finished. Its final gate remains a near-equivalent native
 multimodal runtime sustaining at least **4 accepted tokens/s** for one
-interactive request. No local endpoint, hosted-parity result, or native
-multimodal result has been established yet.
+interactive request. A bounded exact two-token text-to-logits endpoint now
+exists, but no usable generation endpoint, accepted-TPS result, hosted-parity
+result, or native multimodal result has been established yet.
 
 ## Mission and definition of done
 
@@ -144,6 +145,16 @@ cargo run --release -- verify-sparse-moe \
   fixtures/expert/qwen3_8_flash_next_real.json \
   fixtures/mixture/qwen3_8_flash_next_real.json \
   fixtures/sparse_moe/qwen3_8_flash_next_layer0.json
+
+# Bounded exact tokenizer-to-logits replay (slow; reads selected experts across all 48 layers)
+cargo run --release -- verify-token-text-endpoint \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  fixtures/tokenizer/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json \
+  fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
+  fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

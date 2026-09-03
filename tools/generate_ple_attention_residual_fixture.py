@@ -54,6 +54,7 @@ def build_fixture(
     *,
     _return_outputs: bool = False,
     _hidden_overrides: list[torch.Tensor] | None = None,
+    _token_ids: list[int] | None = None,
     _return_chain: bool = False,
 ) -> (
     dict[str, Any]
@@ -73,6 +74,7 @@ def build_fixture(
         ngram_row_fixture_path,
         _return_outputs=True,
         _hidden_overrides=_hidden_overrides,
+        _token_ids=_token_ids,
     )
     if not isinstance(ple_result, tuple):
         raise AssertionError("PLE execution outputs were not returned")

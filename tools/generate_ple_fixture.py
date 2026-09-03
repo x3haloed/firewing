@@ -133,6 +133,7 @@ def build_fixture(
     *,
     _return_outputs: bool = False,
     _hidden_overrides: list[torch.Tensor] | None = None,
+    _token_ids: list[int] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -197,8 +198,11 @@ def build_fixture(
     payload_starts: dict[str, int] = {}
     steps = []
     outputs = []
+    tokens = TOKENS if _token_ids is None else _token_ids
+    if len(tokens) != 2 or any(token < 0 or token >= raw_config["vocab_size"] for token in tokens):
+        raise ValueError("unsupported PLE token IDs")
     if _hidden_overrides is not None and (
-        len(_hidden_overrides) != len(TOKENS)
+        len(_hidden_overrides) != len(tokens)
         or any(
             value.dtype != torch.bfloat16
             or list(value.shape) != [1, 1, HC_HIDDEN]
@@ -208,7 +212,7 @@ def build_fixture(
     ):
         raise ValueError("unsupported PLE hidden-state overrides")
     try:
-        for ordinal, (token, input_spec) in enumerate(zip(TOKENS, INPUT_SPECS, strict=True)):
+        for ordinal, (token, input_spec) in enumerate(zip(tokens, INPUT_SPECS, strict=True)):
             rows = reference_addresses(
                 [token],
                 previous_context,
@@ -286,7 +290,7 @@ def build_fixture(
                     "ordinal": ordinal,
                     "mode": "initial_chunk" if ordinal == 0 else "cached_recurrent",
                     "token_id": token,
-                    "previous_context": ([ngram["eos_token_id"]] * CONTEXT if ordinal == 0 else [ngram["eos_token_id"], TOKENS[0]]),
+                    "previous_context": ([ngram["eos_token_id"]] * CONTEXT if ordinal == 0 else [ngram["eos_token_id"], tokens[0]]),
                     "input_spec": input_spec,
                     "rows": row_records,
                     "captures": {name: capture(value) for name, value in captures.items()},
