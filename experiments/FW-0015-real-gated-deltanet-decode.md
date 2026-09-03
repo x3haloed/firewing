@@ -1,7 +1,7 @@
 # FW-0015 - Real Gated DeltaNet cached decode
 
-- Status: in progress
-- Disposition: partial parity; cached recurrent reduction unresolved
+- Status: completed
+- Disposition: passed
 - Date: 2026-09-03
 - Parent experiments: FW-0001, FW-0014
 - Exactness: L0 bit-identical component semantics
@@ -30,6 +30,8 @@ captured boundary; final-output-only agreement is insufficient.
   `f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444`
 - Frozen fixture SHA-256:
   `d2cb94f6a6d08896cf836efe84f8a5effa9eb17603f077e44cf9ee9bbcc3c93f`
+- Raw evidence SHA-256:
+  `10a4b01ce90b236a2b11f7f6f0f83da33dfb1f51a2b5e37c9b5cbcf4ab44cf80`
 - Baseline commit: `3deee662b9fdb7f7d03b765b5684ce6a2592d578`
 - Framework reference: Transformers 5.16.1
   `Qwen4ExpTextGatedDeltaNet.forward`, fallback causal-convolution functions,
@@ -103,15 +105,23 @@ reported results:
   low-bit-sensitive chunk-attention outputs;
 - the configured output gate is sigmoid, not the model's hidden SiLU
   activation; correcting that resolved gated normalization and step-0 output;
-- step 1 currently fails closed at `recurrent_state`. Its retention vector and
-  decayed incoming state match exactly, while the strided F32 memory reduction
-  does not. Regenerating with `OMP_NUM_THREADS=1` produced the identical full
-  fixture, excluding thread partitioning as the cause.
+- step 1 initially failed closed at `recurrent_state`. Its retention vector and
+  decayed incoming state matched exactly, localizing the issue to the strided
+  F32 memory reduction. Regenerating with `OMP_NUM_THREADS=1` produced the
+  identical full fixture, excluding thread partitioning as the cause;
+- the exact PyTorch source at commit
+  `08187d9e0fba026dc8217405802ab5381dc88d90` showed that the populated columns
+  take `vectorized_outer_sum`'s direct 16-row cascade rather than the
+  four-stream `row_sum` fallback. Reproducing that ordering resolved the cached
+  recurrent state and output.
 
-No report artifact is emitted on failure. Accepted tokens and TPS remain zero.
+The final native run verified 36 BF16 and four F32 capture hashes across both
+steps, nine real tensors totaling 115,917,248 payload bytes, 81,920 bytes of
+convolution state, and 3,145,728 bytes of recurrent state. Accepted tokens and
+TPS remain zero because this is component correctness, not an endpoint.
 
 ## Decision
 
-Continue by reproducing the cached path's strided F32 outer reduction exactly.
-Step-0 parity is a useful implementation milestone, but FW-0015 remains open
-and no performance default follows from it.
+Pass. The real Gated DeltaNet primitive is ready for layer-0 attention residual
+composition and reuse across the 36 linear-attention layers. No performance
+default follows from component parity.

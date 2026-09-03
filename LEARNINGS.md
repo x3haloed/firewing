@@ -96,6 +96,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   is ready for attention/MoE wrapper reuse, but attention and complete decoder
   residual composition remain unresolved. See
   [`experiments/FW-0014-real-gated-hyper-connection.md`](experiments/FW-0014-real-gated-hyper-connection.md).
+- FW-0015 exactly reproduces the real layer-0 Gated DeltaNet for both an initial
+  token and a cached recurrent token across 36 BF16 and four F32 captures. The
+  native path verifies 115,917,248 weight bytes, the 81,920-byte convolution
+  state, and the 3,145,728-byte recurrent state. Exact parity required SLEEF
+  transcendental functions, PyTorch's distinct BF16 inner and F32 outer
+  cascade reductions, padded Accelerate SGEMM for the initial chunk, two-stage
+  BF16 `sqrt`/reciprocal rounding, and the checkpoint's sigmoid output gate.
+  This resolves the linear-attention primitive, not residual composition,
+  full-attention layers, whole-model parity, or endpoint TPS. See
+  [`experiments/FW-0015-real-gated-deltanet-decode.md`](experiments/FW-0015-real-gated-deltanet-decode.md).
 
 ## Prediction errors
 

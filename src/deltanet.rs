@@ -251,14 +251,15 @@ fn require_bf16(step: &Step, name: &str, shape: &[usize], values: &[u16]) -> Res
         .captures
         .get(name)
         .ok_or_else(|| format!("missing capture {name}"))?;
+    let actual_hash = bf16_hash(values);
     if capture.dtype != "BF16"
         || capture.shape != shape
         || !is_hash(&capture.sha256)
-        || bf16_hash(values) != capture.sha256
+        || actual_hash != capture.sha256
     {
         return Err(format!(
-            "DeltaNet capture mismatch at step {} {name}",
-            step.ordinal
+            "DeltaNet capture mismatch at step {} {name}: expected {}, got {actual_hash}",
+            step.ordinal, capture.sha256
         ));
     }
     Ok(())
@@ -269,14 +270,15 @@ fn require_f32(step: &Step, name: &str, shape: &[usize], values: &[f32]) -> Resu
         .captures
         .get(name)
         .ok_or_else(|| format!("missing capture {name}"))?;
+    let actual_hash = f32_hash(values);
     if capture.dtype != "F32"
         || capture.shape != shape
         || !is_hash(&capture.sha256)
-        || f32_hash(values) != capture.sha256
+        || actual_hash != capture.sha256
     {
         return Err(format!(
-            "DeltaNet capture mismatch at step {} {name}",
-            step.ordinal
+            "DeltaNet capture mismatch at step {} {name}: expected {}, got {actual_hash}",
+            step.ordinal, capture.sha256
         ));
     }
     Ok(())
@@ -426,15 +428,18 @@ fn pytorch_f32_sum_128(values: &[f32]) -> f32 {
 
 fn pytorch_f32_outer_sum_128(values: &[f32]) -> f32 {
     debug_assert_eq!(values.len(), HEAD_DIM);
-    let mut half_streams = [[0.0_f32; 4]; 2];
-    for (index, value) in values.iter().enumerate() {
-        half_streams[index / 64][index % 4] += value;
+    // For the populated columns of a 128-by-128 outer reduction, ATen enters
+    // `vectorized_outer_sum`'s direct `multi_row_sum`: forward-sum 16-row
+    // blocks, then forward-sum the eight block totals.
+    let mut total = 0.0_f32;
+    for chunk in values.chunks_exact(16) {
+        let mut partial = 0.0_f32;
+        for value in chunk {
+            partial += value;
+        }
+        total += partial;
     }
-    let mut streams = [0.0_f32; 4];
-    for stream in 0..4 {
-        streams[stream] = half_streams[1][stream] + half_streams[0][stream];
-    }
-    ((streams[0] + streams[1]) + streams[2]) + streams[3]
+    total
 }
 
 fn normalize_heads(values: &[u16]) -> Vec<u16> {
@@ -786,6 +791,17 @@ mod tests {
             &repeated[3 * HEAD_DIM..4 * HEAD_DIM],
             &values[HEAD_DIM..2 * HEAD_DIM]
         );
+    }
+
+    #[test]
+    fn outer_sum_uses_sixteen_row_cascade() {
+        let values: Vec<_> = (0..HEAD_DIM)
+            .map(|index| (((index * 37) % 101) as f32 - 50.0) / 17.0)
+            .collect();
+        let cascade = pytorch_f32_outer_sum_128(&values);
+        let forward = values.iter().fold(0.0_f32, |sum, value| sum + value);
+        assert_eq!(cascade.to_bits(), 0xc094_b4b5);
+        assert_eq!(forward.to_bits(), 0xc094_b4b4);
     }
 
     #[test]
