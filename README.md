@@ -199,6 +199,14 @@ target/release/firewing bench-catalog-token-text-endpoint \
   fixtures/ple/qwen3_8_flash_next_layer1_decode.json \
   fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json \
   IMPLEMENTATION_COMMIT
+
+# Impossible-favorable exact residency/cache screen (not endpoint TPS)
+.venv/bin/python tools/analyze_exact_residency_oracle.py \
+  --endpoint fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json \
+  --census /Users/chad/Models/firewing/evidence/FW-0001/final-census-20260903T063239Z.json \
+  --acquisition /Users/chad/Models/firewing/evidence/FW-0013/expert-acquisition.json \
+  --implementation-commit IMPLEMENTATION_COMMIT \
+  --output REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

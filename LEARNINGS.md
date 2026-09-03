@@ -283,6 +283,15 @@ runtime passing every target gate, including reproducible batch-one decode at
   representation, or MTP union is now mandatory before broader kernel work.
   See
   [`experiments/FW-0033-catalog-backed-exact-endpoint.md`](experiments/FW-0033-catalog-backed-exact-endpoint.md).
+- FW-0034 applies a perfect-future exact cache to the two-position route
+  authority. Pinning 8.624 GB of fixed weights leaves 214 expert slots at the
+  current 10-GiB runtime cap, whose impossible-favorable storage ceiling is
+  only 3.995 TPS and therefore rejected. A full 12-GiB allowance fits 433
+  experts and reaches 6.049 aggregate / 3.400 worst-token storage-only TPS, but
+  consumes 12.881 GB, grants free initial contents, and charges no compute or
+  buffers. Retain it only as a fragile analytical survivor; an exact top-10
+  Metal MoE compute/buffer bound must pass before high residency is built. See
+  [`experiments/FW-0034-exact-residency-oracle.md`](experiments/FW-0034-exact-residency-oracle.md).
 
 ## Prediction errors
 

@@ -190,9 +190,41 @@
       "A": 0,
       "U": 0,
       "performance_claim": null
+    },
+    "exact_future_aware_residency_oracle": {
+      "status": "fw_0034_10gib_rejected_12gib_fragile_analytical_survivor",
+      "implementation_commit": "2fd14bc5df0e20b37f2ac0bdfeaa49396fa37fac",
+      "raw_report_sha256": "19bd38ecc103a80fafc0085063123b86ddaa2aa5365c2fbdf147dae73c6168da",
+      "route_positions": 2,
+      "route_events": 96,
+      "route_accesses": 960,
+      "distinct_layer_experts": 859,
+      "fixed_resident_bytes": 8623999000,
+      "expert_bytes": 9830400,
+      "optimistic_parallel_transport_bytes_per_second": 12665740063.109344,
+      "10_gib": {
+        "expert_capacity": 214,
+        "misses": 645,
+        "miss_bytes": 6340608000,
+        "aggregate_storage_only_tps": 3.995118469115058,
+        "minimum_token_storage_only_tps": 3.399540122136164
+      },
+      "12_gib": {
+        "expert_capacity": 433,
+        "misses": 426,
+        "miss_bytes": 4187750400,
+        "aggregate_storage_only_tps": 6.048946977885476,
+        "minimum_token_storage_only_tps": 3.399540122136164
+      },
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "A": 0,
+      "U": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0033_catalog_gain_validated_physical_demand_reduction_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured that two-position correctness endpoint at 77,703.382 ms and 17,318,928,384 physical read bytes. FW-0031 isolated exact Metal expert arithmetic and FW-0032 validated the authenticated catalog. FW-0033 propagates that catalog through the unchanged endpoint: a candidate/control/candidate sequence yields a 48,948.183 ms candidate median and 1.661711x full-path gain, but still reads 17,175,160,832 physical bytes median and remains 97.90x outside the two-position Firewing-4 budget. Physical-demand reduction is now the required next branch. No accepted TPS is claimed."
+  "status": "fw_0034_12gib_residency_survivor_top10_metal_bound_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured the first exact endpoint profile; FW-0031 through FW-0033 isolated and removed repeated payload authentication for a repeatable 1.661711x full-path gain while retaining 17.175 GB median physical traffic. FW-0034 grants perfect future-aware residency and zero non-storage cost on the two-position route trace: 10 GiB is rejected at 3.995 storage-only TPS, while 12 GiB narrowly survives at 6.049 aggregate and 3.400 worst-token TPS while consuming essentially its entire allowance. An exact top-10 Metal MoE compute/buffer bound is next. No accepted TPS is claimed."
 }
