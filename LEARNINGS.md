@@ -538,6 +538,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   exact form. Smaller blocks, channelwise scales, outlier preservation,
   calibrated clipping, or recovery are separate modified experiments. See
   [`experiments/FW-0058-modified-block-int8-weight-fidelity.md`](experiments/FW-0058-modified-block-int8-weight-fidelity.md).
+- FW-0059 rejects symmetric block-32 INT8 despite all ten real layer-0 experts
+  individually clearing the 2% gate. The expert-order mixture reaches 1.5282%
+  relative L2 against 1%; its 0.501953 source-byte ratio is not enough reason to
+  bypass that failure. A finer frozen scale-grid sweep is the next cheap
+  discriminator. See
+  [`experiments/FW-0059-modified-block32-int8-weight-fidelity.md`](experiments/FW-0059-modified-block32-int8-weight-fidelity.md).
 
 ## Prediction errors
 
@@ -574,8 +580,9 @@ These unresolved distinctions can still change the next decision:
   execution, stronger exact coding, production route distribution, and full
   endpoint work remain unresolved. FW-0057 and FW-0058 separately reject naive
   block-128 E4M3 and symmetric INT8 weights as modified escape hatches on the
-  first real-mixture fidelity rung; more capable calibrated, outlier-aware, or
-  recovered compact formats remain unresolved.
+  first real-mixture fidelity rung. FW-0059 further rejects a 32x32 INT8 scale
+  grid at 1.528% mixture error; a finer-grid boundary and more capable
+  calibrated, outlier-aware, or recovered formats remain unresolved.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
   invalidation;
@@ -590,6 +597,11 @@ These unresolved distinctions can still change the next decision:
   unpaced exact physical refill takes 1,063 ms storage-only. Uncertain: how
   much of the discrepancy comes from removal of hash pacing versus the actual
   endpoint extent order. Evidence: the FW-0036 receipt and experiment record.
+- Expected: reducing symmetric INT8 scale sharing from 128x128 to 32x32 would
+  clear the frozen 1% layer-0 mixture gate. Observed: all experts clear their 2%
+  gate, but the mixture remains at 1.5282%. Uncertain: whether a finer scale
+  grid can pass while retaining enough byte advantage to change the Firewing 4
+  traffic bound. Evidence: FW-0058 and FW-0059 receipts and records.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to
