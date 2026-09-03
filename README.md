@@ -97,6 +97,10 @@ python3 -m venv .venv
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   --model-lock spec/model.lock.json \
   --output fixtures/ngram/qwen3_8_flash_next.json
+.venv/bin/python tools/generate_ngram_row_hash_fixture.py \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  fixtures/ngram/qwen3_8_flash_next.json \
+  --output fixtures/ngram/qwen3_8_flash_next_row_hashes.json
 
 cargo test
 cargo run --release -- verify-tokenizer \
@@ -105,6 +109,10 @@ cargo run --release -- verify-tokenizer \
 cargo run --release -- verify-ngram \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json fixtures/ngram/qwen3_8_flash_next.json
+cargo run --release -- verify-ngram-rows \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json fixtures/ngram/qwen3_8_flash_next.json \
+  fixtures/ngram/qwen3_8_flash_next_row_hashes.json
 ```
 
 Transformers is a fixture authority, not the qualifying runtime. The native

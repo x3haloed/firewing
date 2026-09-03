@@ -73,6 +73,14 @@ validating every physical table descriptor and the three actual int64 metadata
 payloads. This establishes what to read, not how many filesystem bytes the SSD
 will actually move.
 
+FW-0006 adds the corresponding bounded reader. It seeks directly to
+`8 + safetensors_header_bytes + tensor_data_offset + local_row * 320`, reads
+exactly 320 bytes, and rejects invalid rows or arithmetic overflow. It matched
+SHA-256 identities independently captured for all 224 FW-0005 addresses while
+requesting 71,680 payload bytes. Only hashes and invented synthetic bytes are
+committed; sampled Qwen weight bytes remain outside Git. Physical SSD traffic,
+page amplification, and useful throughput remain unmeasured.
+
 MTP can reduce routed SSD demand only when committed-token acceptance grows
 faster than the byte-weighted union of experts required for proposal and
 verification. Firewing records those quantities as `A`, `U`, and `A/U` rather
@@ -83,7 +91,8 @@ than counting proposed tokens as throughput.
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
 and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
-checkpoint can execute within 16 GiB. The native tokenizer and n-gram address
-verifiers are the first two target-specific Rust slices. The runtime reuses
+checkpoint can execute within 16 GiB. The native tokenizer, n-gram address
+verifier, and bounded sparse row reader are the first target-specific Rust
+slices. The runtime reuses
 Prismwing's reference/oracle/independent-fixture discipline, while Qwen4-Exp
 semantics and checkpoint layouts remain independently derived and fail closed.

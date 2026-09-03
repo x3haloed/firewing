@@ -14,3 +14,9 @@ equations to the pinned checkpoint's three int64 buffers, all 128 physical BF16
 table-part descriptors, and five deterministic address cases. The native Rust
 verifier recomputes the addresses independently and reads only headers plus the
 small metadata payloads; it never maps or copies the 102.4 GB table.
+
+`ngram/qwen3_8_flash_next_row_hashes.json` contains SHA-256 identities—not
+weight bytes—for the 224 real rows selected by the address fixture. The native
+sparse reader must match them by reading 320 bytes at each verified physical
+location. `ngram/sparse_row_reader_synthetic.json` supplies invented,
+redistributable bytes for deterministic offset and bounds tests.

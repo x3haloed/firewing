@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "semantic": "firewing_sparse_row_reader_synthetic",
+  "header_json": {
+    "tensor": {
+      "data_offsets": [
+        3,
+        15
+      ],
+      "dtype": "U8",
+      "shape": [
+        3,
+        4
+      ]
+    }
+  },
+  "payload_prefix_hex": "aabbcc",
+  "tensor_hex": "000102030405060708090a0b",
+  "reads": [
+    {
+      "expected_hex": "00010203",
+      "row": 0
+    },
+    {
+      "expected_hex": "04050607",
+      "row": 1
+    },
+    {
+      "expected_hex": "08090a0b",
+      "row": 2
+    }
+  ]
+}

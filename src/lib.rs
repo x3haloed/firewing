@@ -6,7 +6,9 @@ use tokenizers::Tokenizer;
 
 mod ngram;
 
-pub use ngram::{NGramVerificationReport, verify_ngram_fixture};
+pub use ngram::{
+    NGramRowVerificationReport, NGramVerificationReport, verify_ngram_fixture, verify_ngram_rows,
+};
 
 #[derive(Debug, Deserialize)]
 struct TokenizerFixture {

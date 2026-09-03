@@ -91,6 +91,23 @@ struct PhysicalRow {
 }
 
 #[derive(Debug, Deserialize)]
+struct RowHashFixture {
+    schema_version: u32,
+    semantic: String,
+    model: String,
+    revision: String,
+    address_fixture_sha256: String,
+    row_bytes: usize,
+    cases: Vec<RowHashCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RowHashCase {
+    name: String,
+    row_sha256: Vec<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ModelLock {
     model: String,
     revision: String,
@@ -117,6 +134,20 @@ pub struct NGramVerificationReport {
     pub table_parts_verified: usize,
     pub rows_per_shard: i64,
     pub useful_bf16_bytes_per_token: usize,
+    pub accepted_tokens: usize,
+    pub performance_claim: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct NGramRowVerificationReport {
+    pub schema_version: u32,
+    pub semantic: &'static str,
+    pub model: String,
+    pub revision: String,
+    pub cases_verified: usize,
+    pub rows_verified: usize,
+    pub requested_payload_bytes: usize,
+    pub row_bytes: usize,
     pub accepted_tokens: usize,
     pub performance_claim: Option<String>,
 }
@@ -346,6 +377,42 @@ fn read_safetensor_descriptor(path: &Path, tensor_name: &str) -> Result<Value, S
         .get(tensor_name)
         .cloned()
         .ok_or_else(|| format!("missing checkpoint tensor {tensor_name}"))
+}
+
+fn read_sparse_row<R: Read + Seek>(
+    reader: &mut R,
+    tensor_start: u64,
+    local_row: i64,
+    rows_per_part: i64,
+    row_bytes: usize,
+) -> Result<Vec<u8>, String> {
+    if !(0..rows_per_part).contains(&local_row) || row_bytes == 0 {
+        return Err("sparse row request is out of bounds".to_owned());
+    }
+    reader
+        .seek(SeekFrom::Start(0))
+        .map_err(|error| format!("cannot seek to safetensors header: {error}"))?;
+    let mut length_bytes = [0_u8; 8];
+    reader
+        .read_exact(&mut length_bytes)
+        .map_err(|error| format!("cannot read safetensors header length: {error}"))?;
+    let header_len = u64::from_le_bytes(length_bytes);
+    if header_len == 0 || header_len > 16 * 1024 * 1024 {
+        return Err("safetensors header length is unsupported".to_owned());
+    }
+    let row_offset = (local_row as u64)
+        .checked_mul(row_bytes as u64)
+        .and_then(|offset| offset.checked_add(tensor_start))
+        .and_then(|offset| offset.checked_add(8 + header_len))
+        .ok_or_else(|| "sparse row byte offset overflow".to_owned())?;
+    reader
+        .seek(SeekFrom::Start(row_offset))
+        .map_err(|error| format!("cannot seek to sparse row: {error}"))?;
+    let mut row = vec![0_u8; row_bytes];
+    reader
+        .read_exact(&mut row)
+        .map_err(|error| format!("cannot read sparse row: {error}"))?;
+    Ok(row)
 }
 
 fn shifted_token(history: &[i64], index: usize, shift: usize, eos: i64) -> i64 {
@@ -586,9 +653,163 @@ pub fn verify_ngram_fixture(
     })
 }
 
+pub fn verify_ngram_rows(
+    checkpoint_dir: &Path,
+    model_lock_path: &Path,
+    address_fixture_path: &Path,
+    row_fixture_path: &Path,
+) -> Result<NGramRowVerificationReport, String> {
+    verify_ngram_fixture(checkpoint_dir, model_lock_path, address_fixture_path)?;
+    let address: NGramFixture =
+        serde_json::from_slice(&fs::read(address_fixture_path).map_err(|error| {
+            format!(
+                "cannot read address fixture {}: {error}",
+                address_fixture_path.display()
+            )
+        })?)
+        .map_err(|error| format!("malformed n-gram address fixture: {error}"))?;
+    let rows: RowHashFixture =
+        serde_json::from_slice(&fs::read(row_fixture_path).map_err(|error| {
+            format!(
+                "cannot read row fixture {}: {error}",
+                row_fixture_path.display()
+            )
+        })?)
+        .map_err(|error| format!("malformed n-gram row fixture: {error}"))?;
+    if rows.schema_version != 1
+        || rows.semantic != "qwen3_8_flash_next_ngram_row_hashes"
+        || rows.model != MODEL
+        || rows.model != address.model
+        || rows.revision != address.revision
+        || !require_hex(&rows.address_fixture_sha256, 64)
+        || sha256_file(address_fixture_path)? != rows.address_fixture_sha256
+        || rows.row_bytes != address.configuration.head_width * 2
+        || rows.row_bytes != 320
+        || rows.cases.len() != address.cases.len()
+    {
+        return Err("n-gram row fixture identity or configuration is unsupported".to_owned());
+    }
+
+    let mut handles: BTreeMap<String, File> = BTreeMap::new();
+    let mut rows_verified = 0;
+    for (address_case, row_case) in address.cases.iter().zip(&rows.cases) {
+        if address_case.name != row_case.name
+            || row_case.row_sha256.len() != address_case.global_rows.len()
+        {
+            return Err(format!(
+                "row fixture case {} has invalid dimensions",
+                row_case.name
+            ));
+        }
+        for ((global_rows, physical_rows), expected_hashes) in address_case
+            .global_rows
+            .iter()
+            .zip(&address_case.physical_rows)
+            .zip(&row_case.row_sha256)
+        {
+            if global_rows.len() != address.configuration.ngram_heads
+                || physical_rows.len() != global_rows.len()
+                || expected_hashes.len() != global_rows.len()
+            {
+                return Err(format!(
+                    "row fixture case {} has invalid head dimensions",
+                    row_case.name
+                ));
+            }
+            for ((global_row, physical), expected_hash) in
+                global_rows.iter().zip(physical_rows).zip(expected_hashes)
+            {
+                if !require_hex(expected_hash, 64) {
+                    return Err(format!(
+                        "row fixture case {} has an invalid hash",
+                        row_case.name
+                    ));
+                }
+                let expected_part = global_row / address.configuration.rows_per_shard;
+                let expected_local_row = global_row % address.configuration.rows_per_shard;
+                if physical.shard != expected_part || physical.row != expected_local_row {
+                    return Err(format!(
+                        "row fixture case {} has an invalid location",
+                        row_case.name
+                    ));
+                }
+                let part = address
+                    .table_parts
+                    .get(expected_part as usize)
+                    .ok_or_else(|| "global row selects a missing table part".to_owned())?;
+                if !handles.contains_key(&part.shard) {
+                    let path = checkpoint_dir.join(&part.shard);
+                    let file = File::open(&path)
+                        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+                    handles.insert(part.shard.clone(), file);
+                }
+                let row = read_sparse_row(
+                    handles
+                        .get_mut(&part.shard)
+                        .expect("opened shard handle must remain present"),
+                    part.data_offsets[0],
+                    physical.row,
+                    address.configuration.rows_per_shard,
+                    rows.row_bytes,
+                )?;
+                let actual_hash = format!("{:x}", Sha256::digest(&row));
+                if actual_hash != *expected_hash {
+                    return Err(format!(
+                        "checkpoint row hash mismatch in case {} at global row {global_row}",
+                        row_case.name
+                    ));
+                }
+                rows_verified += 1;
+            }
+        }
+    }
+
+    Ok(NGramRowVerificationReport {
+        schema_version: 1,
+        semantic: "qwen3_8_flash_next_ngram_sparse_row_verification",
+        model: rows.model,
+        revision: rows.revision,
+        cases_verified: rows.cases.len(),
+        rows_verified,
+        requested_payload_bytes: rows_verified * rows.row_bytes,
+        row_bytes: rows.row_bytes,
+        accepted_tokens: 0,
+        performance_claim: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    #[derive(Deserialize)]
+    struct SyntheticRowFixture {
+        schema_version: u32,
+        semantic: String,
+        header_json: Value,
+        payload_prefix_hex: String,
+        tensor_hex: String,
+        reads: Vec<SyntheticRead>,
+    }
+
+    #[derive(Deserialize)]
+    struct SyntheticRead {
+        expected_hex: String,
+        row: i64,
+    }
+
+    fn decode_hex(value: &str) -> Vec<u8> {
+        assert!(value.len().is_multiple_of(2));
+        value
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(std::str::from_utf8(pair).expect("fixture hex is ASCII"), 16)
+                    .expect("fixture hex is valid")
+            })
+            .collect()
+    }
 
     #[test]
     fn multipliers_match_pinned_checkpoint_values() {
@@ -636,6 +857,32 @@ mod tests {
         assert_eq!(
             validate_identity(&fixture),
             Err("n-gram fixture identity, reference, or configuration is unsupported".to_owned())
+        );
+    }
+
+    #[test]
+    fn sparse_reader_matches_synthetic_fixture() {
+        let fixture: SyntheticRowFixture = serde_json::from_str(include_str!(
+            "../fixtures/ngram/sparse_row_reader_synthetic.json"
+        ))
+        .expect("synthetic row fixture must parse");
+        assert_eq!(fixture.schema_version, 1);
+        assert_eq!(fixture.semantic, "firewing_sparse_row_reader_synthetic");
+        let header = serde_json::to_vec(&fixture.header_json).expect("header must serialize");
+        let mut bytes = (header.len() as u64).to_le_bytes().to_vec();
+        bytes.extend_from_slice(&header);
+        bytes.extend_from_slice(&decode_hex(&fixture.payload_prefix_hex));
+        bytes.extend_from_slice(&decode_hex(&fixture.tensor_hex));
+        let mut cursor = Cursor::new(bytes);
+        for read in fixture.reads {
+            assert_eq!(
+                read_sparse_row(&mut cursor, 3, read.row, 3, 4).expect("row read must succeed"),
+                decode_hex(&read.expected_hex)
+            );
+        }
+        assert_eq!(
+            read_sparse_row(&mut cursor, 3, 3, 3, 4),
+            Err("sparse row request is out of bounds".to_owned())
         );
     }
 }

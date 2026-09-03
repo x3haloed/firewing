@@ -49,6 +49,11 @@ runtime passing every target gate, including reproducible batch-one decode at
   The table has 320,001,536 padded rows split into 128 numeric parts of
   2,500,012 rows. This resolves address and part selection, not realized SSD
   traffic.
+- FW-0006 proves bounded retrieval of the selected table payload: 224 real
+  rows matched independently generated SHA-256 identities with exactly 320
+  requested bytes per row and no whole-table mapping. Only hashes and a tiny
+  synthetic reader fixture are committed. Physical disk bytes, latency, cache
+  amplification, and embedding math remain unresolved.
 
 ## Prediction errors
 
