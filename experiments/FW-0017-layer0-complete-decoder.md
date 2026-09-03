@@ -32,7 +32,7 @@ defer success until the final residual is checked.
 - Attention-residual fixture SHA-256:
   `d4f19fd28cc0a56fbbbb64cdfd494b8a9ff886f397d95a45b21a26a959c7427e`
 - Sparse-MoE fixture SHA-256:
-  `d8c6cc509952073220f01e61ea40a8f150f3add63c21365d70fb6337f11b9853`
+  `a6a706f93b8e97603574594ec7a100b9d44090de06db7e72d41092d49d447990`
 - Framework reference: Transformers 5.16.1
   `Qwen4ExpTextDecoderLayer.forward`, `Qwen4ExpTextGatedResidual.forward`,
   `Qwen4ExpTextTopKRouter.forward`, `Qwen4ExpTextExperts.forward`, and
