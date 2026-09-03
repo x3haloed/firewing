@@ -569,6 +569,10 @@ runtime passing every target gate, including reproducible batch-one decode at
   2x8, 0.9803% for 8x2, and 1.0064% for 16x1. Retain 1x16 alone for the six-case
   real-layer gate; do not infer deeper fidelity from this local screen. See
   [`experiments/FW-0063-modified-int8-scale-topology.md`](experiments/FW-0063-modified-int8-scale-topology.md).
+- FW-0064 rejects 1x16 INT8 on the six authenticated real-layer cases despite
+  its best layer-0 result. Five mixtures miss 1%, reaching 1.1401%, while all
+  experts pass 2%. Only FW-0063's 8x2 first-rung pass remains unresolved. See
+  [`experiments/FW-0064-modified-block1x16-int8-real-layers.md`](experiments/FW-0064-modified-block1x16-int8-real-layers.md).
 
 ## Prediction errors
 
@@ -610,7 +614,8 @@ These unresolved distinctions can still change the next decision:
   and 1.168%. FW-0061's 4x4 grid initially survives at 0.978%, but FW-0062
   rejects it across real early/middle/late inputs. Plain square-block symmetric
   INT8 is closed. FW-0063 reopens only rectangular topology: 1x16 and 8x2 pass
-  layer 0 at identical bytes, with 1x16 selected for deeper screening.
+  layer 0 at identical bytes. FW-0064 rejects selected 1x16 on deeper
+  source-accumulated inputs; 8x2 remains to be screened.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range

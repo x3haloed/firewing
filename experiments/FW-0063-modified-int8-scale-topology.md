@@ -2,6 +2,7 @@
 
 - Status: completed
 - Disposition: conditional
+- Follow-up: FW-0064 rejects selected 1x16; 8x2 remains pending
 - Date: 2026-09-03
 - Parent experiment: FW-0062
 - Mode: modified rectangular symmetric-INT8 weight-only screens
@@ -68,3 +69,6 @@ topology.
 
 Run 1x16 through the same six authenticated early/middle/late layer cases
 before any packed bank, accumulated candidate path, or Metal kernel.
+
+FW-0064 ran that gate and rejected 1x16. The 8x2 first-rung pass remains the
+only untested topology from this record.
