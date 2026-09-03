@@ -64,7 +64,9 @@ def block_fp8_weight(
 
 
 def block_int8_weight(
-    weight: torch.Tensor, block: int | tuple[int, int] = DEFAULT_BLOCK
+    weight: torch.Tensor,
+    block: int | tuple[int, int] = DEFAULT_BLOCK,
+    clip_factor: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor, int]:
     block_rows, block_columns = (block, block) if isinstance(block, int) else block
     if (
@@ -74,6 +76,7 @@ def block_int8_weight(
         or block_columns <= 0
         or weight.shape[0] % block_rows
         or weight.shape[1] % block_columns
+        or not 0.0 < clip_factor <= 1.0
         or not torch.isfinite(weight.float()).all()
     ):
         raise common.AnalysisError("block-INT8 weight must be finite aligned BF16 matrix")
@@ -90,7 +93,7 @@ def block_int8_weight(
         .contiguous()
     )
     maximums = blocks.abs().amax(dim=(2, 3))
-    scales = torch.clamp(maximums, min=1.0e-10) / INT8_MAX
+    scales = torch.clamp(maximums * clip_factor, min=1.0e-10) / INT8_MAX
     codes = torch.clamp(torch.round(blocks / scales[:, :, None, None]), -127, 127).to(
         torch.int8
     )
@@ -123,6 +126,7 @@ def analyze(
     block_size: int = DEFAULT_BLOCK,
     block_rows: int | None = None,
     block_columns: int | None = None,
+    clip_factor: float = 1.0,
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -181,8 +185,8 @@ def analyze(
             if block_rows is None or block_columns is None
             else (block_rows, block_columns)
         )
-        quantize = lambda weight: block_int8_weight(weight, shape)
-        mode = (
+        quantize = lambda weight: block_int8_weight(weight, shape, clip_factor)
+        topology_mode = (
             "modified_block_int8_weight_only"
             if shape == (DEFAULT_BLOCK, DEFAULT_BLOCK)
             else (
@@ -191,8 +195,18 @@ def analyze(
                 else f"modified_block{shape[0]}x{shape[1]}_int8_weight_only"
             )
         )
+        mode = (
+            topology_mode
+            if clip_factor == 1.0
+            else topology_mode.replace("modified_", "modified_clipped_")
+        )
         format_description = (
             f"symmetric_int8_per_{shape[0]}x{shape[1]}_absmax_f32_scale"
+            if clip_factor == 1.0
+            else (
+                f"symmetric_int8_per_{shape[0]}x{shape[1]}_"
+                f"clipped_{clip_factor:.6f}_absmax_f32_scale"
+            )
         )
     else:
         raise common.AnalysisError("unknown modified block weight format")
@@ -259,6 +273,7 @@ def analyze(
             if weight_format == "block_int8"
             else [block_size, block_size]
         ),
+        "clip_factor": clip_factor if weight_format == "block_int8" else None,
         "experts": expert_rows,
         "exact_baseline_hashes": exact_baseline_hashes + 1,
         "weight_format": format_description,
@@ -314,6 +329,7 @@ def main() -> int:
     )
     parser.add_argument("--block-rows", type=int)
     parser.add_argument("--block-columns", type=int)
+    parser.add_argument("--clip-factor", type=float, default=1.0)
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -324,6 +340,7 @@ def main() -> int:
         args.block_size,
         args.block_rows,
         args.block_columns,
+        args.clip_factor,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))

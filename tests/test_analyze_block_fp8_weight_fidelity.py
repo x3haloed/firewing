@@ -73,6 +73,16 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertEqual(tuple(scales.shape), (128, 8))
         self.assertEqual(artifact_bytes, weight.numel() * 5 // 4)
 
+    def test_clipped_int8_grid_changes_range_without_changing_bytes(self) -> None:
+        weight = torch.ones((4, 4), dtype=torch.bfloat16)
+        weight[0, 0] = 4.0
+        decoded, scales, artifact_bytes = block_int8_weight(weight, (4, 4), 0.5)
+        self.assertEqual(tuple(scales.shape), (1, 1))
+        self.assertEqual(artifact_bytes, weight.numel() + 4)
+        self.assertLess(decoded[0, 0].item(), weight[0, 0].item())
+        with self.assertRaises(AnalysisError):
+            block_int8_weight(weight, (4, 4), 1.01)
+
 
 if __name__ == "__main__":
     unittest.main()
