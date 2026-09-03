@@ -62,9 +62,20 @@
       "warm_wall_ms_median_per_token": 0.05260714285714286,
       "accepted_tokens": 0,
       "performance_claim": null
+    },
+    "router_correctness": {
+      "status": "fw_0009_real_checkpoint_scalar_parity",
+      "layers_verified": [0, 1, 47],
+      "cases_verified": 3,
+      "top_k": 10,
+      "exact_ordered_expert_lists": 3,
+      "maximum_selected_logit_absolute_error": 0.0,
+      "maximum_normalized_score_absolute_error": 0.0,
+      "accepted_tokens": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0008_conditional_ngram_transport_no_endpoint_measurement",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
+  "status": "fw_0009_router_primitive_verified_no_endpoint_measurement",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. Byte-ledger derivations use exact BF16 tensor shapes and configured top-10 routing. No endpoint performance claim."
 }

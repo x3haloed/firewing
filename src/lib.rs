@@ -5,12 +5,14 @@ use std::path::Path;
 use tokenizers::Tokenizer;
 
 mod ngram;
+mod router;
 
 pub use ngram::{
     NGramRowVerificationReport, NGramTransportBenchmarkReport, NGramTransportSummary,
     NGramTransportTrial, NGramVerificationReport, benchmark_ngram_transport, verify_ngram_fixture,
     verify_ngram_rows,
 };
+pub use router::{RouterCaseReport, RouterVerificationReport, verify_router_fixture};
 
 #[derive(Debug, Deserialize)]
 struct TokenizerFixture {

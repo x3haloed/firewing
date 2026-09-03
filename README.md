@@ -113,6 +113,9 @@ cargo run --release -- verify-ngram-rows \
   /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
   spec/model.lock.json fixtures/ngram/qwen3_8_flash_next.json \
   fixtures/ngram/qwen3_8_flash_next_row_hashes.json
+cargo run --release -- verify-router \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json fixtures/router/qwen3_8_flash_next_real.json
 ```
 
 Transformers is a fixture authority, not the qualifying runtime. The native

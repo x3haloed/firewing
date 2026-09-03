@@ -1,0 +1,188 @@
+{
+  "cases": [
+    {
+      "input_bf16_sha256": "fd49d326938089ac718c04ad9ac207759b98dabef7db86a8c2646cec11ad37a1",
+      "input_spec": {
+        "add": 11,
+        "center": 128,
+        "divisor": 128,
+        "modulus": 257,
+        "multiplier": 37,
+        "sparse_stride": 1
+      },
+      "layer": 0,
+      "name": "layer_0_affine_mod",
+      "normalized_scores_bf16": [
+        0.11962890625,
+        0.111328125,
+        0.10400390625,
+        0.1015625,
+        0.0986328125,
+        0.09619140625,
+        0.09521484375,
+        0.09375,
+        0.08984375,
+        0.08984375
+      ],
+      "selected_experts": [
+        376,
+        349,
+        384,
+        191,
+        211,
+        363,
+        337,
+        206,
+        247,
+        295
+      ],
+      "selected_logits_bf16": [
+        1.3515625,
+        1.28125,
+        1.2109375,
+        1.1875,
+        1.15625,
+        1.1328125,
+        1.125,
+        1.109375,
+        1.0625,
+        1.0625
+      ],
+      "shard": "model-00003-of-00131.safetensors",
+      "shard_bytes": 1832518264,
+      "shard_sha256": "b783fbb3bdf185b4576ffee9ba786dbd9a218ec3cac9d92706d99216567b37a6",
+      "tensor": "model.language_model.layers.0.mlp.gate.weight",
+      "weight_payload_sha256": "966e4d1ca7c18994a9311e82f0074584fe09e65e81eb8ddefe0a4dceebfc6ac6"
+    },
+    {
+      "input_bf16_sha256": "85cd211b38c5d9d838fcfed2f90800df35b9cca68414c234630521026dad1d42",
+      "input_spec": {
+        "add": 19,
+        "center": 125,
+        "divisor": 128,
+        "modulus": 251,
+        "multiplier": 71,
+        "sparse_stride": 1
+      },
+      "layer": 1,
+      "name": "layer_1_affine_mod",
+      "normalized_scores_bf16": [
+        0.111328125,
+        0.10546875,
+        0.103515625,
+        0.10302734375,
+        0.10107421875,
+        0.1005859375,
+        0.0966796875,
+        0.09423828125,
+        0.09228515625,
+        0.09130859375
+      ],
+      "selected_experts": [
+        274,
+        207,
+        251,
+        385,
+        371,
+        404,
+        471,
+        375,
+        264,
+        348
+      ],
+      "selected_logits_bf16": [
+        0.6484375,
+        0.59375,
+        0.578125,
+        0.57421875,
+        0.5546875,
+        0.55078125,
+        0.5078125,
+        0.482421875,
+        0.46484375,
+        0.453125
+      ],
+      "shard": "model-00005-of-00131.safetensors",
+      "shard_bytes": 3355888504,
+      "shard_sha256": "54fdc7adf431d6b94d9292fc8bd7938d906b0cffe0997d76ac1a176413aa80f2",
+      "tensor": "model.language_model.layers.1.mlp.gate.weight",
+      "weight_payload_sha256": "0721144c6eed2441e5cee395d2aa2700d8f9365f0b05d7dbd553003ffc4caab6"
+    },
+    {
+      "input_bf16_sha256": "030ab1abc8b3cbd66455490c53ea05f357a2f0636f4bf2b99f32e7da25481a68",
+      "input_spec": {
+        "add": 7,
+        "center": 120,
+        "divisor": 64,
+        "modulus": 241,
+        "multiplier": 97,
+        "sparse_stride": 17
+      },
+      "layer": 47,
+      "name": "layer_47_affine_mod",
+      "normalized_scores_bf16": [
+        0.1083984375,
+        0.10546875,
+        0.10205078125,
+        0.099609375,
+        0.09912109375,
+        0.09814453125,
+        0.09765625,
+        0.09716796875,
+        0.0966796875,
+        0.095703125
+      ],
+      "selected_experts": [
+        360,
+        196,
+        279,
+        309,
+        408,
+        232,
+        72,
+        361,
+        75,
+        148
+      ],
+      "selected_logits_bf16": [
+        0.427734375,
+        0.40234375,
+        0.3671875,
+        0.345703125,
+        0.33984375,
+        0.328125,
+        0.326171875,
+        0.3203125,
+        0.3125,
+        0.306640625
+      ],
+      "shard": "model-00120-of-00131.safetensors",
+      "shard_bytes": 1948519840,
+      "shard_sha256": "6a13f7374f7998ce5413fd1a94a2796f10a389ac4ba0da073e80fa91eca1b40e",
+      "tensor": "model.language_model.layers.47.mlp.gate.weight",
+      "weight_payload_sha256": "a074847671d9ef0699a5a542bbd4c5a76046543e76fdb499d62bd7be1fd08c50"
+    }
+  ],
+  "configuration": {
+    "hidden_size": 2560,
+    "input_dtype": "BF16",
+    "norm_topk_prob": true,
+    "num_experts": 512,
+    "router_logits_dtype": "BF16",
+    "softmax_dtype": "F32",
+    "top_k": 10,
+    "weight_dtype": "BF16"
+  },
+  "model": "Qwen/Qwen3.8-Flash-Next",
+  "reference": {
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "implementation": "huggingface_transformers_qwen4_exp",
+    "model_lock_sha256": "f87399e8659ab3274601fcd455b78b73c600f57e5fc1e91499eec3ac1f4b9444",
+    "source": "transformers.models.qwen4_exp.modeling_qwen4_exp.Qwen4ExpTextTopKRouter",
+    "tensor_index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+    "transformers_version": "5.16.1"
+  },
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "schema_version": 1,
+  "semantic": "qwen3_8_flash_next_real_top10_router"
+}

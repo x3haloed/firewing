@@ -20,3 +20,9 @@ weight bytes—for the 224 real rows selected by the address fixture. The native
 sparse reader must match them by reading 320 bytes at each verified physical
 location. `ngram/sparse_row_reader_synthetic.json` supplies invented,
 redistributable bytes for deterministic offset and bounds tests.
+
+`router/qwen3_8_flash_next_real.json` binds three deterministic BF16 hidden
+states to real checkpoint router matrices at layers 0, 1, and 47. It commits
+only input/weight hashes, selected expert IDs, and small numerical outputs—not
+checkpoint weights. `tools/generate_router_fixture.py` generates the reference;
+the Rust scalar verifier independently performs the BF16/F32 router path.

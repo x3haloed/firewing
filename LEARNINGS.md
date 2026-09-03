@@ -59,6 +59,10 @@ runtime passing every target gate, including reproducible batch-one decode at
   3,719,168 bytes and took 22.079 ms median: 265,654.9 bytes and 1.577 ms per
   token, or 51.886x the 5,120 useful bytes. The unchanged serialized transport
   missed its 1 ms/token continuation threshold and is not a runtime default.
+- FW-0009's independent scalar router exactly matches ordered top-10 expert
+  IDs, selected BF16 logits, and normalized BF16 scores for deterministic real
+  checkpoint cases at layers 0, 1, and 47. This validates the primitive and
+  BF16/F32 precision path, but not real-activation route distributions or `U`.
 
 ## Prediction errors
 

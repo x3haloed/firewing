@@ -95,6 +95,15 @@ faster than the byte-weighted union of experts required for proposal and
 verification. Firewing records those quantities as `A`, `U`, and `A/U` rather
 than counting proposed tokens as throughput.
 
+FW-0009 establishes the routing primitive against real checkpoint matrices.
+For deterministic BF16 inputs at layers 0, 1, and 47, the scalar Rust path
+matched Transformers' complete ordered top-10 expert lists, selected BF16
+logits, and normalized BF16 scores with zero observed error. The verifier reads
+and hashes each 2,621,440-byte gate matrix, accumulates BF16 products in F32,
+rounds logits to BF16, evaluates F32 softmax, selects ten experts, renormalizes,
+and rounds scores to BF16. This does not yet establish routes produced by real
+layer activations, cross-token expert union, or expert execution.
+
 ## Current implementation boundary
 
 Transformers 5.16.1 recognizes the pinned `qwen4_exp` configuration, tokenizer,
@@ -102,6 +111,6 @@ and Qwen3-VL processor. It is the initial executable semantic reference for
 tiny fixtures, not a qualifying runtime and not evidence that the 180B
 checkpoint can execute within 16 GiB. The native tokenizer, n-gram address
 verifier, and bounded sparse row reader are the first target-specific Rust
-slices. The runtime reuses
+slices; the real-weight scalar router is the first MoE primitive. The runtime reuses
 Prismwing's reference/oracle/independent-fixture discipline, while Qwen4-Exp
 semantics and checkpoint layouts remain independently derived and fail closed.
