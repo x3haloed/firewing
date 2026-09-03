@@ -106,6 +106,14 @@ runtime passing every target gate, including reproducible batch-one decode at
   This resolves the linear-attention primitive, not residual composition,
   full-attention layers, whole-model parity, or endpoint TPS. See
   [`experiments/FW-0015-real-gated-deltanet-decode.md`](experiments/FW-0015-real-gated-deltanet-decode.md).
+- FW-0016 composes the real layer-0 attention hyper-connection and cached
+  Gated DeltaNet exactly through the four-stream residual update. Across two
+  decode steps, the native verifier matched 14 BF16 and two F32 captures while
+  authenticating 129,126,848 logical tensor payload bytes. This resolves the
+  attention half of the layer-0 decoder, including state ownership and BF16
+  injection/add boundaries; the MLP half, a complete decoder layer, PLE,
+  full-attention layers, and endpoint TPS remain unresolved. See
+  [`experiments/FW-0016-layer0-attention-residual.md`](experiments/FW-0016-layer0-attention-residual.md).
 
 ## Prediction errors
 
