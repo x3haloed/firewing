@@ -6,6 +6,7 @@ import torch
 
 from tools.analyze_block_fp8_weight_fidelity import (
     block_affine_uint8_weight,
+    block_affine_uint8_with_exact_groups,
     block_fp8_weight,
     block_int8_weight,
     error_metrics,
@@ -94,6 +95,19 @@ class BlockFp8WeightFidelityTests(unittest.TestCase):
         self.assertEqual(tuple(scales.shape), (2, 1))
         self.assertEqual(artifact_bytes, weight.numel() + scales.numel() * 5)
         self.assertLess(error_metrics(decoded, weight)["relative_l2"], 0.01)
+
+    def test_affine_exact_group_restores_largest_error_and_accounts_ordinal(self) -> None:
+        weight = torch.linspace(-2.0, 3.0, 32).reshape(2, 16).to(torch.bfloat16)
+        affine, scales, core_bytes = block_affine_uint8_weight(weight, (1, 16))
+        restored, restored_scales, artifact_bytes = (
+            block_affine_uint8_with_exact_groups(weight, (1, 16), 5000)
+        )
+        self.assertTrue(torch.equal(scales, restored_scales))
+        self.assertLess(
+            error_metrics(restored, weight)["relative_l2"],
+            error_metrics(affine, weight)["relative_l2"],
+        )
+        self.assertEqual(artifact_bytes, core_bytes + 16 * 2 + 4)
 
 
 if __name__ == "__main__":

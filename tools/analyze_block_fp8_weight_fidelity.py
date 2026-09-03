@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -161,6 +162,57 @@ def block_affine_uint8_weight(
     return decoded, scales.contiguous(), artifact_bytes
 
 
+def block_affine_uint8_with_exact_groups(
+    weight: torch.Tensor,
+    block: int | tuple[int, int],
+    exact_group_bps: int,
+) -> tuple[torch.Tensor, torch.Tensor, int]:
+    if not 0 < exact_group_bps <= 10_000:
+        raise common.AnalysisError("exact-group basis points must be in 1..10000")
+    decoded, scales, core_bytes = block_affine_uint8_weight(weight, block)
+    block_rows, block_columns = (block, block) if isinstance(block, int) else block
+    rows, columns = weight.shape
+    source_blocks = (
+        weight.reshape(
+            rows // block_rows,
+            block_rows,
+            columns // block_columns,
+            block_columns,
+        )
+        .permute(0, 2, 1, 3)
+        .contiguous()
+    )
+    decoded_blocks = (
+        decoded.reshape(
+            rows // block_rows,
+            block_rows,
+            columns // block_columns,
+            block_columns,
+        )
+        .permute(0, 2, 1, 3)
+        .contiguous()
+    )
+    errors = (decoded_blocks.float() - source_blocks.float()).square().sum(dim=(2, 3))
+    group_count = errors.numel()
+    exact_groups = math.ceil(group_count * exact_group_bps / 10_000)
+    selected = torch.argsort(errors.reshape(-1), descending=True, stable=True)[:exact_groups]
+    restored = decoded_blocks.reshape(group_count, block_rows, block_columns).clone()
+    restored[selected] = source_blocks.reshape(group_count, block_rows, block_columns)[selected]
+    restored = (
+        restored.reshape(
+            rows // block_rows,
+            columns // block_columns,
+            block_rows,
+            block_columns,
+        )
+        .permute(0, 2, 1, 3)
+        .reshape(rows, columns)
+        .contiguous()
+    )
+    residual_bytes = exact_groups * (block_rows * block_columns * 2 + 4)
+    return restored, scales, core_bytes + residual_bytes
+
+
 def error_metrics(actual: torch.Tensor, reference: torch.Tensor) -> dict[str, float]:
     if actual.shape != reference.shape:
         raise common.AnalysisError("block-weight metric shape mismatch")
@@ -185,6 +237,7 @@ def analyze(
     block_rows: int | None = None,
     block_columns: int | None = None,
     clip_factor: float = 1.0,
+    exact_group_bps: int = 0,
 ) -> dict[str, Any]:
     common.require_clean_commit(implementation_commit)
     common.require_hash(model_lock_path, MODEL_LOCK_SHA256)
@@ -224,7 +277,7 @@ def analyze(
     artifact_bytes = 0
     exact_baseline_hashes = 0
     if weight_format == "block_fp8":
-        if block_rows is not None or block_columns is not None:
+        if block_rows is not None or block_columns is not None or exact_group_bps:
             raise common.AnalysisError("rectangular override is supported only for INT8")
         quantize = lambda weight: block_fp8_weight(weight, block_size)
         mode = (
@@ -235,7 +288,11 @@ def analyze(
         format_description = (
             f"e4m3fn_per_{block_size}x{block_size}_absmax_f32_scale"
         )
-    elif weight_format in ("block_int8", "block_uint8_affine"):
+    elif weight_format in (
+        "block_int8",
+        "block_uint8_affine",
+        "block_uint8_affine_exact_groups",
+    ):
         if (block_rows is None) != (block_columns is None):
             raise common.AnalysisError("both rectangular INT8 block dimensions are required")
         shape = (
@@ -244,13 +301,23 @@ def analyze(
             else (block_rows, block_columns)
         )
         if weight_format == "block_int8":
+            if exact_group_bps:
+                raise common.AnalysisError(
+                    "exact groups are supported only for affine UINT8"
+                )
             quantize = lambda weight: block_int8_weight(weight, shape, clip_factor)
-        else:
+        elif weight_format == "block_uint8_affine":
             if clip_factor != 1.0:
                 raise common.AnalysisError(
                     "global clipping is unsupported for affine UINT8"
                 )
             quantize = lambda weight: block_affine_uint8_weight(weight, shape)
+        else:
+            if clip_factor != 1.0 or not 0 < exact_group_bps <= 10_000:
+                raise common.AnalysisError("invalid affine exact-group configuration")
+            quantize = lambda weight: block_affine_uint8_with_exact_groups(
+                weight, shape, exact_group_bps
+            )
         topology_mode = (
             "modified_block_int8_weight_only"
             if shape == (DEFAULT_BLOCK, DEFAULT_BLOCK)
@@ -274,11 +341,17 @@ def analyze(
                     f"clipped_{clip_factor:.6f}_absmax_f32_scale"
                 )
             )
-        else:
+        elif weight_format == "block_uint8_affine":
             mode = topology_mode.replace("int8", "affine_uint8")
             format_description = (
                 f"affine_uint8_per_{shape[0]}x{shape[1]}_minmax_"
                 "f32_scale_u8_zero_point"
+            )
+        else:
+            mode = topology_mode.replace("int8", "affine_uint8_exact_groups")
+            format_description = (
+                f"affine_uint8_per_{shape[0]}x{shape[1]}_minmax_"
+                f"f32_scale_u8_zero_point_top_{exact_group_bps}_bps_exact_residual"
             )
     else:
         raise common.AnalysisError("unknown modified block weight format")
@@ -310,16 +383,22 @@ def analyze(
                 candidate_contributions.append(candidate["weighted_down"])
                 source_bytes += gate_up.numel() * 2 + down_weight.numel() * 2
                 artifact_bytes += gate_bytes + down_bytes
-                expert_rows.append(
-                    {
-                        "expert": expert,
-                        "gate_up_scale_blocks": gate_scales.numel(),
-                        "down_scale_blocks": down_scales.numel(),
-                        "weighted_down": error_metrics(
-                            candidate["weighted_down"], reference["weighted_down"]
-                        ),
-                    }
-                )
+                expert_row = {
+                    "expert": expert,
+                    "gate_up_scale_blocks": gate_scales.numel(),
+                    "down_scale_blocks": down_scales.numel(),
+                    "weighted_down": error_metrics(
+                        candidate["weighted_down"], reference["weighted_down"]
+                    ),
+                }
+                if weight_format == "block_uint8_affine_exact_groups":
+                    expert_row["gate_up_exact_groups"] = math.ceil(
+                        gate_scales.numel() * exact_group_bps / 10_000
+                    )
+                    expert_row["down_exact_groups"] = math.ceil(
+                        down_scales.numel() * exact_group_bps / 10_000
+                    )
+                expert_rows.append(expert_row)
     reference_mixture = accumulate_bf16_in_expert_order(reference_contributions)
     if capture_hash(reference_mixture) != case.get("mixture_bf16_sha256"):
         raise common.AnalysisError("block-FP8 mixture baseline mismatch")
@@ -342,10 +421,16 @@ def analyze(
         "block_size": block_size if block_rows is None else None,
         "block_shape": (
             list(shape)
-            if weight_format in ("block_int8", "block_uint8_affine")
+            if weight_format
+            in (
+                "block_int8",
+                "block_uint8_affine",
+                "block_uint8_affine_exact_groups",
+            )
             else [block_size, block_size]
         ),
         "clip_factor": clip_factor if weight_format == "block_int8" else None,
+        "exact_group_bps": exact_group_bps,
         "experts": expert_rows,
         "exact_baseline_hashes": exact_baseline_hashes + 1,
         "weight_format": format_description,
@@ -393,7 +478,12 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument(
         "--weight-format",
-        choices=("block_fp8", "block_int8", "block_uint8_affine"),
+        choices=(
+            "block_fp8",
+            "block_int8",
+            "block_uint8_affine",
+            "block_uint8_affine_exact_groups",
+        ),
         default="block_fp8",
     )
     parser.add_argument(
@@ -402,6 +492,7 @@ def main() -> int:
     parser.add_argument("--block-rows", type=int)
     parser.add_argument("--block-columns", type=int)
     parser.add_argument("--clip-factor", type=float, default=1.0)
+    parser.add_argument("--exact-group-bps", type=int, default=0)
     args = parser.parse_args()
     report = analyze(
         args.checkpoint_dir,
@@ -413,6 +504,7 @@ def main() -> int:
         args.block_rows,
         args.block_columns,
         args.clip_factor,
+        args.exact_group_bps,
     )
     write_json(args.output, report)
     print(json.dumps(report, indent=2, sort_keys=True))
