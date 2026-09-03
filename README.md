@@ -217,6 +217,18 @@ target/release/firewing bench-catalog-token-text-endpoint \
   --acquisition /Users/chad/Models/firewing/evidence/FW-0013/expert-acquisition.json \
   --implementation-commit IMPLEMENTATION_COMMIT \
   --output REPORT_JSON
+
+# Favorable exact 12-GiB miss-transport/Metal-overlap bound (not endpoint TPS)
+target/release/firewing bench-exact-overlap-bound \
+  /Users/chad/Models/firewing/checkpoints/Qwen3.8-Flash-Next-de4b8e4d \
+  spec/model.lock.json \
+  fixtures/router/qwen3_8_flash_next_real.json \
+  fixtures/expert/qwen3_8_flash_next_real.json \
+  fixtures/mixture/qwen3_8_flash_next_real.json \
+  fixtures/endpoint/qwen3_8_flash_next_firewing_two_token.json \
+  kernels/bf16_gemv.metal \
+  IMPLEMENTATION_COMMIT \
+  REPORT_JSON
 ```
 
 The native DeltaNet verifier currently targets Apple silicon and requires

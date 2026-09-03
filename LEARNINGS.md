@@ -302,6 +302,16 @@ runtime passing every target gate, including reproducible batch-one decode at
   transport/compute overlap is now the decisive next bound; neither component
   result is endpoint TPS. See
   [`experiments/FW-0035-exact-resident-top10-metal-moe.md`](experiments/FW-0035-exact-resident-top10-metal-moe.md).
+- FW-0036 rejects FW-0034's 12-GiB raw-BF16 residency survivor on the frozen
+  trace. With free future-aware initial contents, free hits/evictions/fixed
+  work, eight uncached readers, bounded install copies, and fully concurrent
+  exact routed Metal work, the two-position candidate reaches only 1.596034
+  median diagnostic TPS (1.593380 p10). The 379-miss position alone requires
+  1,064 ms and 3.738 GB of physical reads. FW-0013's hash-paced slowest-reader
+  interval is not a valid unpaced refill projection. Do not build the 12-GiB
+  raw cache; pursue MTP union amortization or exact lossless byte reduction.
+  See
+  [`experiments/FW-0036-exact-storage-compute-overlap-bound.md`](experiments/FW-0036-exact-storage-compute-overlap-bound.md).
 
 ## Prediction errors
 
@@ -321,6 +331,11 @@ These unresolved distinctions can still change the next decision:
   or speculative union. The census also establishes about 8.624 GB of ordinary
   fixed matrices if none remain resident. These are scoped component results,
   not endpoint measurements.
+- Expected: FW-0013's hash-paced slowest-reader interval would scale the
+  FW-0034 second-position miss trace to about 294 ms. Observed: FW-0036's
+  unpaced exact physical refill takes 1,063 ms storage-only. Uncertain: how
+  much of the discrepancy comes from removal of hash pacing versus the actual
+  endpoint extent order. Evidence: the FW-0036 receipt and experiment record.
 
 When evidence resolves one of these items, update this frontier in place:
 replace the affected belief, retain the smallest evidence pointer needed to

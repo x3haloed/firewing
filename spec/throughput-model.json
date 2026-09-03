@@ -222,9 +222,48 @@
       "A": 0,
       "U": 0,
       "performance_claim": null
+    },
+    "exact_resident_top10_metal_moe": {
+      "status": "fw_0035_compute_survivor_not_endpoint_tps",
+      "implementation_commit": "1690332743a221611ddf59c84686dfda82e3b42d",
+      "raw_report_sha256": "93f3704049c9972d7d56b20b11c41a704a8cd5ab41ad3bdc4f4824a3ec5f81bb",
+      "logical_resident_source_bytes": 98304000,
+      "persistent_metal_buffer_bytes": 98398736,
+      "candidate_p10_ms": 3.050833,
+      "candidate_median_ms": 3.639375,
+      "candidate_p90_ms": 4.795125,
+      "projected_48_routed_layers_median_ms": 174.69,
+      "projected_routed_only_tps": 5.724426,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "A": 0,
+      "U": 0,
+      "performance_claim": null
+    },
+    "exact_storage_compute_overlap_bound": {
+      "status": "fw_0036_12gib_raw_bf16_residency_branch_rejected_on_two_position_trace",
+      "implementation_commit": "905db3bee2b53b325510610ae6c9298e601eeb0d",
+      "raw_report_sha256": "967e7444c64d54e905b9e9487055efe13b33175f06691cd7fa17409409b7e8ac",
+      "cache_capacity_experts": 433,
+      "misses_by_position": [47, 379],
+      "logical_miss_bytes_by_position": [462028800, 3725721600],
+      "physical_read_bytes_by_trial": [463568896, 3738140672],
+      "storage_only_median_ms_by_position": [133.226542, 1063.342917],
+      "overlap_median_ms_by_position": [189.433333, 1064.074917],
+      "paired_overlap_tps": [1.59338, 1.600681, 1.596034],
+      "paired_overlap_tps_p10": 1.59338,
+      "paired_overlap_tps_median": 1.596034,
+      "paired_overlap_tps_p90": 1.600681,
+      "batch_size": 1,
+      "concurrency": 1,
+      "accepted_tokens": 0,
+      "A": 0,
+      "U": 0,
+      "performance_claim": null
     }
   },
   "planning_hypotheses": {},
-  "status": "fw_0034_12gib_residency_survivor_top10_metal_bound_next",
-  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured the first exact endpoint profile; FW-0031 through FW-0033 isolated and removed repeated payload authentication for a repeatable 1.661711x full-path gain while retaining 17.175 GB median physical traffic. FW-0034 grants perfect future-aware residency and zero non-storage cost on the two-position route trace: 10 GiB is rejected at 3.995 storage-only TPS, while 12 GiB narrowly survives at 6.049 aggregate and 3.400 worst-token TPS while consuming essentially its entire allowance. An exact top-10 Metal MoE compute/buffer bound is next. No accepted TPS is claimed."
+  "status": "fw_0036_12gib_raw_bf16_residency_rejected_mtp_or_lossless_bytes_next",
+  "provenance": "FW-0001 complete local census and full SHA-256 verification on 2026-09-03. FW-0005 independently verified Qwen4-Exp n-gram logical addresses and all 128 physical table-part descriptors. FW-0006 matched 224 independently hashed real rows with bounded 320-byte reads. FW-0007 was rejected because warmed pages produced zero physical disk bytes. FW-0008 repaired cache-state control and measured exact physical bytes for its fixed trace; the serialized transport missed its continuation threshold and was not promoted. FW-0009 exactly matched three real-checkpoint top-10 router cases. FW-0010 exactly matched six BF16 captures for one real routed expert and execution-confirmed the 9,830,400-byte per-expert ledger constant. FW-0011 exactly matched all ten weighted expert outputs and their BF16 source-order mixture for one layer/token. FW-0012 exactly matched the shared expert, sigmoid gate, and final sparse-MoE combination, confirming 108,139,520 logical bytes for the tested full block. FW-0029 closed a bounded exact tokenizer-to-full-logits path. FW-0030 measured the first exact endpoint profile; FW-0031 through FW-0033 isolated and removed repeated payload authentication for a repeatable 1.661711x full-path gain while retaining 17.175 GB median physical traffic. FW-0034 grants perfect future-aware residency and zero non-storage cost on the two-position route trace: 10 GiB is rejected at 3.995 storage-only TPS, while 12 GiB initially survived analytically at 6.049 aggregate and 3.400 worst-token storage-only TPS. FW-0035 measures exact amortized top-10 Metal work at 3.639 ms/layer and a 174.690-ms 48-layer projection. FW-0036 supersedes FW-0034's transport projection with the real unpaced miss trace: even with perfect overlap and extensive favorable grants, the paired two-position rate is only 1.596 diagnostic TPS. The 12-GiB raw-BF16 residency branch is rejected; MTP union amortization or exact lossless byte reduction is next. No accepted TPS is claimed."
 }

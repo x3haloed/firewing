@@ -1,7 +1,8 @@
 # FW-0034 - Exact future-aware residency oracle
 
 - Status: completed
-- Disposition: 10 GiB rejected; 12 GiB analytical survivor only
+- Disposition: 10 GiB rejected; 12 GiB analytical survivor superseded and
+  rejected by FW-0036
 - Date: 2026-09-03
 - Parent experiments: FW-0013, FW-0033
 - Exactness: L0 source-byte and route accounting; impossible-favorable model
@@ -87,3 +88,9 @@ one real layer. FW-0031's serialized single-expert result extrapolates to about
 739 ms per token across 48 layers before fixed attention/shared work, already
 above the 250-ms target, but a fused or concurrent ten-expert implementation
 could change that premise. Measure it before building multi-gigabyte residency.
+
+FW-0036 subsequently measured the exact miss payloads, bounded installation
+copies, and exact routed Metal load concurrently. Its favorable two-position
+bound reached only 1.596 diagnostic TPS, so the 12-GiB raw-BF16 survivor is now
+rejected. This record remains the analytical precursor rather than being
+reinterpreted as runtime evidence.
