@@ -56,3 +56,6 @@ performance claim is made.
 Advance 6% first to the six-case real-layer gate. It is the smallest surviving
 point and retains a 27.625% byte reduction from BF16. Test 8% or 10% only if 6%
 fails, so a passing result establishes the tightest measured artifact bound.
+
+FW-0073 subsequently rejected 6% at 1.020352% worst mixture error. Advance 8%
+next; do not infer it passes from the layer-0 trend.
