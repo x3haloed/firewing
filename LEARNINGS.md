@@ -613,6 +613,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   this does not justify a bank or kernel, but it does justify cheaply bracketing
   larger exact fractions before closing the corrected-affine family. See
   [`experiments/FW-0071-modified-affine-uint8-exact-groups-real-layers.md`](experiments/FW-0071-modified-affine-uint8-exact-groups-real-layers.md).
+- FW-0072 finds 6%, 8%, and 10% exact-group residuals all pass layer 0, with
+  mixture error decreasing from 0.8739% to 0.8493% as artifact ratio increases
+  from 72.375% to 76.875% of BF16. Advance 6% first because it is the smallest
+  surviving representation; layer-0 success is not a deeper-fidelity claim.
+  See
+  [`experiments/FW-0072-modified-affine-uint8-larger-exact-groups.md`](experiments/FW-0072-modified-affine-uint8-larger-exact-groups.md).
 
 ## Prediction errors
 
@@ -663,9 +669,8 @@ These unresolved distinctions can still change the next decision:
   a complete topology frontier after selected 8x2 fails FW-0068. FW-0069
   completes that frontier and rejects every remaining topology; affine UINT8
   without correction is closed at this rung. FW-0071 rejects FW-0070's 4%
-  exact-group residual by only 2.411 mixture-error basis points; larger exact
-  fractions remain unresolved and should be bracketed before the family is
-  closed.
+  exact-group residual by only 2.411 mixture-error basis points. FW-0072's 6%,
+  8%, and 10% points all pass layer 0; selected 6% awaits the deeper gate.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range

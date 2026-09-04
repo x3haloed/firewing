@@ -60,3 +60,6 @@ exact-group family yet: the miss is small, every expert slice passes, and the
 artifact has room to increase its exact fraction while remaining materially
 smaller than BF16. Screen 6%, 8%, and 10% on the cheap layer-0 fixture, then
 send the strongest useful point through this same real-layer gate.
+
+FW-0072 subsequently found all three larger points pass layer 0 and selected
+6% for the next real-layer gate because it is the smallest surviving artifact.
