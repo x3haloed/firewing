@@ -625,6 +625,13 @@ runtime passing every target gate, including reproducible batch-one decode at
   the already-screened 8% point without assuming monotonic deeper behavior.
   See
   [`experiments/FW-0073-modified-affine-uint8-six-percent-real-layers.md`](experiments/FW-0073-modified-affine-uint8-six-percent-real-layers.md).
+- FW-0074 is the first compact modified-weight candidate to pass the six-case
+  source-accumulated real-layer rung. The 8% exact-group affine representation
+  reaches 0.991496% worst mixture and 0.938169% worst-expert error at 74.625%
+  of BF16 bytes. Its mixture headroom is only 0.850 basis points, so this is a
+  promotion to candidate-accumulated correctness only—not a kernel, endpoint,
+  or TPS result. See
+  [`experiments/FW-0074-modified-affine-uint8-eight-percent-real-layers.md`](experiments/FW-0074-modified-affine-uint8-eight-percent-real-layers.md).
 
 ## Prediction errors
 
@@ -676,8 +683,9 @@ These unresolved distinctions can still change the next decision:
   completes that frontier and rejects every remaining topology; affine UINT8
   without correction is closed at this rung. FW-0071 rejects FW-0070's 4%
   exact-group residual by only 2.411 mixture-error basis points. FW-0072's 6%,
-  8%, and 10% points all pass layer 0. FW-0073 rejects 6% narrowly; 8% is the
-  next unresolved deeper point.
+  8%, and 10% points all pass layer 0. FW-0073 rejects 6% narrowly, while
+  FW-0074 passes 8% across six source-accumulated cases. Candidate-accumulated
+  route, hidden-state, and logit drift remain unresolved.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range

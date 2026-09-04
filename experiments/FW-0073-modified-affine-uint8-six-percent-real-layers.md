@@ -51,3 +51,6 @@ No performance claim is made.
 Reject 6% before bank or kernel work. Advance FW-0072's next point, 8%, through
 the same gate. If it also fails, test the already-screened 10% boundary before
 closing this simple weight-error-ranked residual family.
+
+FW-0074 subsequently passes 8% across all six real-layer cases. It advances to
+candidate-accumulated validation, not to performance implementation.
