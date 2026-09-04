@@ -41,6 +41,25 @@ TOP_K = 10
 INTERMEDIATE = 640
 
 
+def apply_mixture_transformer(
+    reference_mixture: torch.Tensor,
+    transformer: Callable[..., torch.Tensor] | None,
+    **context: Any,
+) -> torch.Tensor:
+    """Apply an experimental routed-mixture replacement with a strict boundary."""
+    if transformer is None:
+        return reference_mixture
+    candidate = transformer(reference_mixture=reference_mixture, **context)
+    if (
+        not isinstance(candidate, torch.Tensor)
+        or candidate.dtype != torch.bfloat16
+        or candidate.shape != reference_mixture.shape
+        or candidate.device != reference_mixture.device
+    ):
+        raise ValueError("mixture transformer violated the BF16 routed-mixture boundary")
+    return candidate.contiguous()
+
+
 def build_fixture(
     checkpoint_dir: Path,
     model_lock_path: Path,
@@ -59,6 +78,7 @@ def build_fixture(
     _mtp_config: bool = False,
     _return_outputs: bool = False,
     _mixture_observer: Callable[..., None] | None = None,
+    _mixture_transformer: Callable[..., torch.Tensor] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[torch.Tensor]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -194,6 +214,19 @@ def build_fixture(
                         down_name=down_name,
                         reference_mixture=routed,
                     )
+                routed = apply_mixture_transformer(
+                    routed,
+                    _mixture_transformer,
+                    layer=_layer,
+                    ordinal=ordinal,
+                    hidden=mlp_input[0, 0],
+                    selection=selection,
+                    scores=scores,
+                    gate_up_file=gate_up_file,
+                    down_file=down_file,
+                    gate_up_name=gate_up_name,
+                    down_name=down_name,
+                )
                 shared = shared_expert_forward(
                     mlp_input[0, 0],
                     dense["shared_gate_weight"],

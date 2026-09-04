@@ -56,6 +56,7 @@ def build_fixture(
     *,
     _return_outputs: bool = False,
     _mixture_observer: Callable[..., None] | None = None,
+    _mixture_transformer: Callable[..., Any] | None = None,
 ) -> dict[str, Any] | tuple[dict[str, Any], list[Any]]:
     checkpoint_dir = checkpoint_dir.resolve()
     lock = load_model_lock(model_lock_path)
@@ -160,6 +161,7 @@ def build_fixture(
             _require_committed_parent=False,
             _return_outputs=True,
             _mixture_observer=_mixture_observer,
+            _mixture_transformer=_mixture_transformer,
         )
         if not isinstance(decoder_result, tuple):
             raise AssertionError(f"layer-{layer} decoder outputs were not returned")
