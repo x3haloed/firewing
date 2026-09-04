@@ -63,5 +63,9 @@ performance claim is made.
 Retain 4% only as the strongest tested conditional point and run it through the
 six-case real-layer gate. Its 2.9% layer-0 improvement may be insufficient to
 repair FW-0069's 4x4 miss, so do not build an exception kernel or bank first.
-Smaller points are not promoted; their output error is non-monotonic and they
-can only be reconsidered if the strongest point passes deeper validation.
+Smaller points are not promoted; their output error is non-monotonic.
+
+FW-0071 subsequently rejected 4% at 1.024111% worst mixture error. Because the
+miss is only 2.411 basis points and every expert slice passes, larger residual
+fractions remain a separate bounded follow-up rather than being inferred from
+this result.

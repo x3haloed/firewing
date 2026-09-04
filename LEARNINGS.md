@@ -607,6 +607,12 @@ runtime passing every target gate, including reproducible batch-one decode at
   BF16 bytes, only a 2.9% improvement over its affine control. Advance 4% to
   the real-layer gate before any kernel. See
   [`experiments/FW-0070-modified-affine-uint8-exact-groups.md`](experiments/FW-0070-modified-affine-uint8-exact-groups.md).
+- FW-0071 rejects the selected 4% exact-group point on the six-case real-layer
+  gate, but narrowly: worst mixture error is 1.024111%, just 2.411 basis points
+  above the gate, while every expert slice passes. At 70.125% of BF16 bytes,
+  this does not justify a bank or kernel, but it does justify cheaply bracketing
+  larger exact fractions before closing the corrected-affine family. See
+  [`experiments/FW-0071-modified-affine-uint8-exact-groups-real-layers.md`](experiments/FW-0071-modified-affine-uint8-exact-groups-real-layers.md).
 
 ## Prediction errors
 
@@ -656,8 +662,10 @@ These unresolved distinctions can still change the next decision:
   FW-0067's affine UINT8 zero-point representation survives layer 0 and awaits
   a complete topology frontier after selected 8x2 fails FW-0068. FW-0069
   completes that frontier and rejects every remaining topology; affine UINT8
-  without correction is closed at this rung. FW-0070's 4% exact-group residual
-  form is a separate conditional candidate awaiting deeper validation.
+  without correction is closed at this rung. FW-0071 rejects FW-0070's 4%
+  exact-group residual by only 2.411 mixture-error basis points; larger exact
+  fractions remain unresolved and should be bracketed before the family is
+  closed.
   Calibrated, outlier-aware, or recovered formats remain open.
   FW-0008 measured the fixed 14-position n-gram trace at 51.886x
   physical/useful bytes and 1.577 uncached ms/token after verified range
